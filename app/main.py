@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import itertools
 
-from pandas import DataFrame, read_sql
+from pandas import read_sql
 from pydantic import BaseModel, ConfigDict
 from pydantic_settings import BaseSettings
 from sqlalchemy import create_engine, text
