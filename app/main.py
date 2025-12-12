@@ -17,7 +17,8 @@ TARGET_COURSES: List[Tuple[str, int]] = [
     ("PHY", 241),
     ("MTH", 265),
     ("CSC", 223),
-    ("CSC", 208),
+    ("MTH", 288),
+    # ("CSC", 208),
 ]
 
 
@@ -27,8 +28,9 @@ class Directories(BaseModel):
     app: Path = root / "app"
     sql: Path = app / "sql"
 
-    # Files
-    get_courses: Path = sql / "queries/get_courses.sql"
+    def read_sql(self, relative_path: str) -> str:
+        """Read SQL file content from sql directory."""
+        return (self.sql / f"{relative_path}.sql").read_text()
 
 
 class Secrets(BaseSettings):
@@ -62,8 +64,8 @@ def parse_time_str(s: str) -> time:
     return datetime.strptime(s, fmt).time()
 
 
-def load_sections(engine: Engine, sql_file: Path) -> Dict[Tuple[str, int], List[Section]]:
-    df = read_sql(sql_file.read_text(), con=engine)
+def load_sections(engine: Engine, sql_query: str) -> Dict[Tuple[str, int], List[Section]]:
+    df = read_sql(sql_query, con=engine)
 
     df["start_time"] = df["start_time"].astype(str)
     df["end_time"] = df["end_time"].astype(str)
@@ -180,40 +182,41 @@ def compute_schedule_summary(sections: List[Section]) -> dict:
     }
 
 
-def write_schedules_to_db(engine: Engine, schedules: List[List[Section]]):
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM schedule_sections;"))
-        conn.execute(text("DELETE FROM schedules;"))
-
-    schedule_rows = []
-    schedule_sec_rows = []
+def write_schedules_to_db(engine: Engine, schedules: List[List[Section]], dirs: Directories):
     now = datetime.now(timezone.utc)
 
-    for idx, sched in enumerate(schedules, start=1):
+    insert_schedule_sql = dirs.read_sql("mutations/insert_schedules")
+    insert_section_sql = dirs.read_sql("mutations/insert_schedule_sections")
+
+    for sched in schedules:
         summary = compute_schedule_summary(sched)
 
-        schedule_rows.append(
-            {
-                "id": idx,
-                "created_at": now,
-                **summary,
-            }
-        )
+        schedule_row = {
+            "created_at": now,
+            **summary,
+        }
 
-        for sec in sched:
-            schedule_sec_rows.append(
-                {
-                    "schedule_id": idx,
-                    "subject_code": sec.subject,
-                    "course_number": sec.number,
-                    "section_code": sec.section_code,
-                    "course_title": sec.title,
-                    "credits": sec.credits,
-                }
+        # Insert the schedule and get the generated ID
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(insert_schedule_sql),
+                schedule_row
             )
+            schedule_id = result.fetchone()[0]
 
-    DataFrame(schedule_rows).to_sql("schedules", engine, if_exists="append", index=False)
-    DataFrame(schedule_sec_rows).to_sql("schedule_sections", engine, if_exists="append", index=False)
+            # Insert the sections for this schedule
+            for sec in sched:
+                conn.execute(
+                    text(insert_section_sql),
+                    {
+                        "schedule_id": schedule_id,
+                        "subject_code": sec.subject,
+                        "course_number": sec.number,
+                        "section_code": sec.section_code,
+                        "course_title": sec.title,
+                        "credits": sec.credits,
+                    }
+                )
 
 
 def main():
@@ -221,9 +224,10 @@ def main():
     sets = Secrets()
     engine = create_engine(sets.database_url)
 
-    sections_by_course = load_sections(engine, dirs.get_courses)
+    get_courses_sql = dirs.read_sql("queries/get_courses")
+    sections_by_course = load_sections(engine, get_courses_sql)
     valid = generate_schedules(sections_by_course, TARGET_COURSES)
-    write_schedules_to_db(engine, valid)
+    write_schedules_to_db(engine, valid, dirs)
 
     print(f"Generated {len(valid)} valid schedules")
 
