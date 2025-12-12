@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import time, datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
 import itertools
 
 from pandas import read_sql
@@ -13,7 +12,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 
-TARGET_COURSES: List[Tuple[str, int]] = [
+TARGET_COURSES: list[tuple[str, int]] = [
     ("PHY", 241),
     ("MTH", 265),
     ("CSC", 223),
@@ -56,7 +55,7 @@ class Section:
     credits: int
     instructor: str
     rating: float | None
-    meetings: List[Meeting]
+    meetings: list[Meeting]
 
 
 def parse_time_str(s: str) -> time:
@@ -64,13 +63,13 @@ def parse_time_str(s: str) -> time:
     return datetime.strptime(s, fmt).time()
 
 
-def load_sections(engine: Engine, sql_query: str) -> Dict[Tuple[str, int], List[Section]]:
+def load_sections(engine: Engine, sql_query: str) -> dict[tuple[str, int], list[Section]]:
     df = read_sql(sql_query, con=engine)
 
     df["start_time"] = df["start_time"].astype(str)
     df["end_time"] = df["end_time"].astype(str)
 
-    sections_by_course: Dict[Tuple[str, int], List[Section]] = {}
+    sections_by_course: dict[tuple[str, int], list[Section]] = {}
 
     for (sub, num, sec), group in df.groupby(
         ["subject_code", "course_number", "section_code"]
@@ -118,7 +117,7 @@ def campus_switch_same_day(m1: Meeting, m2: Meeting) -> bool:
     return m1.campus != m2.campus
 
 
-def schedule_is_valid(sections: List[Section]) -> bool:
+def schedule_is_valid(sections: list[Section]) -> bool:
     all_meetings = [m for sec in sections for m in sec.meetings]
     for i in range(len(all_meetings)):
         for j in range(i + 1, len(all_meetings)):
@@ -139,7 +138,7 @@ def generate_schedules(sections_by_course, target_courses):
     return results
 
 
-def compute_schedule_summary(sections: List[Section]) -> dict:
+def compute_schedule_summary(sections: list[Section]) -> dict:
     days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
     meetings = [m for s in sections for m in s.meetings]
 
@@ -182,7 +181,7 @@ def compute_schedule_summary(sections: List[Section]) -> dict:
     }
 
 
-def write_schedules_to_db(engine: Engine, schedules: List[List[Section]], dirs: Directories):
+def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: Directories):
     now = datetime.now(timezone.utc)
 
     insert_schedule_sql = dirs.read_sql("mutations/insert_schedules")
