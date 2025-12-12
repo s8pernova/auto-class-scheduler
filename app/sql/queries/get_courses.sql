@@ -1,0 +1,1 @@
+SELECT * FROM section_meetings;
