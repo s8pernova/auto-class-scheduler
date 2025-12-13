@@ -10,7 +10,6 @@ from models import (
     ScheduleSummaryResponse,
     ScheduleDetailResponse,
     ScheduleSectionResponse,
-    FavoriteScheduleRequest,
     FavoriteResponse,
 )
 
@@ -38,7 +37,7 @@ engs = Engines()
 def get_schedule_by_id(schedule_id: int) -> ScheduleDetailResponse | None:
     """Fetch a schedule with all its sections from the database."""
     sql = utils.read_sql("queries/get_schedule_detail")
-    df = read_sql(sql, con=engs.engine, params={"schedule_id": schedule_id})
+    df = read_sql(text(sql), con=engs.engine, params={"schedule_id": schedule_id})
 
     if df.empty:
         return None
@@ -89,7 +88,7 @@ async def health_check():
 async def get_schedules():
     """Get all schedules with summary information."""
     sql = utils.read_sql("queries/get_schedules")
-    df = read_sql(sql, con=engs.engine)
+    df = read_sql(text(sql), con=engs.engine)
 
     schedules = [
         ScheduleSummaryResponse(
@@ -125,27 +124,56 @@ async def get_schedule(schedule_id: int):
     return schedule
 
 
-@app.post("/api/favorite", response_model=FavoriteResponse)
-async def favorite_schedule(request: FavoriteScheduleRequest):
+@app.get("/api/favorites")
+async def get_favorites():
+    """Get all favorited schedule IDs."""
+    sql = utils.read_sql("queries/get_favorites")
+    df = read_sql(text(sql), con=engs.engine)
+
+    # Return list of schedule IDs
+    return [int(row["schedule_id"]) for _, row in df.iterrows()]
+
+
+@app.post("/api/favorite/{schedule_id}", response_model=FavoriteResponse)
+async def favorite_schedule(schedule_id: int):
     """Favorite a schedule."""
     # Check if schedule exists
-    schedule = get_schedule_by_id(request.schedule_id)
+    schedule = get_schedule_by_id(schedule_id)
     if schedule is None:
         raise HTTPException(
-            status_code=404, detail=f"Schedule {request.schedule_id} not found"
+            status_code=404, detail=f"Schedule {schedule_id} not found"
         )
 
     # Insert favorite (or update if already exists)
     sql = utils.read_sql("mutations/upsert_favorite")
+    params = {"schedule_id": schedule_id}
 
     with engs.engine.begin() as conn:
-        result = conn.execute(
-            text(sql),
-            {"schedule_id": request.schedule_id}
-        )
+        result = conn.execute(text(sql), params)
         row = result.fetchone()
 
     return FavoriteResponse(
         schedule_id=row[1],
         favorited_at=row[2],
     )
+
+
+@app.delete("/api/favorite/{schedule_id}")
+async def unfavorite_schedule(schedule_id: int):
+    """Remove a schedule from favorites."""
+    sql = utils.read_sql("mutations/delete_favorite")
+
+    with engs.engine.begin() as conn:
+        result = conn.execute(
+            text(sql),
+            {"schedule_id": schedule_id}
+        )
+        row = result.fetchone()
+
+        if row is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Schedule {schedule_id} is not favorited"
+            )
+
+    return {"schedule_id": schedule_id, "message": "Unfavorited successfully"}

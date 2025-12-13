@@ -22,4 +22,4 @@ SELECT
 FROM schedules s
 LEFT JOIN schedule_sections ss ON s.id = ss.schedule_id
 WHERE s.id = :schedule_id
-ORDER BY s.id, ss.subject_code, ss.course_number
+ORDER BY s.id, ss.subject_code, ss.course_number;

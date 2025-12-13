@@ -1,1 +1,2 @@
-SELECT * FROM possible_classes;
+SELECT * 
+FROM possible_classes;

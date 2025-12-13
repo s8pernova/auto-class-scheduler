@@ -96,12 +96,3 @@ class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str
-
-
-# ~~~~ Request Models ~~~~
-
-
-class FavoriteScheduleRequest(BaseModel):
-    """Request to favorite a schedule."""
-
-    schedule_id: int = Field(..., gt=0, description="ID of the schedule to favorite")
