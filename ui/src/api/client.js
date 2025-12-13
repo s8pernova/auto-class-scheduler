@@ -6,10 +6,23 @@ const BASE_URL = '/api';
 
 /**
  * Fetch all schedules
+ * @param {Object} options - Query options
+ * @param {boolean} options.favoritesOnly - If true, only return favorited schedules
+ * @param {number} options.limit - Maximum number of schedules to return
+ * @param {number} options.offset - Number of schedules to skip
  * @returns {Promise<Array>} List of schedule summaries
  */
-export async function getSchedules() {
-	const response = await fetch(`${BASE_URL}/schedules`);
+export async function getSchedules(options = {}) {
+	const { favoritesOnly = false, limit = 50, offset = 0 } = options;
+	const params = new URLSearchParams();
+	if (favoritesOnly) {
+		params.append('favorites_only', 'true');
+	}
+	params.append('limit', limit.toString());
+	params.append('offset', offset.toString());
+
+	const url = `${BASE_URL}/schedules?${params.toString()}`;
+	const response = await fetch(url);
 	if (!response.ok) {
 		throw new Error(`Failed to fetch schedules: ${response.statusText}`);
 	}

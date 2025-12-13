@@ -14,4 +14,5 @@ SELECT
     campus_pattern,
     created_at
 FROM schedules
-ORDER BY created_at DESC;
+ORDER BY created_at DESC
+LIMIT :limit OFFSET :offset;

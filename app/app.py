@@ -85,10 +85,24 @@ async def health_check():
 
 
 @app.get("/api/schedules", response_model=list[ScheduleSummaryResponse])
-async def get_schedules():
-    """Get all schedules with summary information."""
-    sql = utils.read_sql("queries/get_schedules")
-    df = read_sql(text(sql), con=engs.engine)
+async def get_schedules(
+    favorites_only: bool = False,
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get all schedules with summary information.
+
+    Args:
+        favorites_only: If True, only return favorited schedules
+        limit: Maximum number of schedules to return (default 50)
+        offset: Number of schedules to skip (default 0)
+    """
+    if favorites_only:
+        sql = utils.read_sql("queries/get_favorited_schedules")
+    else:
+        sql = utils.read_sql("queries/get_schedules")
+
+    df = read_sql(text(sql), con=engs.engine, params={"limit": limit, "offset": offset})
 
     schedules = [
         ScheduleSummaryResponse(

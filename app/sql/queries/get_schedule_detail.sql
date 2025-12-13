@@ -1,4 +1,3 @@
--- Get schedule summary with sections
 SELECT
     s.id AS schedule_id,
     s.total_credits,

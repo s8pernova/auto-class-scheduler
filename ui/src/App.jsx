@@ -12,18 +12,28 @@ function App() {
 	const [schedules, setSchedules] = useState([]);
 	const [favorites, setFavorites] = useState(new Set());
 	const [loading, setLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState(null);
+	const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+	const [hasMore, setHasMore] = useState(true);
+	const ITEMS_PER_PAGE = 50;
 
+	// Initial load
 	useEffect(() => {
 		async function fetchData() {
 			try {
 				setLoading(true);
 				const [schedulesData, favoritesData] = await Promise.all([
-					getSchedules(),
+					getSchedules({
+						favoritesOnly: showOnlyFavorites,
+						limit: ITEMS_PER_PAGE,
+						offset: 0
+					}),
 					getFavorites(),
 				]);
 				setSchedules(schedulesData);
 				setFavorites(new Set(favoritesData));
+				setHasMore(schedulesData.length === ITEMS_PER_PAGE);
 				setError(null);
 			} catch (err) {
 				setError(err.message);
@@ -34,7 +44,43 @@ function App() {
 		}
 
 		fetchData();
-	}, []);
+	}, [showOnlyFavorites]);
+
+	// Infinite scroll - load more when scrolling
+	useEffect(() => {
+		const handleScroll = () => {
+			// Check if user scrolled near bottom (within 500px)
+			const scrolledToBottom =
+				window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500;
+
+			if (scrolledToBottom && !loadingMore && hasMore) {
+				loadMore();
+			}
+		};
+
+		window.addEventListener("scroll", handleScroll);
+		return () => window.removeEventListener("scroll", handleScroll);
+	}, [loadingMore, hasMore, schedules.length, showOnlyFavorites]);
+
+	const loadMore = async () => {
+		if (loadingMore || !hasMore) return;
+
+		try {
+			setLoadingMore(true);
+			const moreSchedules = await getSchedules({
+				favoritesOnly: showOnlyFavorites,
+				limit: ITEMS_PER_PAGE,
+				offset: schedules.length
+			});
+
+			setSchedules(prev => [...prev, ...moreSchedules]);
+			setHasMore(moreSchedules.length === ITEMS_PER_PAGE);
+		} catch (err) {
+			console.error("Failed to load more schedules:", err);
+		} finally {
+			setLoadingMore(false);
+		}
+	};
 
 	const handleFavorite = async (scheduleId) => {
 		const isFavorited = favorites.has(scheduleId);
@@ -106,8 +152,18 @@ function App() {
 
 	return (
 		<>
-			<div className="sticky top-0 z-99 flex justify-center items-center bg-blue-600 h-12">
-				<h1 className="text-2xl font-bold text-center">Schedules</h1>
+			<div className="sticky top-0 z-99 flex justify-between items-center bg-blue-600 h-12 px-20">
+				<h1 className="text-2xl font-bold">Schedules</h1>
+				<button
+					onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
+					className={`px-4 py-2 rounded transition ${
+						showOnlyFavorites
+							? "bg-yellow-400 text-blue-900 font-bold"
+							: "bg-blue-700 text-white hover:bg-blue-800"
+					}`}
+				>
+					{showOnlyFavorites ? "Show All" : "Show Favorites"}
+				</button>
 			</div>
 			<div className="p-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-10">
 				{schedules.map((schedule) => (
@@ -119,6 +175,16 @@ function App() {
 					/>
 				))}
 			</div>
+			{loadingMore && (
+				<div className="flex justify-center pb-10">
+					<p className="text-lg font-semibold text-gray-600">Loading more schedules...</p>
+				</div>
+			)}
+			{!hasMore && schedules.length > 0 && (
+				<div className="flex justify-center pb-10">
+					<p className="text-lg font-semibold text-gray-500">No more schedules to load</p>
+				</div>
+			)}
 		</>
 	);
 }
