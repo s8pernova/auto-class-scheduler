@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from pandas import read_sql
 
-from app.utilities import Utilities as utils
-from app.models import (
-    Directories,
+from utilities import Utilities as utils
+from models import (
     Engines,
     HealthResponse,
     ScheduleSummaryResponse,
@@ -19,7 +19,16 @@ app = FastAPI(
     description="Tools for querying possible class schedules.",
     version="0.1.0",
 )
-dirs = Directories()
+
+# Configure CORS for frontend development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5174"],  # Vite default port
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 engs = Engines()
 
 

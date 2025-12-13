@@ -1,6 +1,6 @@
 -- Get schedule summary with sections
 SELECT
-    s.id as schedule_id,
+    s.id AS schedule_id,
     s.total_credits,
     s.total_instructor_score,
     s.num_sections,
@@ -22,4 +22,4 @@ SELECT
 FROM schedules s
 LEFT JOIN schedule_sections ss ON s.id = ss.schedule_id
 WHERE s.id = :schedule_id
-ORDER BY ss.subject_code, ss.course_number
+ORDER BY s.id, ss.subject_code, ss.course_number

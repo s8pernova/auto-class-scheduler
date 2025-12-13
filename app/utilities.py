@@ -1,8 +1,6 @@
 from datetime import time, datetime, timezone
 
-from models import Directories
-
-dirs = Directories()
+from models import Directories as dirs
 
 
 class Utilities:

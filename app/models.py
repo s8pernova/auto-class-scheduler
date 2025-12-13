@@ -1,19 +1,20 @@
 from typing import Optional
 from pathlib import Path
 from datetime import datetime, time
+
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 
-class Directories(BaseModel):
+class Directories:
     root: Path = Path(__file__).parent.parent.resolve()
     app: Path = root / "app"
     sql: Path = app / "sql"
 
 
-class Settings(BaseModel):
+class Settings:
     target_courses: list[tuple[str, int]] = [
         ("PHY", 241),
         ("MTH", 265),
@@ -24,7 +25,10 @@ class Settings(BaseModel):
 
 
 class Secrets(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_file=Directories.root / ".env",
+        case_sensitive=False,
+    )
 
     database_url: str
 

@@ -4,17 +4,20 @@ from dataclasses import dataclass
 from datetime import time
 from typing import Optional
 import itertools
+import math
 
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from app.models import Directories, Engines, Settings
-from app.utilities import Utilities as utils
+from models import (
+    Directories as dirs,
+    Settings as sets,
+    Engines
+)
+from utilities import Utilities as utils
 
-dirs = Directories()
 engs = Engines()
-sets = Settings()
 
 
 @dataclass
@@ -33,8 +36,8 @@ class Section:
     title: str
     credits: int
     instructor: str
-    rating: Optional[float] = None
     meetings: list[Meeting]
+    rating: Optional[float] = None
 
 
 def load_sections(engine: Engine, sql_query: str) -> dict[tuple[str, int], list[Section]]:
@@ -61,6 +64,12 @@ def load_sections(engine: Engine, sql_query: str) -> dict[tuple[str, int], list[
         ]
 
         rating = first["instructor_rating"]
+        # Convert rating: pandas returns NaN for NULL, we want None
+        if rating is None or (isinstance(rating, float) and math.isnan(rating)):
+            rating_value = None
+        else:
+            rating_value = float(rating)
+
         sec_obj = Section(
             subject=sub,
             number=int(num),
@@ -68,7 +77,7 @@ def load_sections(engine: Engine, sql_query: str) -> dict[tuple[str, int], list[
             title=first["course_title"] or "",
             credits=int(first["credits"]),
             instructor=first["instructor_name"] or "",
-            rating=float(rating) if rating is not None else None,
+            rating=rating_value,
             meetings=meetings,
         )
 
@@ -117,9 +126,14 @@ def compute_schedule_summary(sections: list[Section]) -> dict:
     meetings = [m for s in sections for m in s.meetings]
 
     credits = sum(s.credits for s in sections)
-    avg_rating = sum(s.rating for s in sections if s.rating is not None) / max(
-        1, len([s for s in sections if s.rating is not None])
-    )
+
+    # Calculate average rating, or None if no ratings available
+    sections_with_ratings = [s.rating for s in sections if s.rating is not None]
+    if sections_with_ratings:
+        avg_rating = round(sum(sections_with_ratings) / len(sections_with_ratings), 2)
+    else:
+        avg_rating = None
+
     num_sections = len(sections)
 
     days_hit = {day: False for day in days}

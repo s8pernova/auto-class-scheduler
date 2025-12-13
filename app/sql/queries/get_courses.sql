@@ -1,1 +1,1 @@
-SELECT * FROM section_meetings;
+SELECT * FROM possible_classes;

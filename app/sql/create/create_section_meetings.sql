@@ -1,4 +1,4 @@
-CREATE TABLE section_meetings (
+CREATE TABLE possible_classes (
     id              BIGSERIAL PRIMARY KEY,
 
     -- what course this is
