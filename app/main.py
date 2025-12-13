@@ -1,23 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import time, datetime, timezone
+from datetime import time
+from typing import Optional
 import itertools
 
-from pandas import read_sql
+import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from models import Directories,  Engines
+from app.models import Directories, Engines, Settings
+from app.utilities import Utilities as utils
 
-
-TARGET_COURSES: list[tuple[str, int]] = [
-    ("PHY", 241),
-    ("MTH", 265),
-    ("CSC", 223),
-    ("MTH", 288),
-    # ("CSC", 208),
-]
+dirs = Directories()
+engs = Engines()
+sets = Settings()
 
 
 @dataclass
@@ -36,17 +33,12 @@ class Section:
     title: str
     credits: int
     instructor: str
-    rating: float | None
+    rating: Optional[float] = None
     meetings: list[Meeting]
 
 
-def parse_time_str(s: str) -> time:
-    fmt = "%H:%M:%S" if len(s) > 5 else "%H:%M"
-    return datetime.strptime(s, fmt).time()
-
-
 def load_sections(engine: Engine, sql_query: str) -> dict[tuple[str, int], list[Section]]:
-    df = read_sql(sql_query, con=engine)
+    df = pd.read_sql(sql_query, con=engine)
 
     df["start_time"] = df["start_time"].astype(str)
     df["end_time"] = df["end_time"].astype(str)
@@ -61,8 +53,8 @@ def load_sections(engine: Engine, sql_query: str) -> dict[tuple[str, int], list[
         meetings = [
             Meeting(
                 day=row["day_of_week"],
-                start=parse_time_str(row["start_time"]),
-                end=parse_time_str(row["end_time"]),
+                start=utils.parse_time_str(row["start_time"]),
+                end=utils.parse_time_str(row["end_time"]),
                 campus=row["campus"],
             )
             for _, row in group.iterrows()
@@ -164,16 +156,14 @@ def compute_schedule_summary(sections: list[Section]) -> dict:
 
 
 def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: Directories):
-    now = datetime.now(timezone.utc)
-
-    insert_schedule_sql = dirs.read_sql("mutations/insert_schedules")
-    insert_section_sql = dirs.read_sql("mutations/insert_schedule_sections")
+    insert_schedule_sql = utils.read_sql(dirs.sql, "mutations/insert_schedules")
+    insert_section_sql = utils.read_sql(dirs.sql, "mutations/insert_schedule_sections")
 
     for sched in schedules:
         summary = compute_schedule_summary(sched)
 
         schedule_row = {
-            "created_at": now,
+            "created_at": utils.now(),
             **summary,
         }
 
@@ -199,17 +189,14 @@ def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: 
                     }
                 )
 
+    print(f"Generated {len(schedules)} valid schedules")
+
 
 def main():
-    dirs = Directories()
-    engs = Engines()
-
-    get_courses_sql = dirs.read_sql("queries/get_courses")
+    get_courses_sql = utils.read_sql(dirs.sql, "queries/get_courses")
     sections_by_course = load_sections(engs.engine, get_courses_sql)
-    valid = generate_schedules(sections_by_course, TARGET_COURSES)
+    valid = generate_schedules(sections_by_course, sets.target_courses)
     write_schedules_to_db(engs.engine, valid, dirs)
-
-    print(f"Generated {len(valid)} valid schedules")
 
 
 if __name__ == "__main__":

@@ -1,21 +1,26 @@
 from typing import Optional
 from pathlib import Path
 from datetime import datetime, time
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 
 class Directories(BaseModel):
-    # Dirs
     root: Path = Path(__file__).parent.parent.resolve()
     app: Path = root / "app"
     sql: Path = app / "sql"
 
-    def read_sql(self, relative_path: str) -> str:
-        """Read SQL file content from sql directory."""
-        return text((self.sql / f"{relative_path}.sql").read_text())
+
+class Settings(BaseModel):
+    target_courses: list[tuple[str, int]] = [
+        ("PHY", 241),
+        ("MTH", 265),
+        ("CSC", 223),
+        ("MTH", 288),
+        # ("CSC", 208),
+    ]
 
 
 class Secrets(BaseSettings):
@@ -25,14 +30,16 @@ class Secrets(BaseSettings):
 
 
 class Engines(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     env: Secrets = Secrets()
-    engine: Optional[Engine] = None
+    _engine: Optional[Engine] = None
 
     @property
     def engine(self) -> Engine:
-        if self.engine is None:
-            return create_engine(self.env.database_url)
-        return self.engine
+        if self._engine is None:
+            self._engine = create_engine(self.env.database_url)
+        return self._engine
 
 
 # ~~~~ Response Models ~~~~

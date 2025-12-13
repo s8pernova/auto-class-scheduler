@@ -4,8 +4,8 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from pandas import read_sql
 
-from utils.helpers import get_sql_text
-from models import (
+from app.utilities import Utilities
+from app.models import (
     Directories,
     Secrets,
     Engines,
@@ -23,8 +23,8 @@ app = FastAPI(
     version="0.1.0",
 )
 dirs = Directories()
-secrets = Secrets()
 engs = Engines()
+utils = Utilities()
 
 
 # ~~~~ Helper Functions ~~~~
@@ -32,7 +32,7 @@ engs = Engines()
 
 def get_schedule_by_id(schedule_id: int) -> ScheduleDetailResponse | None:
     """Fetch a schedule with all its sections from the database."""
-    sql = get_sql_text(dirs.sql, "queries/get_schedule_detail")
+    sql = utils.read_sql(dirs.sql, "queries/get_schedule_detail")
     df = read_sql(sql, con=engs.engine, params={"schedule_id": schedule_id})
 
     if df.empty:
@@ -83,7 +83,7 @@ async def health_check():
 @app.get("/api/schedules", response_model=list[ScheduleSummaryResponse])
 async def get_schedules():
     """Get all schedules with summary information."""
-    sql = get_sql_text(dirs.sql, "queries/get_schedules")
+    sql = utils.read_sql(dirs.sql, "queries/get_schedules")
     df = read_sql(sql, con=engs.engine)
 
     schedules = [
@@ -131,7 +131,7 @@ async def favorite_schedule(request: FavoriteScheduleRequest):
         )
 
     # Insert favorite (or update if already exists)
-    sql = get_sql_text(dirs.sql, "mutations/insert_favorite")
+    sql = utils.read_sql(dirs.sql, "mutations/insert_favorite")
     now = datetime.now(timezone.utc)
 
     with engs.engine.begin() as conn:
