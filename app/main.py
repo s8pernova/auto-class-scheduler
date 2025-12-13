@@ -156,14 +156,16 @@ def compute_schedule_summary(sections: list[Section]) -> dict:
 
 
 def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: Directories):
-    insert_schedule_sql = utils.read_sql(dirs.sql, "mutations/insert_schedules")
-    insert_section_sql = utils.read_sql(dirs.sql, "mutations/insert_schedule_sections")
+    now = utils.now()
+
+    insert_schedule_sql = utils.read_sql("mutations/insert_schedules")
+    insert_section_sql = utils.read_sql("mutations/insert_schedule_sections")
 
     for sched in schedules:
         summary = compute_schedule_summary(sched)
 
         schedule_row = {
-            "created_at": utils.now(),
+            "created_at": now,
             **summary,
         }
 
@@ -193,7 +195,7 @@ def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: 
 
 
 def main():
-    get_courses_sql = utils.read_sql(dirs.sql, "queries/get_courses")
+    get_courses_sql = utils.read_sql("queries/get_courses")
     sections_by_course = load_sections(engs.engine, get_courses_sql)
     valid = generate_schedules(sections_by_course, sets.target_courses)
     write_schedules_to_db(engs.engine, valid, dirs)

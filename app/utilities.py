@@ -1,12 +1,15 @@
 from datetime import time, datetime, timezone
-from pathlib import Path
+
+from models import Directories
+
+dirs = Directories()
 
 
 class Utilities:
     @staticmethod
-    def read_sql(sql_dir: Path, relative_path: str) -> str:
+    def read_sql(relative_path: str) -> str:
         """Read SQL file content from sql directory."""
-        file_path = sql_dir / f"{relative_path}.sql"
+        file_path = dirs.sql / f"{relative_path}.sql"
         return file_path.read_text()
 
     @staticmethod
