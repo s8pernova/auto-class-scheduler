@@ -1,7 +1,33 @@
-function Card() {
+import { useMemo, useState } from "react";
+
+function Card({
+	schedule_id,
+	subject_code,
+	course_number,
+	section_code,
+	course_title,
+	credits,
+}) {
+	const rotation = useMemo(() => {
+		const values = [-2, -1, 1, 2];
+		return values[Math.floor(Math.random() * values.length)];
+	}, []);
+	const [hovered, setHovered] = useState(false);
+	const transform = hovered
+		? `rotate(${rotation}deg) scale(1.03)`
+		: "rotate(0deg) scale(1)";
+
 	return (
-		<div className="bg-[#182246] h-90 rounded-[3em] text-center flex items-center justify-center hover:scale-103 transition duration-250 ease-in-out">
-			<p>Hello world</p>
+		<div
+			onMouseEnter={() => setHovered(true)}
+			onMouseLeave={() => setHovered(false)}
+			style={{ transform }}
+			className="relative bg-[#182246] h-90 rounded-[3em] text-center flex items-center justify-center hover:shadow-[0_0_0_5px_#fff] transition duration-250 ease-in-out overflow-hidden"
+		>
+			<div className="absolute top-0 w-full h-9 bg-green-500 flex justify-center items-center text-center text-green-900 font-bold">
+				Schedule #{schedule_id}
+			</div>
+			<p>{schedule_id}</p>
 		</div>
 	);
 }
