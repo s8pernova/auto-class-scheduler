@@ -13,9 +13,7 @@ function Card({
 		return values[Math.floor(Math.random() * values.length)];
 	}, []);
 	const [hovered, setHovered] = useState(false);
-	const transform = hovered
-		? `rotate(${rotation}deg) scale(1.03)`
-		: "rotate(0deg) scale(1)";
+	const transform = hovered ? `rotate(${rotation}deg) scale(1.03)` : "";
 
 	return (
 		<div
