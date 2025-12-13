@@ -1,5 +1,4 @@
 INSERT INTO schedules (
-    created_at,
     total_credits,
     total_instructor_score,
     num_sections,
@@ -14,7 +13,6 @@ INSERT INTO schedules (
     campus_pattern
 )
 VALUES (
-    :created_at,
     :total_credits,
     :total_instructor_score,
     :num_sections,

@@ -137,15 +137,12 @@ async def favorite_schedule(request: FavoriteScheduleRequest):
 
     # Insert favorite (or update if already exists)
     sql = utils.read_sql("mutations/upsert_favorite")
-    now = utils.now()
-
-    params = {
-        "schedule_id": request.schedule_id,
-        "favorited_at": now,
-    }
 
     with engs.engine.begin() as conn:
-        result = conn.execute(text(sql), params)
+        result = conn.execute(
+            text(sql),
+            {"schedule_id": request.schedule_id}
+        )
         row = result.fetchone()
 
     return FavoriteResponse(

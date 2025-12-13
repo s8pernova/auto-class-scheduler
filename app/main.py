@@ -170,18 +170,12 @@ def compute_schedule_summary(sections: list[Section]) -> dict:
 
 
 def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: Directories):
-    now = utils.now()
-
     insert_schedule_sql = utils.read_sql("mutations/insert_schedules")
     insert_section_sql = utils.read_sql("mutations/insert_schedule_sections")
 
     for sched in schedules:
         summary = compute_schedule_summary(sched)
-
-        schedule_row = {
-            "created_at": now,
-            **summary,
-        }
+        schedule_row = summary
 
         # Insert the schedule and get the generated ID
         with engine.begin() as conn:
@@ -190,20 +184,18 @@ def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: 
                 schedule_row
             )
             schedule_id = result.fetchone()[0]
+            schedule_data = {
+                "schedule_id": schedule_id,
+                "subject_code": sec.subject,
+                "course_number": sec.number,
+                "section_code": sec.section_code,
+                "course_title": sec.title,
+                "credits": sec.credits,
+            }
 
             # Insert the sections for this schedule
             for sec in sched:
-                conn.execute(
-                    text(insert_section_sql),
-                    {
-                        "schedule_id": schedule_id,
-                        "subject_code": sec.subject,
-                        "course_number": sec.number,
-                        "section_code": sec.section_code,
-                        "course_title": sec.title,
-                        "credits": sec.credits,
-                    }
-                )
+                conn.execute(text(insert_section_sql), schedule_data)
 
     print(f"Generated {len(schedules)} valid schedules")
 
