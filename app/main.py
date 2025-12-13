@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import time, datetime, timezone
-from pathlib import Path
 import itertools
 
 from pandas import read_sql
-from pydantic import BaseModel, ConfigDict
-from pydantic_settings import BaseSettings
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+from models import Directories,  Engines
 
 
 TARGET_COURSES: list[tuple[str, int]] = [
@@ -19,23 +18,6 @@ TARGET_COURSES: list[tuple[str, int]] = [
     ("MTH", 288),
     # ("CSC", 208),
 ]
-
-
-class Directories(BaseModel):
-    # Dirs
-    root: Path = Path(__file__).parent.parent.resolve()
-    app: Path = root / "app"
-    sql: Path = app / "sql"
-
-    def read_sql(self, relative_path: str) -> str:
-        """Read SQL file content from sql directory."""
-        return (self.sql / f"{relative_path}.sql").read_text()
-
-
-class Secrets(BaseSettings):
-    model_config = ConfigDict(env_file=".env", case_sensitive=False)
-
-    database_url: str
 
 
 @dataclass
@@ -220,13 +202,12 @@ def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: 
 
 def main():
     dirs = Directories()
-    sets = Secrets()
-    engine = create_engine(sets.database_url)
+    engs = Engines()
 
     get_courses_sql = dirs.read_sql("queries/get_courses")
-    sections_by_course = load_sections(engine, get_courses_sql)
+    sections_by_course = load_sections(engs.engine, get_courses_sql)
     valid = generate_schedules(sections_by_course, TARGET_COURSES)
-    write_schedules_to_db(engine, valid, dirs)
+    write_schedules_to_db(engs.engine, valid, dirs)
 
     print(f"Generated {len(valid)} valid schedules")
 

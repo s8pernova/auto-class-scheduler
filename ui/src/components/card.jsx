@@ -1,13 +1,6 @@
 import { useMemo, useState } from "react";
 
-function Card({
-	schedule_id,
-	subject_code,
-	course_number,
-	section_code,
-	course_title,
-	credits,
-}) {
+function Card(props) {
 	const rotation = useMemo(() => {
 		const values = [-2, -1, 1, 2];
 		return values[Math.floor(Math.random() * values.length)];
@@ -23,9 +16,9 @@ function Card({
 			className="relative bg-[#182246] h-90 rounded-[3em] text-center flex items-center justify-center hover:shadow-[0_0_0_5px_#fff] transition duration-250 ease-in-out overflow-hidden"
 		>
 			<div className="absolute top-0 w-full h-9 bg-green-500 flex justify-center items-center text-center text-green-900 font-bold">
-				Schedule #{schedule_id}
+				Schedule #{props.schedule_id}
 			</div>
-			<p>{schedule_id}</p>
+			<p>{props.schedule_id}</p>
 		</div>
 	);
 }
