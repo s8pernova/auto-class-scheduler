@@ -50,4 +50,4 @@ LEFT JOIN possible_classes pc ON
     ss.course_number = pc.course_number AND
     ss.section_code = pc.section_code
 WHERE rs.rn > :offset AND rs.rn <= :offset + :limit
-ORDER BY rs.id DESC, ss.subject_code, ss.course_number, pc.day_of_week, pc.start_time;
+ORDER BY rs.id, ss.subject_code, ss.course_number, pc.day_of_week, pc.start_time;
