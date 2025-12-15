@@ -30,22 +30,6 @@ export async function getSchedules(options = {}) {
 }
 
 /**
- * Fetch a specific schedule by ID
- * @param {number} scheduleId - The ID of the schedule
- * @returns {Promise<Object>} Schedule detail with sections
- */
-export async function getSchedule(scheduleId) {
-	const response = await fetch(`${BASE_URL}/schedules/${scheduleId}`);
-	if (!response.ok) {
-		if (response.status === 404) {
-			throw new Error(`Schedule ${scheduleId} not found`);
-		}
-		throw new Error(`Failed to fetch schedule: ${response.statusText}`);
-	}
-	return response.json();
-}
-
-/**
  * Get all favorited schedule IDs
  * @returns {Promise<Array<number>>} List of favorited schedule IDs
  */

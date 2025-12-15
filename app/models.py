@@ -2,7 +2,7 @@ from typing import Optional
 from pathlib import Path
 from datetime import datetime, time
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -49,8 +49,30 @@ class Engines(BaseModel):
 # ~~~~ Response Models ~~~~
 
 
+class MeetingResponse(BaseModel):
+    """A meeting time for a section."""
+
+    day_of_week: str
+    start_time: time
+    end_time: time
+    campus: str
+
+
+class ScheduleSectionDetailResponse(BaseModel):
+    """Section information including instructor and meetings."""
+
+    subject_code: str
+    course_number: int
+    section_code: str
+    course_title: str
+    credits: int
+    instructor_name: str | None
+    instructor_rating: float | None
+    meetings: list[MeetingResponse]
+
+
 class ScheduleSectionResponse(BaseModel):
-    """A section within a schedule."""
+    """Section information without meeting details (legacy)."""
 
     subject_code: str
     course_number: int
@@ -59,8 +81,8 @@ class ScheduleSectionResponse(BaseModel):
     credits: int
 
 
-class ScheduleSummaryResponse(BaseModel):
-    """Summary information about a schedule."""
+class ScheduleDetailResponse(BaseModel):
+    """Full schedule including its sections (legacy)."""
 
     schedule_id: int
     total_credits: int
@@ -76,12 +98,27 @@ class ScheduleSummaryResponse(BaseModel):
     latest_end: time
     campus_pattern: str
     created_at: datetime
-
-
-class ScheduleDetailResponse(ScheduleSummaryResponse):
-    """Detailed schedule information including sections."""
-
     sections: list[ScheduleSectionResponse]
+
+
+class ScheduleSummaryResponse(BaseModel):
+    """Schedule summary with full section details."""
+
+    schedule_id: int
+    total_credits: int
+    total_instructor_score: float | None
+    num_sections: int
+    meets_mon: bool
+    meets_tue: bool
+    meets_wed: bool
+    meets_thu: bool
+    meets_fri: bool
+    meets_sat: bool
+    earliest_start: time
+    latest_end: time
+    campus_pattern: str
+    created_at: datetime
+    sections: list[ScheduleSectionDetailResponse]
 
 
 class FavoriteResponse(BaseModel):

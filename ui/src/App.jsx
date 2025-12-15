@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import Card from "./components/card.jsx";
+import Card from "./components/Card.jsx";
 import {
 	getSchedules,
 	getFavorites,
@@ -79,8 +79,10 @@ function App() {
 
 			// Filter out any duplicates based on schedule_id
 			setSchedules((prev) => {
-				const existingIds = new Set(prev.map(s => s.schedule_id));
-				const newSchedules = moreSchedules.filter(s => !existingIds.has(s.schedule_id));
+				const existingIds = new Set(prev.map((s) => s.schedule_id));
+				const newSchedules = moreSchedules.filter(
+					(s) => !existingIds.has(s.schedule_id)
+				);
 				return [...prev, ...newSchedules];
 			});
 			setHasMore(moreSchedules.length === ITEMS_PER_PAGE);
@@ -142,7 +144,7 @@ function App() {
 				<p className="text-xl text-red-500">Error: {error}</p>
 				<button
 					onClick={() => window.location.reload()}
-					className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+					className="px-5 py-2 bg-blue-500 text-white rounded-full font-semibold cursor-pointer"
 				>
 					Retry
 				</button>
@@ -166,9 +168,9 @@ function App() {
 				<h1 className="text-2xl font-bold">Schedules</h1>
 				<button
 					onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
-					className={`px-4 py-2 rounded transition ${
+					className={`px-4 py-2 rounded-full font-semibold transition cursor-pointer ${
 						showOnlyFavorites
-							? "bg-yellow-400 text-blue-900 font-bold"
+							? "bg-yellow-400 text-blue-900"
 							: "bg-blue-700 text-white hover:bg-blue-800"
 					}`}
 				>
