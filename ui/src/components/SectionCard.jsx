@@ -9,15 +9,15 @@ const formatTime = (timeStr) => {
 
 export default function SectionCard({ section }) {
 	return (
-		<div className="bg-[#0f1729]/50 p-4 rounded-2xl">
-			<h3 className="font-bold text-white mb-2">
-				{section.subject_code} {section.course_number} - {section.course_title}
+		<div className="bg-[#141c37] p-4 rounded-2xl space-y-2">
+			<h3 className="font-bold text-white">
+				{section.subject_code} {section.course_number}
 			</h3>
-			<p className="text-sm text-gray-300 mb-2">
+			<p className="text-sm text-gray-300">
 				Section: {section.section_code} | Credits: {section.credits}
 			</p>
 			{section.instructor_name && (
-				<p className="text-sm text-gray-300 mb-2">
+				<p className="text-sm text-gray-300">
 					Instructor: {section.instructor_name}
 					{section.instructor_rating && (
 						<span className="ml-2 text-yellow-400">

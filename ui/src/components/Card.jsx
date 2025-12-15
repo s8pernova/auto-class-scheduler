@@ -56,10 +56,10 @@ function Card({
 				</button>
 			</div>
 
-			<div className="p-3 overflow-y-auto max-h-100 space-y-3">
+			<div className="p-3 overflow-y-auto h-100 space-y-3">
 				<div className="px-4 text-sm text-gray-300">
 					<p>
-						Credits: {total_credits} | Avg Rating:{" "}
+						Credits: {total_credits} | Avg. Rating:{" "}
 						{total_instructor_score?.toFixed(1) || "N/A"}
 					</p>
 					<p>
