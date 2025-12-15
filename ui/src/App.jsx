@@ -164,14 +164,14 @@ function App() {
 
 	return (
 		<>
-			<div className="sticky top-0 z-99 flex justify-between items-center bg-blue-600 h-12 px-20">
-				<h1 className="text-2xl font-bold">Schedules</h1>
+			<div className="sticky top-0 z-99 flex justify-between items-center bg-gray-800 h-12 px-20">
+				<h1 className="text-2xl font-bold">Possible Schedules</h1>
 				<button
 					onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
 					className={`px-4 py-2 rounded-full font-semibold transition cursor-pointer ${
 						showOnlyFavorites
 							? "bg-yellow-400 text-blue-900"
-							: "bg-blue-700 text-white hover:bg-blue-800"
+							: "bg-gray-700 text-white hover:bg-gray-600"
 					}`}
 				>
 					{showOnlyFavorites ? "Show All" : "Show Favorites"}
