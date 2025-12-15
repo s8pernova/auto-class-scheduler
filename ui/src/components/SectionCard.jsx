@@ -9,7 +9,7 @@ const formatTime = (timeStr) => {
 
 export default function SectionCard({ section }) {
 	return (
-		<div className="bg-[#0f1729] p-4 rounded-lg">
+		<div className="bg-[#0f1729]/50 p-4 rounded-2xl">
 			<h3 className="font-bold text-white mb-2">
 				{section.subject_code} {section.course_number} - {section.course_title}
 			</h3>

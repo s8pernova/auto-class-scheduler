@@ -197,7 +197,7 @@ function App() {
 			{!hasMore && schedules.length > 0 && (
 				<div className="flex justify-center pb-10">
 					<p className="text-lg font-semibold text-gray-500">
-						No more schedules to load
+						End of schedules
 					</p>
 				</div>
 			)}

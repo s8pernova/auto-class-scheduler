@@ -56,8 +56,8 @@ function Card({
 				</button>
 			</div>
 
-			<div className="p-6 overflow-y-auto max-h-[600px]">
-				<div className="mb-4 text-sm text-gray-300">
+			<div className="p-3 overflow-y-auto max-h-100 space-y-3">
+				<div className="px-4 text-sm text-gray-300">
 					<p>
 						Credits: {total_credits} | Avg Rating:{" "}
 						{total_instructor_score?.toFixed(1) || "N/A"}
@@ -68,7 +68,7 @@ function Card({
 					<p>Campus: {campus_pattern}</p>
 				</div>
 
-				<div className="space-y-4">
+				<div className="space-y-3">
 					{sections.map((section, idx) => (
 						<SectionCard
 							key={`${section.subject_code}-${section.course_number}-${section.section_code}-${idx}`}
