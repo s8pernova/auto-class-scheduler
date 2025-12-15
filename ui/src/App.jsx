@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Card from "./components/card.jsx";
 import {
 	getSchedules,
@@ -16,6 +16,7 @@ function App() {
 	const [error, setError] = useState(null);
 	const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 	const [hasMore, setHasMore] = useState(true);
+	const isLoadingRef = useRef(false);
 	const ITEMS_PER_PAGE = 50;
 
 	// Initial load
@@ -27,7 +28,7 @@ function App() {
 					getSchedules({
 						favoritesOnly: showOnlyFavorites,
 						limit: ITEMS_PER_PAGE,
-						offset: 0
+						offset: 0,
 					}),
 					getFavorites(),
 				]);
@@ -51,7 +52,8 @@ function App() {
 		const handleScroll = () => {
 			// Check if user scrolled near bottom (within 500px)
 			const scrolledToBottom =
-				window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500;
+				window.innerHeight + window.scrollY >=
+				document.documentElement.scrollHeight - 500;
 
 			if (scrolledToBottom && !loadingMore && hasMore) {
 				loadMore();
@@ -63,22 +65,30 @@ function App() {
 	}, [loadingMore, hasMore, schedules.length, showOnlyFavorites]);
 
 	const loadMore = async () => {
-		if (loadingMore || !hasMore) return;
+		if (loadingMore || !hasMore || isLoadingRef.current) return;
 
 		try {
+			isLoadingRef.current = true;
 			setLoadingMore(true);
+			const currentOffset = schedules.length;
 			const moreSchedules = await getSchedules({
 				favoritesOnly: showOnlyFavorites,
 				limit: ITEMS_PER_PAGE,
-				offset: schedules.length
+				offset: currentOffset,
 			});
 
-			setSchedules(prev => [...prev, ...moreSchedules]);
+			// Filter out any duplicates based on schedule_id
+			setSchedules((prev) => {
+				const existingIds = new Set(prev.map(s => s.schedule_id));
+				const newSchedules = moreSchedules.filter(s => !existingIds.has(s.schedule_id));
+				return [...prev, ...newSchedules];
+			});
 			setHasMore(moreSchedules.length === ITEMS_PER_PAGE);
 		} catch (err) {
 			console.error("Failed to load more schedules:", err);
 		} finally {
 			setLoadingMore(false);
+			isLoadingRef.current = false;
 		}
 	};
 
@@ -177,12 +187,16 @@ function App() {
 			</div>
 			{loadingMore && (
 				<div className="flex justify-center pb-10">
-					<p className="text-lg font-semibold text-gray-600">Loading more schedules...</p>
+					<p className="text-lg font-semibold text-gray-600">
+						Loading more schedules...
+					</p>
 				</div>
 			)}
 			{!hasMore && schedules.length > 0 && (
 				<div className="flex justify-center pb-10">
-					<p className="text-lg font-semibold text-gray-500">No more schedules to load</p>
+					<p className="text-lg font-semibold text-gray-500">
+						No more schedules to load
+					</p>
 				</div>
 			)}
 		</>
