@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import Card from "./components/Card.jsx";
-import Navbar from "./components/Navbar.jsx";
 import { useFilters } from "./contexts/FavoritesContext.jsx";
 import { useScheduleFilters } from "./contexts/ScheduleFilterContext.jsx";
+import Card from "./components/Card.jsx";
+import Navbar from "./components/Navbar.jsx";
+import Loading from "./components/Loading.jsx";
+import Error from "./components/Error.jsx";
 import {
 	getSchedules,
 	getFavorites,
 	favoriteSchedule,
 	unfavoriteSchedule,
 } from "./api/client.js";
-import Loading from "./components/Loading.jsx";
-import Error from "./components/Error.jsx";
 import "./App.css";
 
 function App() {
@@ -151,10 +151,13 @@ function App() {
 
 	if (schedules.length === 0) {
 		return (
-			<div className="p-10 text-center">
-				<p className="text-xl">
-					No schedules found. Run the schedule generator first!
-				</p>
+			<div className="space-y-16">
+				<Navbar />
+				<div className="flex justify-center items-center text-center">
+					<p className="text-lg font-semibold text-gray-500">
+						No schedules found
+					</p>
+				</div>
 			</div>
 		);
 	}
