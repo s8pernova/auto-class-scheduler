@@ -1,59 +1,34 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import Card from "./components/Card.jsx";
-import FilterPanel from "./components/FilterPanel.jsx";
+import Navbar from "./components/Navbar.jsx";
+import { useFilters } from "./contexts/FavoritesContext.jsx";
+import { useScheduleFilters } from "./contexts/ScheduleFilterContext.jsx";
 import {
 	getSchedules,
 	getFavorites,
 	favoriteSchedule,
 	unfavoriteSchedule,
 } from "./api/client.js";
+import Loading from "./components/Loading.jsx";
 import "./App.css";
 
 function App() {
-	const [searchParams, setSearchParams] = useSearchParams();
+	const { showOnlyFavorites } = useFilters();
+	const { selectedCampuses, selectedTimes } = useScheduleFilters();
 	const [schedules, setSchedules] = useState([]);
 	const [favorites, setFavorites] = useState(new Set());
 	const [loading, setLoading] = useState(true);
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState(null);
-	const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 	const [hasMore, setHasMore] = useState(true);
 	const isLoadingRef = useRef(false);
 	const ITEMS_PER_PAGE = 50;
-
-	// Read filters from URL, or use defaults
-	// Use useMemo to prevent infinite re-renders by stabilizing array references
-	const selectedCampuses = useMemo(() => {
-		const campuses = searchParams.getAll('campuses');
-		return campuses.length > 0 ? campuses : ['Annandale', 'Alexandria', 'Online'];
-	}, [searchParams]);
-
-	const selectedTimes = useMemo(() => {
-		const times = searchParams.getAll('times');
-		return times.length > 0 ? times : ['Morning', 'Afternoon', 'Evening'];
-	}, [searchParams]);
-
-	// Functions to update URL when filters change
-	const handleCampusChange = (newCampuses) => {
-		const newParams = new URLSearchParams(searchParams);
-		newParams.delete('campuses');
-		newCampuses.forEach(c => newParams.append('campuses', c));
-		setSearchParams(newParams);
-	};
-
-	const handleTimeChange = (newTimes) => {
-		const newParams = new URLSearchParams(searchParams);
-		newParams.delete('times');
-		newTimes.forEach(t => newParams.append('times', t));
-		setSearchParams(newParams);
-	};
 
 	// Initial load
 	useEffect(() => {
 		async function fetchData() {
 			try {
-				setSchedules([]);  // Reset schedules when filters change
+				setSchedules([]); // Reset schedules when filters change
 				setLoading(true);
 				const [schedulesData, favoritesData] = await Promise.all([
 					getSchedules({
@@ -61,7 +36,7 @@ function App() {
 						limit: ITEMS_PER_PAGE,
 						offset: 0,
 						campuses: selectedCampuses,
-						times: selectedTimes
+						times: selectedTimes,
 					}),
 					getFavorites(),
 				]);
@@ -109,7 +84,7 @@ function App() {
 				limit: ITEMS_PER_PAGE,
 				offset: currentOffset,
 				campuses: selectedCampuses,
-				times: selectedTimes
+				times: selectedTimes,
 			});
 
 			// Filter out any duplicates based on schedule_id
@@ -199,26 +174,7 @@ function App() {
 
 	return (
 		<>
-			<div className="sticky top-0 z-99 flex justify-between items-center bg-gray-800 h-12 px-20">
-				<h1 className="text-2xl font-bold">Possible Schedules</h1>
-				<button
-					onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
-					className={`px-4 py-2 rounded-full font-semibold transition cursor-pointer ${
-						showOnlyFavorites
-							? "bg-yellow-400 text-blue-900"
-							: "bg-gray-700 text-white hover:bg-gray-600"
-					}`}
-				>
-					{showOnlyFavorites ? "Show All" : "Show Favorites"}
-				</button>
-			</div>
-
-			<FilterPanel
-				selectedCampuses={selectedCampuses}
-				onCampusChange={handleCampusChange}
-				selectedTimes={selectedTimes}
-				onTimeChange={handleTimeChange}
-			/>
+			<Navbar />
 
 			<div className="p-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-10">
 				{schedules.map((schedule) => (
@@ -230,13 +186,7 @@ function App() {
 					/>
 				))}
 			</div>
-			{loadingMore && (
-				<div className="flex justify-center pb-10">
-					<p className="text-lg font-semibold text-gray-600">
-						Loading more schedules...
-					</p>
-				</div>
-			)}
+			{loadingMore && <Loading />}
 			{!hasMore && schedules.length > 0 && (
 				<div className="flex justify-center pb-10">
 					<p className="text-lg font-semibold text-gray-500">

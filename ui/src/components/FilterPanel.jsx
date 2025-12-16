@@ -1,25 +1,23 @@
-export default function FilterPanel({
-	selectedCampuses,
-	onCampusChange,
-	selectedTimes,
-	onTimeChange
-}) {
+import { useScheduleFilters } from '../contexts/ScheduleFilterContext';
+
+export default function FilterPanel() {
+	const { selectedCampuses, selectedTimes, handleCampusChange, handleTimeChange } = useScheduleFilters();
 	const campusOptions = ['Annandale', 'Alexandria', 'Online'];
 	const timeOptions = ['Morning', 'Afternoon', 'Evening'];
 
 	const toggleCampus = (campus) => {
 		if (selectedCampuses.includes(campus)) {
-			onCampusChange(selectedCampuses.filter(c => c !== campus));
+			handleCampusChange(selectedCampuses.filter(c => c !== campus));
 		} else {
-			onCampusChange([...selectedCampuses, campus]);
+			handleCampusChange([...selectedCampuses, campus]);
 		}
 	};
 
 	const toggleTime = (time) => {
 		if (selectedTimes.includes(time)) {
-			onTimeChange(selectedTimes.filter(t => t !== time));
+			handleTimeChange(selectedTimes.filter(t => t !== time));
 		} else {
-			onTimeChange([...selectedTimes, time]);
+			handleTimeChange([...selectedTimes, time]);
 		}
 	};
 
