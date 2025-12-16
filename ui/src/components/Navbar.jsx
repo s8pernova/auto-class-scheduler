@@ -8,6 +8,7 @@ export default function Navbar() {
 		<div className="sticky top-0 z-99 bg-gray-800">
 			<div className="flex justify-between items-center h-12 px-20">
 				<h1 className="text-2xl font-bold">Possible Schedules</h1>
+				<FilterPanel />
 				<button
 					onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
 					className={`px-4 py-2 rounded-full font-semibold transition cursor-pointer ${
@@ -19,7 +20,6 @@ export default function Navbar() {
 					{showOnlyFavorites ? "Show All" : "Show Favorites"}
 				</button>
 			</div>
-			<FilterPanel />
 		</div>
 	);
 }

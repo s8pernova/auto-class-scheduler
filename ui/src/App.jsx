@@ -175,7 +175,6 @@ function App() {
 	return (
 		<>
 			<Navbar />
-
 			<div className="p-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-10">
 				{schedules.map((schedule) => (
 					<Card
