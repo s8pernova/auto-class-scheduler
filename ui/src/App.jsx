@@ -145,7 +145,7 @@ function App() {
 		return <Loading />;
 	}
 
-	if (!error) {
+	if (error) {
 		return <Error error={error} />;
 	}
 
