@@ -43,7 +43,8 @@ SELECT
     pc.campus,
     pc.day_of_week,
     pc.start_time,
-    pc.end_time
+    pc.end_time,
+    pc.modality
 FROM ranked_schedules rs
 LEFT JOIN schedule_sections ss ON rs.id = ss.schedule_id
 LEFT JOIN possible_classes pc ON
@@ -51,4 +52,16 @@ LEFT JOIN possible_classes pc ON
     ss.course_number = pc.course_number AND
     ss.section_code = pc.section_code
 WHERE rs.rn > :offset AND rs.rn <= :offset + :limit
-ORDER BY rs.id DESC, ss.subject_code, ss.course_number, pc.day_of_week, pc.start_time;
+ORDER BY
+    rs.id,
+    CASE pc.day_of_week
+        WHEN 'Mon' THEN 1
+        WHEN 'Tue' THEN 2
+        WHEN 'Wed' THEN 3
+        WHEN 'Thu' THEN 4
+        WHEN 'Fri' THEN 5
+        WHEN 'Sat' THEN 6
+        WHEN 'Sun' THEN 7
+    END,
+    pc.start_time,
+    pc.end_time;

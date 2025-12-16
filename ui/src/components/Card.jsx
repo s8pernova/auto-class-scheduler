@@ -11,17 +11,7 @@ const formatTime = (timeStr) => {
 	return `${displayHour}:${minutes} ${ampm}`;
 };
 
-function Card({
-	schedule_id,
-	sections,
-	total_credits,
-	total_instructor_score,
-	earliest_start,
-	latest_end,
-	campus_pattern,
-	isFavorited,
-	onFavorite,
-}) {
+function Card(props) {
 	const rotation = useMemo(() => {
 		const values = [-2, -1, 1, 2];
 		return values[Math.floor(Math.random() * values.length)];
@@ -31,7 +21,7 @@ function Card({
 
 	const handleFavoriteClick = (e) => {
 		e.stopPropagation();
-		onFavorite();
+		props.onFavorite();
 	};
 
 	return (
@@ -42,13 +32,13 @@ function Card({
 			className="relative bg-[#182246] h-auto rounded-[3em] text-left flex flex-col hover:shadow-[0_0_0_5px_#fff] transition-all duration-250 ease-in-out overflow-hidden"
 		>
 			<div className="h-9 bg-green-500 flex justify-center items-center text-center text-green-900 font-bold gap-2 z-10">
-				<h2>Schedule #{schedule_id}</h2>
+				<h2>Schedule #{props.schedule_id}</h2>
 				<button
 					onClick={handleFavoriteClick}
 					className="cursor-pointer hover:scale-120 transition duration-250 ease-in-out"
-					aria-label={isFavorited ? "Unfavorite schedule" : "Favorite schedule"}
+					aria-label={props.isFavorited ? "Unfavorite schedule" : "Favorite schedule"}
 				>
-					{isFavorited ? (
+					{props.isFavorited ? (
 						<FaStar className="transition duration-250 ease-in-out text-yellow-400" />
 					) : (
 						<FaRegStar className="transition duration-250 ease-in-out hover:text-yellow-400" />
@@ -59,17 +49,17 @@ function Card({
 			<div className="p-3 overflow-y-auto h-100 space-y-3">
 				<div className="px-4 text-sm text-gray-300">
 					<p>
-						Credits: {total_credits} | Avg. Rating:{" "}
-						{total_instructor_score?.toFixed(1) || "N/A"}
+						Credits: {props.total_credits} | Avg. Rating:{" "}
+						{props.total_instructor_score?.toFixed(1)}
 					</p>
 					<p>
-						Time: {formatTime(earliest_start)} - {formatTime(latest_end)}
+						Time: {formatTime(props.earliest_start)} - {formatTime(props.latest_end)}
 					</p>
-					<p>Campus: {campus_pattern}</p>
+					<p>Campus: {props.campus_pattern}</p>
 				</div>
 
 				<div className="space-y-3">
-					{sections.map((section, idx) => (
+					{props.sections.map((section, idx) => (
 						<SectionCard
 							key={`${section.subject_code}-${section.course_number}-${section.section_code}-${idx}`}
 							section={section}

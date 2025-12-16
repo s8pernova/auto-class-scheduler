@@ -19,8 +19,8 @@ class Settings:
         ("PHY", 241),
         ("MTH", 265),
         ("CSC", 223),
-        # ("MTH", 288),
-        ("CSC", 208),
+        ("MTH", 288),
+        # ("CSC", 208),
     ]
 
 
@@ -66,6 +66,7 @@ class ScheduleSectionDetailResponse(BaseModel):
     section_code: str
     course_title: str
     credits: int
+    modality: str | None
     instructor_name: str | None
     instructor_rating: float | None
     meetings: list[MeetingResponse]

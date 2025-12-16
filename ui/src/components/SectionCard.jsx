@@ -14,7 +14,8 @@ export default function SectionCard({ section }) {
 				{section.subject_code} {section.course_number}
 			</h3>
 			<p className="text-sm text-gray-300">
-				Section: {section.section_code} | Credits: {section.credits}
+				Section: {section.section_code} | Credits: {section.credits} | Mode:{" "}
+				{section.modality}
 			</p>
 			{section.instructor_name && (
 				<p className="text-sm text-gray-300">

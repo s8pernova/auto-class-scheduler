@@ -184,17 +184,17 @@ def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: 
                 schedule_row
             )
             schedule_id = result.fetchone()[0]
-            schedule_data = {
-                "schedule_id": schedule_id,
-                "subject_code": sec.subject,
-                "course_number": sec.number,
-                "section_code": sec.section_code,
-                "course_title": sec.title,
-                "credits": sec.credits,
-            }
 
             # Insert the sections for this schedule
             for sec in sched:
+                schedule_data = {
+                    "schedule_id": schedule_id,
+                    "subject_code": sec.subject,
+                    "course_number": sec.number,
+                    "section_code": sec.section_code,
+                    "course_title": sec.title,
+                    "credits": sec.credits,
+                }
                 conn.execute(text(insert_section_sql), schedule_data)
 
     print(f"Generated {len(schedules)} valid schedules")

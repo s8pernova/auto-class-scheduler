@@ -149,6 +149,7 @@ async def get_schedules(
                     "section_code": row["section_code"],
                     "course_title": row["course_title"],
                     "credits": row["credits"],
+                    "modality": row["modality"],
                     "instructor_name": row["instructor_name"],
                     "instructor_rating": instructor_rating,
                     "meetings": []
