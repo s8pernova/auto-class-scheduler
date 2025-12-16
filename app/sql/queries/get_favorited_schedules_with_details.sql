@@ -17,6 +17,13 @@ WITH ranked_schedules AS (
         ROW_NUMBER() OVER (ORDER BY s.id DESC) as rn
     FROM schedules s
     INNER JOIN favorites f ON s.id = f.schedule_id
+    WHERE
+        -- Campus filter
+        (:campus_patterns IS NULL OR s.campus_pattern = ANY(:campus_patterns))
+        -- Time filter (exclude schedules in unselected time ranges)
+        AND (:include_morning = true OR s.earliest_start >= '12:00:00')
+        AND (:include_afternoon = true OR (s.earliest_start < '12:00:00' OR s.latest_end > '18:00:00'))
+        AND (:include_evening = true OR s.latest_end < '18:00:00')
 )
 SELECT
     rs.id,

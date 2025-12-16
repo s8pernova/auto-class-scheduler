@@ -10,16 +10,35 @@ const BASE_URL = '/api';
  * @param {boolean} options.favoritesOnly - If true, only return favorited schedules
  * @param {number} options.limit - Maximum number of schedules to return
  * @param {number} options.offset - Number of schedules to skip
+ * @param {Array<string>} options.campuses - Campus filters ('Annandale', 'Alexandria', 'Online')
+ * @param {Array<string>} options.times - Time filters ('Morning', 'Afternoon', 'Evening')
  * @returns {Promise<Array>} List of schedule summaries
  */
 export async function getSchedules(options = {}) {
-	const { favoritesOnly = false, limit = 50, offset = 0 } = options;
+	const {
+		favoritesOnly = false,
+		limit = 50,
+		offset = 0,
+		campuses = null,
+		times = null
+	} = options;
+
 	const params = new URLSearchParams();
 	if (favoritesOnly) {
 		params.append('favorites_only', 'true');
 	}
 	params.append('limit', limit.toString());
 	params.append('offset', offset.toString());
+
+	// Add campus filters
+	if (campuses && campuses.length > 0) {
+		campuses.forEach(campus => params.append('campuses', campus));
+	}
+
+	// Add time filters
+	if (times && times.length > 0) {
+		times.forEach(time => params.append('times', time));
+	}
 
 	const url = `${BASE_URL}/schedules?${params.toString()}`;
 	const response = await fetch(url);

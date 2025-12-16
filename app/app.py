@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from pandas import read_sql, isna
@@ -90,7 +92,9 @@ async def health_check():
 async def get_schedules(
     favorites_only: bool = False,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
+    campuses: Optional[list[str]] = Query(None),
+    times: Optional[list[str]] = Query(None)
 ):
     """Get all schedules with full details including instructor ratings and meeting times.
 
@@ -98,14 +102,46 @@ async def get_schedules(
         favorites_only: If True, only return favorited schedules
         limit: Maximum number of schedules to return (default 50)
         offset: Number of schedules to skip (default 0)
+        campuses: List of campus filters ('Annandale', 'Alexandria', 'Online')
+        times: List of time filters ('Morning', 'Afternoon', 'Evening')
     """
+    # Convert campus selections to campus_patterns
+    campus_patterns = None
+    if campuses:
+        patterns = set()
+        if 'Annandale' in campuses:
+            patterns.add('Annandale-only')
+        if 'Alexandria' in campuses:
+            patterns.add('Alexandria-only')
+        if 'Online' in campuses:
+            patterns.add('Online-only')
+        # Only include Mixed if both Annandale AND Alexandria are selected
+        if 'Annandale' in campuses and 'Alexandria' in campuses:
+            patterns.add('Mixed')
+        campus_patterns = list(patterns) if patterns else None
+
+    # Convert time selections to boolean flags
+    include_morning = times and 'Morning' in times
+    include_afternoon = times and 'Afternoon' in times
+    include_evening = times and 'Evening' in times
+
     query_file = (
         "queries/get_favorited_schedules_with_details"
         if favorites_only
         else "queries/get_schedules_with_details"
     )
     sql = utils.read_sql(query_file)
-    df = read_sql(text(sql), con=engs.engine, params={"limit": limit, "offset": offset})
+
+    params = {
+        'limit': limit,
+        'offset': offset,
+        'campus_patterns': campus_patterns,
+        'include_morning': include_morning,
+        'include_afternoon': include_afternoon,
+        'include_evening': include_evening
+    }
+
+    df = read_sql(text(sql), con=engs.engine, params=params)
 
     if df.empty:
         return []

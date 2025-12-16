@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import Card from "./components/Card.jsx";
+import FilterPanel from "./components/FilterPanel.jsx";
 import {
 	getSchedules,
 	getFavorites,
@@ -9,6 +11,7 @@ import {
 import "./App.css";
 
 function App() {
+	const [searchParams, setSearchParams] = useSearchParams();
 	const [schedules, setSchedules] = useState([]);
 	const [favorites, setFavorites] = useState(new Set());
 	const [loading, setLoading] = useState(true);
@@ -19,16 +22,46 @@ function App() {
 	const isLoadingRef = useRef(false);
 	const ITEMS_PER_PAGE = 50;
 
+	// Read filters from URL, or use defaults
+	// Use useMemo to prevent infinite re-renders by stabilizing array references
+	const selectedCampuses = useMemo(() => {
+		const campuses = searchParams.getAll('campuses');
+		return campuses.length > 0 ? campuses : ['Annandale', 'Alexandria', 'Online'];
+	}, [searchParams]);
+
+	const selectedTimes = useMemo(() => {
+		const times = searchParams.getAll('times');
+		return times.length > 0 ? times : ['Morning', 'Afternoon', 'Evening'];
+	}, [searchParams]);
+
+	// Functions to update URL when filters change
+	const handleCampusChange = (newCampuses) => {
+		const newParams = new URLSearchParams(searchParams);
+		newParams.delete('campuses');
+		newCampuses.forEach(c => newParams.append('campuses', c));
+		setSearchParams(newParams);
+	};
+
+	const handleTimeChange = (newTimes) => {
+		const newParams = new URLSearchParams(searchParams);
+		newParams.delete('times');
+		newTimes.forEach(t => newParams.append('times', t));
+		setSearchParams(newParams);
+	};
+
 	// Initial load
 	useEffect(() => {
 		async function fetchData() {
 			try {
+				setSchedules([]);  // Reset schedules when filters change
 				setLoading(true);
 				const [schedulesData, favoritesData] = await Promise.all([
 					getSchedules({
 						favoritesOnly: showOnlyFavorites,
 						limit: ITEMS_PER_PAGE,
 						offset: 0,
+						campuses: selectedCampuses,
+						times: selectedTimes
 					}),
 					getFavorites(),
 				]);
@@ -45,7 +78,7 @@ function App() {
 		}
 
 		fetchData();
-	}, [showOnlyFavorites]);
+	}, [showOnlyFavorites, selectedCampuses, selectedTimes]);
 
 	// Infinite scroll - load more when scrolling
 	useEffect(() => {
@@ -75,6 +108,8 @@ function App() {
 				favoritesOnly: showOnlyFavorites,
 				limit: ITEMS_PER_PAGE,
 				offset: currentOffset,
+				campuses: selectedCampuses,
+				times: selectedTimes
 			});
 
 			// Filter out any duplicates based on schedule_id
@@ -177,6 +212,14 @@ function App() {
 					{showOnlyFavorites ? "Show All" : "Show Favorites"}
 				</button>
 			</div>
+
+			<FilterPanel
+				selectedCampuses={selectedCampuses}
+				onCampusChange={handleCampusChange}
+				selectedTimes={selectedTimes}
+				onTimeChange={handleTimeChange}
+			/>
+
 			<div className="p-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-10">
 				{schedules.map((schedule) => (
 					<Card
