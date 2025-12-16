@@ -1,13 +1,20 @@
+import { RiCalendarScheduleLine } from "react-icons/ri";
 import { useFilters } from "../contexts/FavoritesContext";
+import { Link } from "react-router-dom";
 import FilterPanel from "./FilterPanel";
 
 export default function Navbar() {
 	const { showOnlyFavorites, setShowOnlyFavorites } = useFilters();
 
 	return (
-		<div className="sticky top-0 z-99 bg-gray-800">
+		<div className="sticky top-0 z-99 bg-gray-800/90">
 			<div className="flex justify-between items-center h-12 px-20">
-				<h1 className="text-2xl font-bold">Possible Schedules</h1>
+				<div className="flex justify-center items-center gap-3">
+					<Link to="/" className="text-2xl font-bold">
+						Possible Schedules
+					</Link>
+					<RiCalendarScheduleLine className="w-6 h-6 rotate-15" />
+				</div>
 				<FilterPanel />
 				<button
 					onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
