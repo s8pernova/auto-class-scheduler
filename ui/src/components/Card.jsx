@@ -36,7 +36,9 @@ function Card(props) {
 				<button
 					onClick={handleFavoriteClick}
 					className="cursor-pointer hover:scale-120 transition duration-250 ease-in-out"
-					aria-label={props.isFavorited ? "Unfavorite schedule" : "Favorite schedule"}
+					aria-label={
+						props.isFavorited ? "Unfavorite schedule" : "Favorite schedule"
+					}
 				>
 					{props.isFavorited ? (
 						<FaStar className="transition duration-250 ease-in-out text-yellow-400" />
@@ -46,14 +48,15 @@ function Card(props) {
 				</button>
 			</div>
 
-			<div className="p-3 overflow-y-auto h-100 space-y-3">
+			<div className="card-scrollbar p-3 overflow-y-auto h-100 space-y-3">
 				<div className="px-4 text-sm text-gray-300">
 					<p>
 						Credits: {props.total_credits} | Avg. Rating:{" "}
 						{props.total_instructor_score?.toFixed(1)}
 					</p>
 					<p>
-						Time: {formatTime(props.earliest_start)} - {formatTime(props.latest_end)}
+						Time: {formatTime(props.earliest_start)} -{" "}
+						{formatTime(props.latest_end)}
 					</p>
 					<p>Campus: {props.campus_pattern}</p>
 				</div>
