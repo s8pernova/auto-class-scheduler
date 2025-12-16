@@ -10,6 +10,7 @@ import {
 	unfavoriteSchedule,
 } from "./api/client.js";
 import Loading from "./components/Loading.jsx";
+import Error from "./components/Error.jsx";
 import "./App.css";
 
 function App() {
@@ -141,25 +142,11 @@ function App() {
 	};
 
 	if (loading) {
-		return (
-			<div className="p-10 text-center">
-				<p className="text-xl">Loading schedules...</p>
-			</div>
-		);
+		return <Loading />;
 	}
 
-	if (error) {
-		return (
-			<div className="p-10 text-center">
-				<p className="text-xl text-red-500">Error: {error}</p>
-				<button
-					onClick={() => window.location.reload()}
-					className="px-5 py-2 bg-blue-500 text-white rounded-full font-semibold cursor-pointer"
-				>
-					Retry
-				</button>
-			</div>
-		);
+	if (!error) {
+		return <Error error={error} />;
 	}
 
 	if (schedules.length === 0) {
