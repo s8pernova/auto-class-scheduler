@@ -47,7 +47,7 @@ function Card(props) {
 					)}
 				</button>
 			</div>
-
+ 
 			<div className="card-scrollbar p-3 overflow-y-auto h-100 space-y-3">
 				<div className="px-4 text-sm text-gray-300">
 					<p>
