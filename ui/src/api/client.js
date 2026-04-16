@@ -2,7 +2,7 @@
  * API client for the Schedule Planner backend
  */
 
-const BASE_URL = '/api';
+const BASE_URL = "/api";
 
 /**
  * Fetch all schedules
@@ -14,30 +14,28 @@ const BASE_URL = '/api';
  * @param {Array<string>} options.times - Time filters ('Morning', 'Afternoon', 'Evening')
  * @returns {Promise<Array>} List of schedule summaries
  */
-export async function getSchedules(options = {}) {
-	const {
-		favoritesOnly = false,
-		limit = 50,
-		offset = 0,
-		campuses = null,
-		times = null
-	} = options;
-
+export async function getSchedules({
+	favoritesOnly = false,
+	limit = 50,
+	offset = 0,
+	campuses = null,
+	times = null,
+} = {}) {
 	const params = new URLSearchParams();
 	if (favoritesOnly) {
-		params.append('favorites_only', 'true');
+		params.append("favorites_only", "true");
 	}
-	params.append('limit', limit.toString());
-	params.append('offset', offset.toString());
+	params.append("limit", limit.toString());
+	params.append("offset", offset.toString());
 
 	// Add campus filters
 	if (campuses && campuses.length > 0) {
-		campuses.forEach(campus => params.append('campuses', campus));
+		campuses.forEach((campus) => params.append("campuses", campus));
 	}
 
 	// Add time filters
 	if (times && times.length > 0) {
-		times.forEach(time => params.append('times', time));
+		times.forEach((time) => params.append("times", time));
 	}
 
 	const url = `${BASE_URL}/schedules?${params.toString()}`;
@@ -67,7 +65,7 @@ export async function getFavorites() {
  */
 export async function favoriteSchedule(scheduleId) {
 	const response = await fetch(`${BASE_URL}/favorite/${scheduleId}`, {
-		method: 'POST',
+		method: "POST",
 	});
 
 	if (!response.ok) {
@@ -86,7 +84,7 @@ export async function favoriteSchedule(scheduleId) {
  */
 export async function unfavoriteSchedule(scheduleId) {
 	const response = await fetch(`${BASE_URL}/favorite/${scheduleId}`, {
-		method: 'DELETE',
+		method: "DELETE",
 	});
 
 	if (!response.ok) {
@@ -105,7 +103,7 @@ export async function unfavoriteSchedule(scheduleId) {
 export async function healthCheck() {
 	const response = await fetch(`${BASE_URL}/health`);
 	if (!response.ok) {
-		throw new Error('Health check failed');
+		throw new Error("Health check failed");
 	}
 	return response.json();
 }
