@@ -1,20 +1,17 @@
 from __future__ import annotations
 
+import itertools
+import math
 from dataclasses import dataclass
 from datetime import time
 from typing import Optional
-import itertools
-import math
 
 import pandas as pd
+from models import Directories as dirs
+from models import Engines
+from models import Settings as sets
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
-
-from models import (
-    Directories as dirs,
-    Settings as sets,
-    Engines
-)
 from utilities import Utilities as utils
 
 engs = Engines()
@@ -40,7 +37,9 @@ class Section:
     rating: Optional[float] = None
 
 
-def load_sections(engine: Engine, sql_query: str) -> dict[tuple[str, int], list[Section]]:
+def load_sections(
+    engine: Engine, sql_query: str
+) -> dict[tuple[str, int], list[Section]]:
     df = pd.read_sql(sql_query, con=engine)
 
     df["start_time"] = df["start_time"].astype(str)
@@ -169,7 +168,7 @@ def compute_schedule_summary(sections: list[Section]) -> dict:
     }
 
 
-def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: Directories):
+def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: dirs):
     insert_schedule_sql = utils.read_sql("mutations/insert_schedules")
     insert_section_sql = utils.read_sql("mutations/insert_schedule_sections")
 
@@ -179,10 +178,7 @@ def write_schedules_to_db(engine: Engine, schedules: list[list[Section]], dirs: 
 
         # Insert the schedule and get the generated ID
         with engine.begin() as conn:
-            result = conn.execute(
-                text(insert_schedule_sql),
-                schedule_row
-            )
+            result = conn.execute(text(insert_schedule_sql), schedule_row)
             schedule_id = result.fetchone()[0]
 
             # Insert the sections for this schedule

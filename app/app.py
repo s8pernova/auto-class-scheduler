@@ -2,20 +2,19 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-from pandas import read_sql, isna
-
-from utilities import Utilities as utils
 from models import (
     Engines,
-    HealthResponse,
-    ScheduleDetailResponse,
-    ScheduleSummaryResponse,
-    ScheduleSectionResponse,
-    ScheduleSectionDetailResponse,
-    MeetingResponse,
     FavoriteResponse,
+    HealthResponse,
+    MeetingResponse,
+    ScheduleDetailResponse,
+    ScheduleSectionDetailResponse,
+    ScheduleSectionResponse,
+    ScheduleSummaryResponse,
 )
+from pandas import isna, read_sql
+from sqlalchemy import text
+from utilities import Utilities as utils
 
 app = FastAPI(
     title="Schedule Planner",
@@ -94,7 +93,7 @@ async def get_schedules(
     limit: int = 50,
     offset: int = 0,
     campuses: Optional[list[str]] = Query(None),
-    times: Optional[list[str]] = Query(None)
+    times: Optional[list[str]] = Query(None),
 ):
     """Get all schedules with full details including instructor ratings and meeting times.
 
@@ -109,21 +108,21 @@ async def get_schedules(
     campus_patterns = None
     if campuses:
         patterns = set()
-        if 'Annandale' in campuses:
-            patterns.add('Annandale-only')
-        if 'Alexandria' in campuses:
-            patterns.add('Alexandria-only')
-        if 'Online' in campuses:
-            patterns.add('Online-only')
+        if "Annandale" in campuses:
+            patterns.add("Annandale-only")
+        if "Alexandria" in campuses:
+            patterns.add("Alexandria-only")
+        if "Online" in campuses:
+            patterns.add("Online-only")
         # Only include Mixed if both Annandale AND Alexandria are selected
-        if 'Annandale' in campuses and 'Alexandria' in campuses:
-            patterns.add('Mixed')
+        if "Annandale" in campuses and "Alexandria" in campuses:
+            patterns.add("Mixed")
         campus_patterns = list(patterns) if patterns else None
 
     # Convert time selections to boolean flags
-    include_morning = times and 'Morning' in times
-    include_afternoon = times and 'Afternoon' in times
-    include_evening = times and 'Evening' in times
+    include_morning = times and "Morning" in times
+    include_afternoon = times and "Afternoon" in times
+    include_evening = times and "Evening" in times
 
     query_file = (
         "queries/get_favorited_schedules_with_details"
@@ -133,12 +132,12 @@ async def get_schedules(
     sql = utils.read_sql(query_file)
 
     params = {
-        'limit': limit,
-        'offset': offset,
-        'campus_patterns': campus_patterns,
-        'include_morning': include_morning,
-        'include_afternoon': include_afternoon,
-        'include_evening': include_evening
+        "limit": limit,
+        "offset": offset,
+        "campus_patterns": campus_patterns,
+        "include_morning": include_morning,
+        "include_afternoon": include_afternoon,
+        "include_evening": include_evening,
     }
 
     df = read_sql(text(sql), con=engs.engine, params=params)
@@ -168,16 +167,22 @@ async def get_schedules(
                 "latest_end": row["latest_end"],
                 "campus_pattern": row["campus_pattern"],
                 "created_at": row["created_at"],
-                "sections_dict": {}
+                "sections_dict": {},
             }
 
         # Add section data
         if row["subject_code"] is not None:
-            section_key = (row["subject_code"], row["course_number"], row["section_code"])
+            section_key = (
+                row["subject_code"],
+                row["course_number"],
+                row["section_code"],
+            )
 
             if section_key not in schedules_dict[schedule_id]["sections_dict"]:
                 # Handle NaN values for instructor_rating - convert to None for JSON serialization
-                instructor_rating = None if isna(row["instructor_rating"]) else row["instructor_rating"]
+                instructor_rating = (
+                    None if isna(row["instructor_rating"]) else row["instructor_rating"]
+                )
 
                 schedules_dict[schedule_id]["sections_dict"][section_key] = {
                     "subject_code": row["subject_code"],
@@ -188,17 +193,19 @@ async def get_schedules(
                     "modality": row["modality"],
                     "instructor_name": row["instructor_name"],
                     "instructor_rating": instructor_rating,
-                    "meetings": []
+                    "meetings": [],
                 }
 
             # Add meeting if it exists
             if row["day_of_week"] is not None:
-                schedules_dict[schedule_id]["sections_dict"][section_key]["meetings"].append(
+                schedules_dict[schedule_id]["sections_dict"][section_key][
+                    "meetings"
+                ].append(
                     MeetingResponse(
                         day_of_week=row["day_of_week"],
                         start_time=row["start_time"],
                         end_time=row["end_time"],
-                        campus=row["campus"]
+                        campus=row["campus"],
                     )
                 )
 
@@ -210,23 +217,25 @@ async def get_schedules(
             for section_data in schedule_data["sections_dict"].values()
         ]
 
-        schedules.append(ScheduleSummaryResponse(
-            schedule_id=schedule_data["schedule_id"],
-            total_credits=schedule_data["total_credits"],
-            total_instructor_score=schedule_data["total_instructor_score"],
-            num_sections=schedule_data["num_sections"],
-            meets_mon=schedule_data["meets_mon"],
-            meets_tue=schedule_data["meets_tue"],
-            meets_wed=schedule_data["meets_wed"],
-            meets_thu=schedule_data["meets_thu"],
-            meets_fri=schedule_data["meets_fri"],
-            meets_sat=schedule_data["meets_sat"],
-            earliest_start=schedule_data["earliest_start"],
-            latest_end=schedule_data["latest_end"],
-            campus_pattern=schedule_data["campus_pattern"],
-            created_at=schedule_data["created_at"],
-            sections=sections
-        ))
+        schedules.append(
+            ScheduleSummaryResponse(
+                schedule_id=schedule_data["schedule_id"],
+                total_credits=schedule_data["total_credits"],
+                total_instructor_score=schedule_data["total_instructor_score"],
+                num_sections=schedule_data["num_sections"],
+                meets_mon=schedule_data["meets_mon"],
+                meets_tue=schedule_data["meets_tue"],
+                meets_wed=schedule_data["meets_wed"],
+                meets_thu=schedule_data["meets_thu"],
+                meets_fri=schedule_data["meets_fri"],
+                meets_sat=schedule_data["meets_sat"],
+                earliest_start=schedule_data["earliest_start"],
+                latest_end=schedule_data["latest_end"],
+                campus_pattern=schedule_data["campus_pattern"],
+                created_at=schedule_data["created_at"],
+                sections=sections,
+            )
+        )
 
     return schedules
 
@@ -247,9 +256,7 @@ async def favorite_schedule(schedule_id: int):
     # Check if schedule exists
     schedule = get_schedule_by_id(schedule_id)
     if schedule is None:
-        raise HTTPException(
-            status_code=404, detail=f"Schedule {schedule_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Schedule {schedule_id} not found")
 
     # Insert favorite (or update if already exists)
     sql = utils.read_sql("mutations/upsert_favorite")
@@ -271,16 +278,12 @@ async def unfavorite_schedule(schedule_id: int):
     sql = utils.read_sql("mutations/delete_favorite")
 
     with engs.engine.begin() as conn:
-        result = conn.execute(
-            text(sql),
-            {"schedule_id": schedule_id}
-        )
+        result = conn.execute(text(sql), {"schedule_id": schedule_id})
         row = result.fetchone()
 
         if row is None:
             raise HTTPException(
-                status_code=404,
-                detail=f"Schedule {schedule_id} is not favorited"
+                status_code=404, detail=f"Schedule {schedule_id} is not favorited"
             )
 
     return {"schedule_id": schedule_id, "message": "Unfavorited successfully"}

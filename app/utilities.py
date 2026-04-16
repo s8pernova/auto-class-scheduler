@@ -1,4 +1,4 @@
-from datetime import time, datetime, timezone
+from datetime import datetime, time, timezone
 
 from models import Directories as dirs
 
