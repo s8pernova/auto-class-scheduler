@@ -14,7 +14,7 @@ from models import (
 )
 from pandas import isna, read_sql
 from sqlalchemy import text
-from utilities import Utilities as utils
+from backend.utils import Utilities as utils
 
 app = FastAPI(
     title="Schedule Planner",
