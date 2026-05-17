@@ -14,7 +14,7 @@ from backend.core.models import Meeting, Section
 from backend.utils import parse_time_str
 from supabase import Client
 
-# ── Section Loading ───────────────────────────────────────────────────
+# Section Loading
 
 
 def load_sections(
@@ -77,7 +77,7 @@ def load_sections(
     return sections_by_course
 
 
-# ── Conflict Detection ────────────────────────────────────────────────
+# Conflict Detection
 
 
 def _meetings_conflict(m1: Meeting, m2: Meeting) -> bool:
@@ -105,7 +105,7 @@ def _schedule_is_valid(sections: list[Section]) -> bool:
     return True
 
 
-# ── Schedule Generation ──────────────────────────────────────────────
+# Schedule Generation
 
 
 def generate_schedules(

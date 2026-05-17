@@ -6,7 +6,7 @@ from datetime import datetime, time
 
 from pydantic import BaseModel
 
-# ── Nested Components ─────────────────────────────────────────────────
+# Nested Components
 
 
 class MeetingResponse(BaseModel):
@@ -42,7 +42,7 @@ class ScheduleSectionResponse(BaseModel):
     credits: int
 
 
-# ── Top-Level Schedule Responses ─────────────────────────────────────
+# Top-Level Schedule Responses
 
 
 class _ScheduleBase(BaseModel):

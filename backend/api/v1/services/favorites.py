@@ -4,9 +4,8 @@ Favorites service — Supabase edition.
 
 from __future__ import annotations
 
-from supabase import Client
-
 from backend.api.v1.schemas.favorites import FavoriteResponse
+from supabase import Client
 
 
 def list_favorite_ids(client: Client) -> list[int]:
@@ -39,10 +38,5 @@ def create_favorite(client: Client, schedule_id: int) -> FavoriteResponse:
 
 def delete_favorite(client: Client, schedule_id: int) -> bool:
     """Remove a favorite.  Returns ``True`` if a row was deleted."""
-    resp = (
-        client.table("favorites")
-        .delete()
-        .eq("schedule_id", schedule_id)
-        .execute()
-    )
+    resp = client.table("favorites").delete().eq("schedule_id", schedule_id).execute()
     return len(resp.data) > 0

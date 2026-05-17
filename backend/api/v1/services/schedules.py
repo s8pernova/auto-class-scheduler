@@ -4,16 +4,14 @@ Schedule query service — Supabase edition.
 
 from __future__ import annotations
 
-from supabase import Client
-
 from backend.api.v1.schemas.schedules import (
     MeetingResponse,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
 )
+from supabase import Client
 
-
-# ── Public API ────────────────────────────────────────────────────────
+# Public API
 
 
 def get_schedule_exists(client: Client, schedule_id: int) -> bool:
@@ -38,7 +36,7 @@ def list_schedules(
 ) -> list[ScheduleSummaryResponse]:
     """Paginated schedule listing with optional filters."""
 
-    # ── 1. Query schedules (with embedded sections) ───────────────
+    # 1. Query schedules (with embedded sections)
     if favorites_only:
         # !inner turns the LEFT JOIN into an INNER JOIN — only
         # schedules that appear in `favorites` are returned.
@@ -46,9 +44,7 @@ def list_schedules(
             "*, favorites!inner(favorited_at), schedule_sections(*)"
         )
     else:
-        query = client.table("schedules").select(
-            "*, schedule_sections(*)"
-        )
+        query = client.table("schedules").select("*, schedule_sections(*)")
 
     # Campus filter
     campus_patterns = _resolve_campus_patterns(campuses)
@@ -69,14 +65,14 @@ def list_schedules(
     if not schedules_data:
         return []
 
-    # ── 2. Fetch possible_classes for meeting / instructor data ───
+    # 2. Fetch possible_classes for meeting / instructor data
     classes_lookup = _build_classes_lookup(client, schedules_data)
 
-    # ── 3. Assemble response objects ──────────────────────────────
+    # 3. Assemble response objects
     return _assemble_responses(schedules_data, classes_lookup)
 
 
-# ── Internal Helpers ──────────────────────────────────────────────────
+# Internal Helpers
 
 
 def _resolve_campus_patterns(campuses: list[str] | None) -> list[str] | None:
@@ -101,9 +97,7 @@ def _build_time_filter(times: list[str] | None) -> str | None:
     if "Morning" in times:
         clauses.append("earliest_start.lt.12:00:00")
     if "Afternoon" in times:
-        clauses.append(
-            "and(earliest_start.gte.12:00:00,earliest_start.lt.17:00:00)"
-        )
+        clauses.append("and(earliest_start.gte.12:00:00,earliest_start.lt.17:00:00)")
     if "Evening" in times:
         clauses.append("earliest_start.gte.17:00:00")
     return ",".join(clauses) if clauses else None
