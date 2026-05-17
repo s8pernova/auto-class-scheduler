@@ -1,7 +1,7 @@
 """
 Application settings.
 
-Single ``BaseSettings`` class — reads from ``.env`` automatically.
+Single ``BaseSettings`` class - reads from ``.env`` automatically.
 No directory classes, no secrets wrappers, no hardcoded paths.
 """
 
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
         "http://localhost:5174",
     ]
 
-    # !! LEGACY !!
+    # NOTE: LEGACY CODE
     # Schedule Generator
     target_courses: list[tuple[str, int]] = [
         ("PHY", 241),

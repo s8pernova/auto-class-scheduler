@@ -1,5 +1,5 @@
 """
-CLI entry point — generate all valid schedules and persist them.
+CLI entry point - generate all valid schedules and persist them.
 
 Usage::
 

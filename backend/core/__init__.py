@@ -1,4 +1,4 @@
-"""Core domain package — schedule generation, validation, and persistence."""
+"""Core domain package - schedule generation, validation, and persistence."""
 
 from backend.core.generator import (
     compute_schedule_summary,

@@ -23,7 +23,7 @@ async def favorite_schedule(
     schedule_id: int,
     client: SupabaseDep,
 ) -> FavoriteResponse:
-    """Favorite a schedule (idempotent — re-favoriting refreshes the timestamp)."""
+    """Favorite a schedule (idempotent - re-favoriting refreshes the timestamp)."""
     if not schedule_service.get_schedule_exists(client, schedule_id):
         raise HTTPException(
             status_code=404,

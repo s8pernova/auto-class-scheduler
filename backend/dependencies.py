@@ -25,7 +25,7 @@ def _create_supabase_client() -> Client:
 
 
 def get_supabase() -> Client:
-    """FastAPI dependency — provides the Supabase client."""
+    """FastAPI dependency - provides the Supabase client."""
     return _create_supabase_client()
 
 

@@ -1,5 +1,5 @@
 """
-Schedule query service — Supabase edition.
+Schedule query service - Supabase edition.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def list_schedules(
 
     # 1. Query schedules (with embedded sections)
     if favorites_only:
-        # !inner turns the LEFT JOIN into an INNER JOIN — only
+        # !inner turns the LEFT JOIN into an INNER JOIN - only
         # schedules that appear in `favorites` are returned.
         query = client.table("schedules").select(
             "*, favorites!inner(favorited_at), schedule_sections(*)"
@@ -75,6 +75,7 @@ def list_schedules(
 # Internal Helpers
 
 
+# NOTE: LEGACY CODE
 def _resolve_campus_patterns(campuses: list[str] | None) -> list[str] | None:
     if not campuses:
         return None

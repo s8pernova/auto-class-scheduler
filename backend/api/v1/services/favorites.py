@@ -1,5 +1,5 @@
 """
-Favorites service — Supabase edition.
+Favorites service - Supabase edition.
 """
 
 from __future__ import annotations
