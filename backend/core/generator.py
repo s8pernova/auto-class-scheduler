@@ -19,9 +19,24 @@ from supabase import Client
 
 def load_sections(
     client: Client,
+    *,
+    term: str | None = None,
+    campuses: list[str] | None = None,
+    modalities: list[str] | None = None,
+    exclude_honors: bool = False,
+    seats_available_only: bool = False,
 ) -> dict[tuple[str, int], list[Section]]:
-    """Fetch all possible classes from Supabase, grouped by course."""
-    resp = (
+    """Fetch all possible classes from Supabase, grouped by course.
+
+    Args:
+        client: Supabase client.
+        term: Only load classes for this term (e.g. ``'Fall 2026'``).
+        campuses: Only include sections at these campuses.
+        modalities: Only include sections with these modalities.
+        exclude_honors: Drop honors sections.
+        seats_available_only: Only include sections with open seats.
+    """
+    query = (
         client.table("possible_classes")
         .select(
             "subject_code, course_number, section_code, course_title, "
@@ -31,8 +46,21 @@ def load_sections(
         .order("subject_code")
         .order("course_number")
         .order("section_code")
-        .execute()
     )
+
+    # PostgREST-level filters
+    if term:
+        query = query.eq("term_name", term)
+    if campuses:
+        query = query.in_("campus", campuses)
+    if modalities:
+        query = query.in_("modality", modalities)
+    if exclude_honors:
+        query = query.eq("is_honors", False)
+    if seats_available_only:
+        query = query.gt("seats_available", 0)
+
+    resp = query.execute()
 
     # Group rows by (subject, number, section) to build Section objects.
     grouped: dict[tuple[str, int, str], list[dict]] = {}
@@ -94,11 +122,17 @@ def _campus_switch_same_day(m1: Meeting, m2: Meeting) -> bool:
     return m1.campus != m2.campus
 
 
-def _schedule_is_valid(sections: list[Section]) -> bool:
+def _schedule_is_valid(
+    sections: list[Section],
+    *,
+    allow_campus_switch: bool = False,
+) -> bool:
     all_meetings = [m for sec in sections for m in sec.meetings]
     for i in range(len(all_meetings)):
         for j in range(i + 1, len(all_meetings)):
-            if _campus_switch_same_day(all_meetings[i], all_meetings[j]):
+            if not allow_campus_switch and _campus_switch_same_day(
+                all_meetings[i], all_meetings[j]
+            ):
                 return False
             if _meetings_conflict(all_meetings[i], all_meetings[j]):
                 return False
@@ -111,13 +145,15 @@ def _schedule_is_valid(sections: list[Section]) -> bool:
 def generate_schedules(
     sections_by_course: dict[tuple[str, int], list[Section]],
     target_courses: list[tuple[str, int]],
+    *,
+    allow_campus_switch: bool = False,
 ) -> list[list[Section]]:
     """Return every conflict-free combination of sections for *target_courses*."""
     pools = [sections_by_course[key] for key in target_courses]
     return [
         list(combo)
         for combo in itertools.product(*pools)
-        if _schedule_is_valid(list(combo))
+        if _schedule_is_valid(list(combo), allow_campus_switch=allow_campus_switch)
     ]
 
 
