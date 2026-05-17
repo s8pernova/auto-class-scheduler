@@ -1,19 +1,19 @@
 """
-CLI entry point - generate all valid schedules and persist them.
+CLI entry point
 
-Usage::
-
-    python -m backend.main
+Generate all valid schedules and persist them.
 """
 
 from __future__ import annotations
+
+from typing import Optional
 
 from backend.config import Settings
 from backend.core import generate_schedules, load_sections, write_schedules_to_db
 from backend.dependencies import get_supabase
 
 
-def main() -> None:
+def main(argv: Optional[list[str]] = None) -> None:
     """Load possible courses, generate conflict-free schedules, and write to Supabase."""
     client = get_supabase()
     settings = Settings()
