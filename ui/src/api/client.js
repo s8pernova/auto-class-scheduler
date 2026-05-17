@@ -1,8 +1,10 @@
 /**
- * API client for the Schedule Planner backend
+ * API client for the Schedule Planner backend.
+ *
+ * All requests target the versioned ``/api/v1`` namespace.
  */
 
-const BASE_URL = "/api";
+const BASE_URL = "/api/v1";
 
 /**
  * Fetch all schedules
@@ -64,7 +66,7 @@ export async function getFavorites() {
  * @returns {Promise<Object>} Favorite response
  */
 export async function favoriteSchedule(scheduleId) {
-	const response = await fetch(`${BASE_URL}/favorite/${scheduleId}`, {
+	const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
 		method: "POST",
 	});
 
@@ -83,7 +85,7 @@ export async function favoriteSchedule(scheduleId) {
  * @returns {Promise<Object>} Unfavorite response
  */
 export async function unfavoriteSchedule(scheduleId) {
-	const response = await fetch(`${BASE_URL}/favorite/${scheduleId}`, {
+	const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
 		method: "DELETE",
 	});
 
