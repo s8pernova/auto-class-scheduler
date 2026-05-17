@@ -20,12 +20,13 @@ class Settings(BaseSettings):
 
     # Supabase
     supabase_url: str
-    supabase_key: str  # anon key (or service-role for admin ops)
+    supabase_anon_key: str  # anon key (or service-role for admin ops)
+    supabase_service_key: str  # anon key (or service-role for admin ops)
 
     # App
     app_title: str = "Schedule Planner API"
     app_description: str = "Tools for querying and managing possible class schedules."
-    app_version: str = "1.0.0"
+    app_version: str = "2.0.0"
 
     cors_origins: list[str] = [
         "http://localhost:5173",
