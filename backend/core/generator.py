@@ -114,6 +114,8 @@ def _meetings_conflict(m1: Meeting, m2: Meeting) -> bool:
     return max(m1.start, m2.start) < min(m1.end, m2.end)
 
 
+# NOTE: LEGACY CODE
+# Other schools may use "Online", "Remote", etc.
 def _campus_switch_same_day(m1: Meeting, m2: Meeting) -> bool:
     if m1.day != m2.day:
         return False
@@ -168,6 +170,7 @@ def compute_schedule_summary(sections: list[Section]) -> dict:
 
     days_hit = {day: any(m.day == day for m in meetings) for day in days}
 
+    # NOTE: LEGACY CODE
     in_person = {m.campus for m in meetings if m.campus != "Zoom"}
     if len(in_person) == 0:
         campus_pattern = "Online-only"
