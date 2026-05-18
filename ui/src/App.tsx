@@ -1,26 +1,28 @@
 import { useState, useEffect, useRef } from "react";
-import { useFilters } from "./contexts/FavoritesContext.jsx";
-import { useScheduleFilters } from "./contexts/ScheduleFilterContext.jsx";
-import Card from "./components/Card.jsx";
-import Navbar from "./components/Navbar.jsx";
-import Loading from "./components/Loading.jsx";
-import Error from "./components/Error.jsx";
+import { useFilters } from "./contexts/FavoritesContext";
+import { useScheduleFilters } from "./contexts/ScheduleFilterContext";
+import Card, { CardProps } from "./components/Card";
+import Navbar from "./components/Navbar";
+import Loading from "./components/Loading";
+import ErrorComponent from "./components/Error";
 import {
     getSchedules,
     getFavorites,
     favoriteSchedule,
     unfavoriteSchedule,
-} from "./api/client.js";
+} from "./api/client";
 import "./App.css";
+
+type ScheduleData = Omit<CardProps, "isFavorited" | "onFavorite">;
 
 function App() {
     const { showOnlyFavorites } = useFilters();
     const { selectedCampuses, selectedTimes } = useScheduleFilters();
-    const [schedules, setSchedules] = useState([]);
-    const [favorites, setFavorites] = useState(new Set());
+    const [schedules, setSchedules] = useState<ScheduleData[]>([]);
+    const [favorites, setFavorites] = useState<Set<number | string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const isLoadingRef = useRef(false);
     const ITEMS_PER_PAGE = 50;
@@ -44,7 +46,7 @@ function App() {
             setHasMore(schedulesData.length === ITEMS_PER_PAGE);
             setError(null);
         } catch (err) {
-            setError(err.message);
+            setError(err instanceof Error ? err.message : String(err));
             console.error("Failed to fetch data:", err);
         } finally {
             setLoading(false);
@@ -98,7 +100,7 @@ function App() {
             setSchedules((prev) => {
                 const existingIds = new Set(prev.map((s) => s.schedule_id));
                 const newSchedules = moreSchedules.filter(
-                    (s) => !existingIds.has(s.schedule_id)
+                    (s: ScheduleData) => !existingIds.has(s.schedule_id)
                 );
                 return [...prev, ...newSchedules];
             });
@@ -111,7 +113,7 @@ function App() {
         }
     };
 
-    const handleFavorite = async (scheduleId) => {
+    const handleFavorite = async (scheduleId: number | string) => {
         const isFavorited = favorites.has(scheduleId);
 
         // Optimistic update
@@ -143,7 +145,7 @@ function App() {
                 return newFavorites;
             });
             console.error("Failed to toggle favorite:", err);
-            alert(`Error: ${err.message}`);
+            alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
         }
     };
 
@@ -152,7 +154,7 @@ function App() {
     }
 
     if (error) {
-        return <Error error={error} />;
+        return <ErrorComponent error={error} />;
     }
 
     if (schedules.length === 0) {

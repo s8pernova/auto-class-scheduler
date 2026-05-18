@@ -1,9 +1,16 @@
-import { createContext, useContext, useMemo, useEffect } from 'react';
+import { createContext, useContext, useMemo, useEffect, ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-const ScheduleFilterContext = createContext(null);
+interface ScheduleFilterContextType {
+	selectedCampuses: string[];
+	selectedTimes: string[];
+	handleCampusChange: (newCampuses: string[]) => void;
+	handleTimeChange: (newTimes: string[]) => void;
+}
 
-export function ScheduleFilterProvider({ children }) {
+const ScheduleFilterContext = createContext<ScheduleFilterContextType | null>(null);
+
+export function ScheduleFilterProvider({ children }: { children: ReactNode }) {
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	// Initialize URL params on first load if they don't exist
@@ -38,14 +45,14 @@ export function ScheduleFilterProvider({ children }) {
 	}, [searchParams]);
 
 	// Functions to update URL when filters change
-	const handleCampusChange = (newCampuses) => {
+	const handleCampusChange = (newCampuses: string[]) => {
 		const newParams = new URLSearchParams(searchParams);
 		newParams.delete('campuses');
 		newCampuses.forEach(c => newParams.append('campuses', c));
 		setSearchParams(newParams);
 	};
 
-	const handleTimeChange = (newTimes) => {
+	const handleTimeChange = (newTimes: string[]) => {
 		const newParams = new URLSearchParams(searchParams);
 		newParams.delete('times');
 		newTimes.forEach(t => newParams.append('times', t));
