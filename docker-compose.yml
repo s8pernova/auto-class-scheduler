@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - scheduler_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+    ports:
+      - "8020:8020"
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - scheduler_network
+
+networks:
+  scheduler_network:
+    driver: bridge
