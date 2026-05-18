@@ -14,6 +14,42 @@ from backend.core.models import Meeting, Section
 from backend.utils import parse_time_str
 from supabase import Client
 
+# Conflict Detection
+
+
+def _meetings_conflict(m1: Meeting, m2: Meeting) -> bool:
+    if m1.day != m2.day:
+        return False
+    return max(m1.start, m2.start) < min(m1.end, m2.end)
+
+
+# NOTE: LEGACY CODE
+# Other schools may use "Online", "Remote", etc.
+def _campus_switch_same_day(m1: Meeting, m2: Meeting) -> bool:
+    if m1.day != m2.day:
+        return False
+    if m1.campus == "Zoom" or m2.campus == "Zoom":
+        return False
+    return m1.campus != m2.campus
+
+
+def _schedule_is_valid(
+    sections: list[Section],
+    *,
+    allow_campus_switch: bool = False,
+) -> bool:
+    all_meetings = [m for sec in sections for m in sec.meetings]
+    for i in range(len(all_meetings)):
+        for j in range(i + 1, len(all_meetings)):
+            if not allow_campus_switch and _campus_switch_same_day(
+                all_meetings[i], all_meetings[j]
+            ):
+                return False
+            if _meetings_conflict(all_meetings[i], all_meetings[j]):
+                return False
+    return True
+
+
 # Section Loading
 
 
@@ -103,42 +139,6 @@ def load_sections(
         sections_by_course.setdefault((sub, int(num)), []).append(sec_obj)
 
     return sections_by_course
-
-
-# Conflict Detection
-
-
-def _meetings_conflict(m1: Meeting, m2: Meeting) -> bool:
-    if m1.day != m2.day:
-        return False
-    return max(m1.start, m2.start) < min(m1.end, m2.end)
-
-
-# NOTE: LEGACY CODE
-# Other schools may use "Online", "Remote", etc.
-def _campus_switch_same_day(m1: Meeting, m2: Meeting) -> bool:
-    if m1.day != m2.day:
-        return False
-    if m1.campus == "Zoom" or m2.campus == "Zoom":
-        return False
-    return m1.campus != m2.campus
-
-
-def _schedule_is_valid(
-    sections: list[Section],
-    *,
-    allow_campus_switch: bool = False,
-) -> bool:
-    all_meetings = [m for sec in sections for m in sec.meetings]
-    for i in range(len(all_meetings)):
-        for j in range(i + 1, len(all_meetings)):
-            if not allow_campus_switch and _campus_switch_same_day(
-                all_meetings[i], all_meetings[j]
-            ):
-                return False
-            if _meetings_conflict(all_meetings[i], all_meetings[j]):
-                return False
-    return True
 
 
 # Schedule Generation

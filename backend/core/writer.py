@@ -1,5 +1,5 @@
 """
-Database writer for generated schedules - Supabase edition.
+Database writer for generated schedules.
 """
 
 from __future__ import annotations
