@@ -20,8 +20,8 @@ class Settings(BaseSettings):
 
     # Supabase
     supabase_url: str
-    supabase_anon_key: str  # anon key (or service-role for admin ops)
-    supabase_service_key: str  # anon key (or service-role for admin ops)
+    supabase_anon_key: str
+    supabase_service_key: str
 
     # App
     app_title: str = "Schedule Planner API"
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     ]
 
     # NOTE: LEGACY CODE
-    # Schedule Generator
+    # Default courses for the CLI generator (overridable via --courses)
     target_courses: list[tuple[str, int]] = [
         ("PHY", 241),
         ("MTH", 265),

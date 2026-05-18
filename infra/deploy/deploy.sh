@@ -5,7 +5,10 @@ APP_NAME="course-scheduler"
 APP_DIR="/srv/course-scheduler"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 COMPOSE_ENV="/etc/course-scheduler/compose.env"
-HEALTH_URL="http://127.0.0.1:8020/api/v1/health"
+
+# shellcheck source=/dev/null
+source "$COMPOSE_ENV"
+HEALTH_URL="http://127.0.0.1:${BACKEND_PORT:-8020}/api/v1/health"
 
 compose() {
   docker compose \
