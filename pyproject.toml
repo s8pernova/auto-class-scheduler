@@ -1,7 +1,7 @@
 [project]
 name = "course-scheduler"
 version = "2.0.0"
-description = "Generate + browse possible class schedules for your school."
+description = "Automatically curate possible schedules for you."
 requires-python = ">=3.12"
 
 [tool.ruff]

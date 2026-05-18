@@ -1,6 +1,6 @@
 # Course Scheduler
 
-Generate + browse possible class schedules for your school.
+Automatically curate possible schedules for you.
 
 ## Production
 
