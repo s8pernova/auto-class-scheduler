@@ -7,7 +7,6 @@ import Loading from "./components/Loading";
 import ErrorComponent from "./components/Error";
 import {
     getSchedules,
-    getFavorites,
     favoriteSchedule,
     unfavoriteSchedule,
 } from "./api/client";
@@ -20,49 +19,10 @@ function App() {
     const { selectedCampuses, selectedTimes } = useScheduleFilters();
     const [schedules, setSchedules] = useState<ScheduleData[]>([]);
     const [favorites, setFavorites] = useState<Set<number | string>>(new Set());
-    const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const isLoadingRef = useRef(false);
     const ITEMS_PER_PAGE = 50;
-
-    async function fetchData() {
-        try {
-            setSchedules([]); // Reset schedules when filters change
-            setLoading(true);
-            const [schedulesData, favoritesData] = await Promise.all([
-                getSchedules({
-                    favoritesOnly: showOnlyFavorites,
-                    limit: ITEMS_PER_PAGE,
-                    offset: 0,
-                    campuses: selectedCampuses,
-                    times: selectedTimes,
-                }),
-                getFavorites(),
-            ]);
-            setSchedules(schedulesData);
-            setFavorites(new Set(favoritesData));
-            setHasMore(schedulesData.length === ITEMS_PER_PAGE);
-            setError(null);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
-            console.error("Failed to fetch data:", err);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    // Serialize array filters to stable strings so new array references
-    // with identical contents don't reset the timeout
-    const campusesKey = JSON.stringify(selectedCampuses);
-    const timesKey = JSON.stringify(selectedTimes);
-
-    // Initial load
-    useEffect(() => {
-        const timeoutId = setTimeout(() => fetchData(), 5000);
-        return () => clearTimeout(timeoutId);
-    }, [showOnlyFavorites, campusesKey, timesKey]);
 
     // Infinite scroll - load more when scrolling
     useEffect(() => {
