@@ -3,11 +3,11 @@
 @theme {
     --color-background: var(--bg);
     --color-surface: var(--surface);
-    --color-primary: var(--text);
-    --color-text: var(--primary);
+    --color-primary: var(--primary);
+    --color-text: var(--text);
     --color-accent: var(--accent);
 
-    --radius-radius: var(--radius);
+    --rounded-radius: var(--radius);
 }
 
 :root {
