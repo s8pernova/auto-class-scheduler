@@ -10,6 +10,9 @@ function PossibleSchedules() {
             </aside>
             <main className="bg-surface w-full h-full rounded-[10px] grid grid-cols-6 grid-rows-3">
                 <Card />
+                <Card />
+                <Card />
+                <Card />
             </main>
         </div>
     );
