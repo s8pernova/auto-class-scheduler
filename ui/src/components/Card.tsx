@@ -1,3 +1,3 @@
 export default function Card() {
-    return <div className="">Card</div>;
+    return <div className="bg-red-400">Card</div>;
 }
