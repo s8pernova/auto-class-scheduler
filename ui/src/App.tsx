@@ -19,6 +19,8 @@ function App() {
     const { selectedCampuses, selectedTimes } = useScheduleFilters();
     const [schedules, setSchedules] = useState<ScheduleData[]>([]);
     const [favorites, setFavorites] = useState<Set<number | string>>(new Set());
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const isLoadingRef = useRef(false);
@@ -114,7 +116,7 @@ function App() {
     }
 
     if (error) {
-        return <ErrorComponent error={error} />;
+        return <ErrorComponent error={error.message} />;
     }
 
     if (schedules.length === 0) {
