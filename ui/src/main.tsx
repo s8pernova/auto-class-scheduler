@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { FilterProvider } from "./contexts/FavoritesContext";
 import { ScheduleFilterProvider } from "./contexts/ScheduleFilterContext";
 import App from "./App";
+import "./App.css";
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
