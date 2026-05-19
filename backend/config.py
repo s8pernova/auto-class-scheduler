@@ -7,6 +7,8 @@ No directory classes, no secrets wrappers, no hardcoded paths.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +23,7 @@ class Settings(BaseSettings):
     # Supabase
     supabase_url: str
     supabase_anon_key: str
-    supabase_service_key: str
+    supabase_service_key: Optional[str] = None
 
     # App
     app_title: str = "Schedule Planner API"
