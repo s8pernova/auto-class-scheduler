@@ -2,7 +2,7 @@
 
 Course Scheduler is a bring-your-own-catalog type of class schedule generator.
 
-It helps students build a course catalog, select required courses and elective choices, generate schedule permutations, rank results, and save favorite schedules.
+It helps students build a course catalog, select required courses and elective choices, generate schedule permutations, and save favorite schedules.
 
 ## Why this exists
 
@@ -22,7 +22,6 @@ Clean it up.
 Choose the courses you need.
 Add elective pools like "choose 1 of these".
 Generate possible schedules.
-Rank the results by what students actually care about.
 ```
 
 In a free, super intuitive way.
@@ -65,8 +64,7 @@ The engine is meant to:
 - Reject time conflicts
 - Reject blocked-time conflicts
 - Filter unavailable or restricted sections
-- Score the schedules that survive
-- Return ranked results
+- Return results
 
 ### Elective pools
 
@@ -84,7 +82,7 @@ choose 1 lab section and 1 lecture section
 
 Professor quality is important when choosing a schedule, yet a lot of schedule generators don't include it.
 
-The app can store instructor names, ratings, difficulty, rating counts, and rating sources. The core app should work without this data, but when ratings are available, they can help rank schedules.
+The app can store instructor names, ratings, difficulty, rating counts, and rating sources. The core app should work without this data, but when ratings are available, they can help students evaluate individual sections.
 
 ### Saved favorites
 

@@ -1,4 +1,4 @@
-# ADR 0003: Enrich schedule ranking with professor rating data
+# ADR 0003: Enrich section data with professor ratings
 
 ## Status
 
@@ -16,7 +16,7 @@ Aidan Hoo
 
 Students do not choose schedules based only on time conflicts. Instructor quality, perceived difficulty, and the number of available ratings can strongly affect which schedule a student prefers.
 
-The scheduler already stores instructor names and an `instructor_rating` value on possible classes. This supports professor-aware ranking, but the source and maintenance process for ratings is not yet defined.
+The scheduler already stores instructor names and an `instructor_rating` value on possible classes.
 
 Rate My Professors is a common place students check before choosing classes, but direct automated collection from that site may violate its terms. The product must avoid depending on a fragile or disallowed scraping path.
 
@@ -45,7 +45,6 @@ Decision details:
 - Do not ship backend scraping of Rate My Professors as the default path.
 - Store aggregate rating fields, not full review text, unless a later ADR approves review storage.
 - Track rating source and update time.
-- Use professor rating as one scoring factor, not as the only ranking signal.
 - Show missing ratings clearly instead of inventing values.
 
 In scope:
@@ -54,7 +53,6 @@ In scope:
 - CSV/imported professor rating fields
 - Optional provider interface
 - Rating source metadata
-- Ranking logic that can use rating, difficulty, and rating count
 
 Out of scope:
 
@@ -63,10 +61,11 @@ Out of scope:
 - Professor profile pages
 - Institutional teaching evaluations
 - Legal approval of any specific third-party data provider
+- Ranking logic that can use rating, difficulty, and rating count
 
 ## Rationale
 
-Professor-aware ranking is a strong product differentiator, but making the platform depend on scraped data would create legal, technical, and reliability risk.
+Professor ratings are a strong product differentiator, but making the platform depend on scraped data would create legal, technical, and reliability risk.
 
 Reasons:
 
@@ -166,22 +165,13 @@ The app should assign confidence:
 0.4 fuzzy name match
 ```
 
-Low-confidence matches should require review before being used for ranking.
+Low-confidence matches should require review before being displayed to users.
 
-### Ranking use
+### UI use
 
-Professor rating should be one weighted factor:
+Professor ratings should be displayed alongside sections to help users decide between different generated schedules.
 
-```text
-schedule_score =
-  time_score
-  + professor_rating_weight
-  - professor_difficulty_penalty
-  + seat_availability_score
-  + preference_score
-```
-
-Missing ratings should not destroy a schedule score. They should produce a neutral value or a separate warning.
+Missing ratings should produce a neutral value or a separate warning instead of breaking the UI.
 
 ### Security and privacy
 
@@ -202,7 +192,7 @@ Missing ratings should not destroy a schedule score. They should produce a neutr
 
 Positive:
 
-- Adds a major student decision factor to ranking.
+- Adds a major student decision factor to section selection.
 - Keeps the core product usable without external services.
 - Avoids building the product around a fragile scraping dependency.
 - Keeps future provider options open.
@@ -242,12 +232,12 @@ Follow-ups:
 1. Keep current schedule generation independent from professor ratings.
 2. Add rating source metadata to imported catalog data.
 3. Add manual rating fields in catalog builder UI.
-4. Add professor-aware ranking as an optional sort/scoring setting.
+4. Add professor ratings to the schedule section UI.
 5. Evaluate approved provider options separately before enabling external lookups.
 
 ## Open questions
 
 - Should professor ratings be stored per section, per instructor profile, or both?
 - Should users be allowed to override imported ratings in private catalogs?
-- Should ratings affect default ranking or only appear as an optional sort?
+- Should ratings be filterable in the UI?
 - What confidence threshold should be required before using an external match?

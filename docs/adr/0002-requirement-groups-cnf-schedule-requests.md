@@ -214,8 +214,7 @@ Example request body:
 6. Generate section combinations.
 7. Reject combinations with section time conflicts.
 8. Reject combinations that violate blocked-time preferences.
-9. Score valid schedules.
-10. Store or return ranked results with group-choice metadata.
+9. Store or return results with group-choice metadata.
 ```
 
 ### Security and privacy
