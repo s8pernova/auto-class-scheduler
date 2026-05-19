@@ -10,9 +10,9 @@ export default function Navbar() {
             <div className="flex justify-between items-center h-12 px-20">
                 <div className="flex justify-center items-center gap-3">
                     <a href="/" className="text-2xl font-bold">
-                        Possible Schedules
+                        Schedulr
                     </a>
-                    <RiCalendarScheduleLine className="w-6 h-6 rotate-15" />
+                    <RiCalendarScheduleLine className="w-6 h-6 rotate-7" />
                 </div>
                 <FilterPanel />
                 <button
