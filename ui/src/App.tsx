@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-import Loading from "@/components/Loading";
+import Loading from "@/components/common/Loading";
 import { appRoutes, fallbackRoutes } from "@/routes/appRoutes";
-import Layout from "@/components/Layout";
+import Layout from "@/components/layouts/Default";
 
 function App() {
     return (
