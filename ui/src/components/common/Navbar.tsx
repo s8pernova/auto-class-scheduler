@@ -1,4 +1,4 @@
-import LayoutPagination from "@/components/Pagination";
+import LayoutPagination from "@/components/LayoutPagination";
 
 export default function Navbar() {
     return (
