@@ -2,17 +2,20 @@ import { Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { appRoutes, fallbackRoutes } from "@/routes/appRoutes";
+import Layout from "@/components/Layout";
 
 function App() {
     return (
         <Suspense fallback={<Loading />}>
             <Routes>
                 {appRoutes.map((route) => (
-                    <Route
-                        key={route.path}
-                        path={route.path}
-                        element={<route.Component />}
-                    />
+                    <Route element={<Layout />}>
+                        <Route
+                            key={route.path}
+                            path={route.path}
+                            element={<route.Component />}
+                        />
+                    </Route>
                 ))}
                 {fallbackRoutes.map((route) => (
                     <Route
@@ -23,7 +26,7 @@ function App() {
                 ))}
             </Routes>
         </Suspense>
-    )
+    );
 }
 
 export default App;
