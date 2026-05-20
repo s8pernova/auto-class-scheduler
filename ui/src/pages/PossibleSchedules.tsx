@@ -8,7 +8,8 @@ function PossibleSchedules() {
                 <h2>Hello world</h2>
                 <h2>Hello world</h2>
             </aside>
-            <main className="bg-surface rounded-[10px] grid grid-cols-6 grid-rows-3 p-[10px] gap-[10px]">
+            <main className="bg-surface rounded-[10px] grid grid-cols-2 grid-rows-6 p-[10px] gap-[10px]">
+                <Card />
                 <Card />
                 <Card />
                 <Card />
