@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 const STEPS = [
+    { key: "new", label: "Catalog" },
     { key: "build", label: "Build" },
     { key: "results", label: "Results" },
 ] as const;
@@ -40,10 +41,12 @@ export default function WizardStepper() {
                             type="button"
                             disabled={!isClickable}
                             onClick={() => {
-                                if (isClickable && catalogId) {
-                                    navigate(
-                                        `/catalogs/${catalogId}/${step.key}`,
-                                    );
+                                if (isClickable) {
+                                    if (step.key === "new") {
+                                        navigate("/catalogs/new");
+                                    } else if (catalogId) {
+                                        navigate(`/catalogs/${catalogId}/${step.key}`);
+                                    }
                                 }
                             }}
                             className={`

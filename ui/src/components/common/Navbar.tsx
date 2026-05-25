@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FaStar } from "react-icons/fa";
 import { supabase } from "@/clients/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -16,7 +17,8 @@ export default function Navbar({ center }: { center?: ReactNode }) {
             <div className="flex gap-4 w-full justify-end">
                 {status === "signed_in" ? (
                     <>
-                        <button className="text-end text-red-500 hover:text-red-700">
+                        <button className="text-yellow-500 hover:text-red-700 flex gap-2 items-center">
+                            <FaStar />
                             Favorites
                         </button>
                         <div className="text-end">{user?.email}</div>
