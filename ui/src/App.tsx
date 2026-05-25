@@ -6,6 +6,7 @@ import {
     CatalogCreatePage,
     CatalogWizardShell,
     ScheduleRequestStep,
+    InstructorRatings,
     ScheduleResultsStep,
     WizardLayout,
 } from "@/routes/appRoutes";
@@ -24,7 +25,10 @@ function App() {
 
                 {/* Wizard routes */}
                 <Route element={<WizardLayout />}>
-                    <Route path="/catalogs/new" element={<CatalogCreatePage />} />
+                    <Route
+                        path="/catalogs/new"
+                        element={<CatalogCreatePage />}
+                    />
                     <Route
                         path="/catalogs/:catalogId"
                         element={<CatalogWizardShell />}
@@ -33,9 +37,10 @@ function App() {
                             index
                             element={<Navigate to="build" replace />}
                         />
+                        <Route path="build" element={<ScheduleRequestStep />} />
                         <Route
-                            path="build"
-                            element={<ScheduleRequestStep />}
+                            path="instructors"
+                            element={<InstructorRatings />}
                         />
                         <Route
                             path="results"
@@ -68,4 +73,3 @@ function App() {
 }
 
 export default App;
-
