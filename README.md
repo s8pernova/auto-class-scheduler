@@ -48,11 +48,8 @@ The scheduler treats that as a requirement-group problem, then searches for vali
 
 This makes the app not limited to one school. A catalog can come from:
 
-- A supported school importer
-- A CSV upload
 - Pasted rows from a course schedule page
 - Manual entry
-- A shared catalog created by another user
 
 ### Actual schedule generation
 
@@ -78,11 +75,11 @@ choose 2 of 8 technical electives
 choose 1 lab section and 1 lecture section
 ```
 
-### Professor rankings
+### Professor preferences
 
 Professor quality is important when choosing a schedule, yet a lot of schedule generators don't include it.
 
-The app can store instructor names, ratings, difficulty, rating counts, and rating sources. The core app should work without this data, but when ratings are available, they can help students evaluate individual sections.
+The app supports user-entered instructor preference scores. The core app works without this data, but when ratings are available, they can help students rank generated schedules. The MVP doesn't integrate with third party sites like ratemyprofessor to do this because of their ToS.
 
 ### Saved favorites
 

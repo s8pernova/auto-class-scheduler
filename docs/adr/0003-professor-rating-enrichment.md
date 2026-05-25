@@ -1,12 +1,12 @@
-# ADR 0003: Enrich section data with professor ratings
+# ADR 0003: Use user-controlled instructor ratings
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
-2026-05-18
+2026-05-25
 
 ## Owners
 
@@ -14,230 +14,317 @@ Aidan Hoo
 
 ## Context
 
-Students do not choose schedules based only on time conflicts. Instructor quality, perceived difficulty, and the number of available ratings can strongly affect which schedule a student prefers.
+Students do not choose schedules based only on time conflicts. Instructor quality, perceived difficulty, and personal experience can affect which schedule a student prefers.
 
-The scheduler already stores instructor names and an `instructor_rating` value on possible classes.
+The scheduler stores instructor names on course sections. Earlier drafts considered storing an `instructor_rating` value directly on section rows and possibly enriching that value through external rating providers.
 
-Rate My Professors is a common place students check before choosing classes, but direct automated collection from that site may violate its terms. The product must avoid depending on a fragile or disallowed scraping path.
+Rate My Professors is a common place students check before choosing classes. Its Terms of Use create enough restriction around scraping, automated access, reuse, and third-party display that Course Scheduler should not integrate Rate My Professors data.
+
+The product should still let users express their own instructor preferences. A user may know an instructor from friends, advising, past classes, school forums, or their own lookup. Course Scheduler does not need to know the source of that opinion.
 
 Constraints:
 
-- The core scheduler must work without professor ratings.
-- Professor data must be optional enrichment, not a hard dependency.
-- Any external data source must be replaceable.
-- The app should avoid storing unnecessary review text.
-- The app should avoid server-side scraping unless there is clear permission or a compliant provider agreement.
+- The core scheduler must work without instructor ratings.
+- Instructor ratings must be user-controlled preference data, not scraped third-party data.
+- The app must not scrape, crawl, cache, import, or display Rate My Professors data.
+- The app must not ask users to identify where they got an instructor opinion.
+- Ratings must stay separate from raw catalog section data.
+- The BYOC section table should stay focused on objective section facts such as course, section, instructor, days, times, campus, seats, and restrictions.
 
 Assumptions:
 
-- Users value instructor rating, difficulty, and rating count.
-- A professor name may map to multiple people across schools.
-- Professor matching is imperfect and requires confidence scoring.
-- Some catalogs will provide instructor names but no rating data.
+- Users may want to rate instructors from 1 to 5 stars.
+- Many sections share the same instructor.
+- The same instructor name may appear in multiple courses inside the same catalog.
+- For the MVP, a rating is a private catalog preference, not a canonical public instructor profile.
+- Some users will skip this step.
 
 ## Decision
 
-Treat professor ratings as optional enrichment behind a provider interface. The MVP will support manual ratings and imported ratings from user-provided catalog data. A future Rate My Professors integration must be permission-safe, replaceable, and disabled by default until its legal and technical path is settled.
+Course Scheduler will remove instructor rating entry from the BYOC section-editing grid and move user-entered instructor scores into a separate instructor preferences flow.
+
+The app will deduplicate instructors from the current catalog or from the user's selected course candidates, then present a simple list where the user can assign a 1 to 5 star score. Blank scores are allowed.
+
+The score represents the user's private preference for schedule ranking. It is not presented as an objective public rating and is not labeled as Rate My Professors data.
 
 Decision details:
 
-- Do not make Rate My Professors a required dependency.
-- Do not ship backend scraping of Rate My Professors as the default path.
-- Store aggregate rating fields, not full review text, unless a later ADR approves review storage.
-- Track rating source and update time.
-- Show missing ratings clearly instead of inventing values.
+- Keep `instructor_name` on section rows.
+- Remove `instructor_rating` from the editable BYOC section grid.
+- Add a skippable instructor preferences step or panel.
+- Store user-entered instructor scores separately from section rows.
+- Use these scores only as schedule ranking inputs unless the user chooses to display them.
+- Do not build a Rate My Professors provider.
+- Do not store external review text, rating counts, difficulty, tags, profile IDs, or scraped source URLs from Rate My Professors.
+- Do not ask the user where their rating came from.
 
 In scope:
 
-- Manual professor rating entry
-- CSV/imported professor rating fields
-- Optional provider interface
-- Rating source metadata
+- Manual instructor preference scores
+- Deduplicated instructor list
+- 1 to 5 star input
+- Blank or unknown rating state
+- Per-catalog or per-user saved preferences
+- Autocomplete for instructor names based on names already entered
+- Schedule ranking using user preference scores
 
 Out of scope:
 
-- Review text scraping
-- Sentiment analysis on professor reviews
-- Professor profile pages
-- Institutional teaching evaluations
-- Legal approval of any specific third-party data provider
-- Ranking logic that can use rating, difficulty, and rating count
+- Rate My Professors scraping
+- Rate My Professors API packages
+- External provider adapters for Rate My Professors
+- Review text storage
+- Rating count storage
+- Difficulty score storage
+- Public professor profile pages
+- School-wide canonical instructor ratings
+- Source verification for user-entered scores
 
 ## Rationale
 
-Professor ratings are a strong product differentiator, but making the platform depend on scraped data would create legal, technical, and reliability risk.
+This keeps the product useful without building around restricted third-party data.
 
 Reasons:
 
-- The schedule generator should remain useful even when ratings are missing.
-- Manual and imported ratings are enough for the first product version.
-- A provider interface lets the app later support approved APIs, school-provided data, or user-provided data without changing the schedule engine.
-- Aggregate metrics are easier to display responsibly than raw anonymous review text.
-- Source metadata helps users understand whether a rating came from manual input, catalog import, or an external provider.
+- Users still get the main benefit: they can tell the scheduler which instructors they prefer.
+- The BYOC grid stays cleaner because section rows contain section facts, not subjective preferences.
+- A separate instructor list removes duplicate work when one instructor teaches many sections.
+- User-entered scores are easier to explain than imported third-party ratings.
+- The app avoids scraping and reuse issues while leaving room for school-provided data in a future ADR.
+- A skippable flow keeps the scheduler fast for users who only care about time conflicts.
 
 ## Design and implementation notes
 
 ### Data model
 
-Possible additions to `possible_classes`:
+Keep instructor names on sections:
 
 ```sql
-ALTER TABLE possible_classes
-ADD COLUMN IF NOT EXISTS instructor_difficulty NUMERIC,
-ADD COLUMN IF NOT EXISTS instructor_rating_count INTEGER,
-ADD COLUMN IF NOT EXISTS instructor_rating_source TEXT,
-ADD COLUMN IF NOT EXISTS instructor_rating_updated_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS instructor_match_confidence NUMERIC;
+-- Existing or planned section/catalog table field
+instructor_name TEXT
 ```
 
-Possible normalized table if ratings are reused across many sections:
+Do not put user preference scores directly on section rows.
+
+Preferred MVP table:
 
 ```sql
-CREATE TABLE instructor_profiles (
-    id                 BIGSERIAL PRIMARY KEY,
-    school_id          BIGINT NOT NULL REFERENCES schools(id) ON DELETE RESTRICT,
-    instructor_name    TEXT NOT NULL,
-    department         TEXT,
-    external_source    TEXT,
-    external_id        TEXT,
-    avg_rating         NUMERIC,
-    avg_difficulty     NUMERIC,
-    rating_count       INTEGER,
-    would_take_again   NUMERIC,
-    source_url         TEXT,
-    last_checked_at    TIMESTAMPTZ,
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+CREATE TABLE catalog_instructor_preferences (
+    id                         BIGSERIAL PRIMARY KEY,
+    catalog_id                 UUID NOT NULL REFERENCES catalogs(id) ON DELETE CASCADE,
+    user_id                    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    instructor_name            TEXT NOT NULL,
+    normalized_instructor_name TEXT NOT NULL,
+    preference_score           NUMERIC CHECK (
+        preference_score IS NULL OR
+        (preference_score >= 1 AND preference_score <= 5)
+    ),
+    created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    UNIQUE (school_id, external_source, external_id)
+    UNIQUE (catalog_id, user_id, normalized_instructor_name)
 );
 ```
 
-Possible section-to-profile link:
+If anonymous catalogs are supported, `user_id` may be nullable. For logged-in saved catalogs, use RLS so users only read and write their own preferences.
+
+Helpful index:
 
 ```sql
-ALTER TABLE possible_classes
-ADD COLUMN IF NOT EXISTS instructor_profile_id BIGINT REFERENCES instructor_profiles(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_catalog_instructor_preferences_catalog
+ON catalog_instructor_preferences(catalog_id);
 ```
 
-### Provider interface
+A later migration can remove or stop writing legacy `possible_classes.instructor_rating` after the UI no longer depends on it.
 
-```python
-from typing import Protocol
+### Normalization
 
-class ProfessorRatingProvider(Protocol):
-    def search_professor(self, *, school_name: str, professor_name: str) -> list[dict]:
-        ...
+Use a simple normalized instructor key for dedupe:
 
-    def get_professor_rating(self, *, external_id: str) -> dict:
-        ...
+```ts
+export function normalizeInstructorName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
 ```
 
-Provider candidates:
+This handles simple duplicates such as `Jane Smith`, `jane smith`, and `Jane   Smith`.
+
+### Wizard UI
+
+Recommended flow:
 
 ```text
-manual_input
-catalog_csv_import
-school_public_data
-approved_partner_api
-user_side_lookup
+1. Add or import catalog
+2. Clean section data
+3. Choose courses / requirement groups
+4. Rate instructors, optional
+5. Generate schedules
 ```
 
-Rate My Professors remains a proposed provider, not an accepted dependency.
+The rating step should be skippable. It should appear after the user chooses courses, because then the app can show only instructors who matter for the current schedule request.
 
-### Matching strategy
+For a small catalog or quick-start mode, this can be an expandable panel called `Instructor preferences` instead of a full route. The data model stays the same either way.
 
-Professor matching should use:
+### Rating input behavior
+
+The app should derive the instructor list from candidate sections:
+
+```ts
+type Section = {
+  id: string;
+  courseKey: string;
+  instructorName: string | null;
+};
+
+export function getUniqueInstructors(sections: Section[]): string[] {
+  const seen = new Map<string, string>();
+
+  for (const section of sections) {
+    const rawName = section.instructorName?.trim();
+    if (!rawName) continue;
+
+    const key = normalizeInstructorName(rawName);
+    if (!seen.has(key)) {
+      seen.set(key, rawName);
+    }
+  }
+
+  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+}
+```
+
+Example UI states:
 
 ```text
-school name
-instructor name
-department
-course subject
-external profile id when known
+Instructor preferences
+These scores are private to this catalog and help rank generated schedules.
+
+MO Ellis      [★ ★ ★ ★ ☆]
+O Emebo       [no score]
+SB Nizamani   [★ ★ ★ ☆ ☆]
+Staff         [ignore]
 ```
 
-The app should assign confidence:
+Use copy like `Your score` or `Preference score`, not `Official rating`.
+
+### Self-building instructor list
+
+The UI pattern is called a `creatable combobox`, `free-solo autocomplete`, or `typeahead with user-created options`.
+
+In plain HTML, the small version is an `input` paired with a `datalist`:
+
+```tsx
+<input name="instructorName" list="known-instructors" />
+
+<datalist id="known-instructors">
+    {knownInstructors.map((name) => (
+        <option key={name} value={name} />
+    ))}
+</datalist>
+```
+
+For a production React UI, use an accessible combobox component with creatable values. The option source should come from names already entered in the current catalog draft plus any saved instructor preferences for that catalog.
+
+### Schedule ranking
+
+The generator can treat instructor preference as a sorting feature:
 
 ```text
-1.0 exact external profile id match
-0.8 exact name + school match
-0.6 name + department match
-0.4 fuzzy name match
+schedule_instructor_score = average preference_score across sections with a score
 ```
 
-Low-confidence matches should require review before being displayed to users.
+Rules:
 
-### UI use
+- Ignore blank scores when calculating the average.
+- Keep schedules with no scored instructors valid.
+- Put missing-score handling in the sort layer, not the conflict checker.
+- Let users choose whether instructor preference matters in sorting.
 
-Professor ratings should be displayed alongside sections to help users decide between different generated schedules.
+Possible ranking weights:
 
-Missing ratings should produce a neutral value or a separate warning instead of breaking the UI.
+```text
+time fit: 60%
+instructor preference: 25%
+compactness / gaps: 15%
+```
+
+These weights should be UI-tunable later.
 
 ### Security and privacy
 
-- Store only aggregate professor metrics by default.
-- Do not store raw review text in the MVP.
-- Do not store user browsing cookies or Rate My Professors account data.
-- Do not perform automated scraping from the backend unless a later ADR approves a compliant path.
-- Show source labels such as `manual`, `csv_import`, or `external_provider`.
+- Treat user-entered scores as private user preference data.
+- Do not show one user's instructor scores to another user.
+- Do not store raw review text.
+- Do not store where the user found the opinion.
+- Do not scrape Rate My Professors from the backend or frontend.
+- Do not use unofficial Rate My Professors packages.
+- Do not label user-entered scores as third-party ratings.
 
 ### Operations
 
-- Manual/imported ratings can be updated during catalog import.
-- External provider updates should be rate-limited and cached.
-- Rating source failures should not block schedule generation.
-- Logs should avoid storing professor review content.
+- Ratings are edited during catalog setup or schedule request setup.
+- Rating changes should update generated ranking without requiring catalog re-import.
+- Missing ratings should not block schedule generation.
+- Logs should record preference row IDs or counts, not personal comments about instructors.
 
 ## Consequences
 
 Positive:
 
-- Adds a major student decision factor to section selection.
-- Keeps the core product usable without external services.
-- Avoids building the product around a fragile scraping dependency.
-- Keeps future provider options open.
+- The app keeps instructor preference support.
+- Users control the rating data.
+- The BYOC section grid becomes simpler.
+- The scheduler avoids depending on restricted external data.
+- One rating can apply to many sections taught by the same instructor.
 
 Negative:
 
-- Ratings may be missing or stale.
-- Professor-name matching can be wrong.
-- Manual data entry adds some user burden.
-- External provider support needs separate legal and technical review.
+- Users must enter scores themselves.
+- Scores may be subjective, incomplete, or inconsistent.
+- Cross-catalog reuse needs extra design later.
+- The app will not have automatic public professor ratings in the MVP.
 
 Follow-ups:
 
-- [ ] Add source metadata to professor rating fields.
-- [ ] Add manual rating input to custom catalog creation.
-- [ ] Add CSV columns for rating, difficulty, and rating count.
-- [ ] Add a provider interface with no active RMP backend scraper.
-- [ ] Add match-confidence display in admin/import tooling.
-- [ ] Add a later ADR if an approved RMP or third-party provider path is chosen.
+- [ ] Remove instructor rating input from the BYOC section grid.
+- [ ] Add an instructor preferences step or panel.
+- [ ] Add `catalog_instructor_preferences` migration.
+- [ ] Add unique instructor extraction from selected candidate sections.
+- [ ] Add a 1 to 5 star input with a blank state.
+- [ ] Add creatable instructor-name autocomplete.
+- [ ] Add instructor preference as an optional ranking feature.
+- [ ] Stop writing legacy `possible_classes.instructor_rating` from the BYOC flow.
 
 ## Alternatives considered
 
-1. Scrape Rate My Professors directly from the backend
-   - Why not: Legal and reliability risk. The site terms may prohibit automated scraping.
+1. Keep `instructor_rating` directly on each section row
+   - Why not: It duplicates the same rating across many rows and mixes subjective preference data with section facts.
 
-2. Ignore professor ratings completely
-   - Why not: Professor quality is one of the most important student decision factors.
+2. Add a full external professor-rating provider system now
+   - Why not: The MVP only needs user-entered scores. Provider work adds legal, product, and maintenance cost.
 
-3. Store only a single instructor_rating number
-   - Why not: Rating count, difficulty, source, and update time matter for trust.
+3. Scrape Rate My Professors directly
+   - Why not: The site terms restrict scraping, automated access, reuse, and third-party display.
 
-4. Store full professor reviews
-   - Why not: More privacy, copyright, storage, and moderation risk than aggregate metrics.
+4. Ignore instructor preference completely
+   - Why not: Instructor choice is a major student decision factor.
+
+5. Require ratings before schedule generation
+   - Why not: Some users only want conflict-free schedules and should be able to skip ratings.
 
 ## Rollout plan
 
-1. Keep current schedule generation independent from professor ratings.
-2. Add rating source metadata to imported catalog data.
-3. Add manual rating fields in catalog builder UI.
-4. Add professor ratings to the schedule section UI.
-5. Evaluate approved provider options separately before enabling external lookups.
+1. Rename UI language from `instructor rating` to `instructor preference` where the value is user-entered.
+2. Remove the editable rating column from the BYOC section table.
+3. Add instructor extraction from selected candidate sections.
+4. Add the skippable instructor preferences step or panel.
+5. Store preferences in `catalog_instructor_preferences`.
+6. Use preferences as an optional schedule sorting input.
+7. Keep external provider work out of scope until a later ADR approves a specific source.
 
 ## Open questions
 
-- Should professor ratings be stored per section, per instructor profile, or both?
-- Should users be allowed to override imported ratings in private catalogs?
-- Should ratings be filterable in the UI?
-- What confidence threshold should be required before using an external match?
+- Should instructor preferences be scoped to one catalog, one school, or the user's whole account?
+- Should `Staff` be hidden from the rating list by default?
+- Should users be able to mark an instructor as `avoid` instead of assigning stars?
+- Should instructor preference affect default sort order or only an explicit sort option?

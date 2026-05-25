@@ -4,20 +4,7 @@
  * All requests target the versioned ``/api/v1`` namespace.
  */
 
-import { supabase } from "@/clients/supabaseClient";
-
 const BASE_URL = "/api/v1";
-
-async function authFetch(url: string, options: RequestInit = {}) {
-    const {
-        data: { session },
-    } = await supabase.auth.getSession();
-    const headers = new Headers(options.headers || {});
-    if (session?.access_token) {
-        headers.set("Authorization", `Bearer ${session.access_token}`);
-    }
-    return fetch(url, { ...options, headers });
-}
 
 interface GetSchedulesOptions {
     favoritesOnly?: boolean;
@@ -62,7 +49,7 @@ export async function getSchedules({
     }
 
     const url = `${BASE_URL}/schedules?${params.toString()}`;
-    const response = await authFetch(url);
+    const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch schedules: ${response.statusText}`);
     }
@@ -74,7 +61,7 @@ export async function getSchedules({
  * @returns {Promise<Array<number>>} List of favorited schedule IDs
  */
 export async function getFavorites() {
-    const response = await authFetch(`${BASE_URL}/favorites`);
+    const response = await fetch(`${BASE_URL}/favorites`);
     if (!response.ok) {
         throw new Error(`Failed to fetch favorites: ${response.statusText}`);
     }
@@ -87,7 +74,7 @@ export async function getFavorites() {
  * @returns {Promise<Object>} Favorite response
  */
 export async function favoriteSchedule(scheduleId: number | string) {
-    const response = await authFetch(`${BASE_URL}/favorites/${scheduleId}`, {
+    const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
         method: "POST",
     });
 
@@ -106,7 +93,7 @@ export async function favoriteSchedule(scheduleId: number | string) {
  * @returns {Promise<Object>} Unfavorite response
  */
 export async function unfavoriteSchedule(scheduleId: number | string) {
-    const response = await authFetch(`${BASE_URL}/favorites/${scheduleId}`, {
+    const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
         method: "DELETE",
     });
 
@@ -126,7 +113,7 @@ export async function unfavoriteSchedule(scheduleId: number | string) {
  * @returns {Promise<Object>} Health status
  */
 export async function healthCheck() {
-    const response = await authFetch(`${BASE_URL}/health`);
+    const response = await fetch(`${BASE_URL}/health`);
     if (!response.ok) {
         throw new Error("Health check failed");
     }
@@ -165,7 +152,7 @@ export interface CatalogResponse {
 export async function createCatalog(
     payload: CreateCatalogPayload,
 ): Promise<CatalogResponse> {
-    const response = await authFetch(`${BASE_URL}/catalogs`, {
+    const response = await fetch(`${BASE_URL}/catalogs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -180,7 +167,7 @@ export async function createCatalog(
  * Fetch a catalog by ID.
  */
 export async function getCatalog(catalogId: string): Promise<CatalogResponse> {
-    const response = await authFetch(
+    const response = await fetch(
         `${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}`,
     );
     if (!response.ok) {

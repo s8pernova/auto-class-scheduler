@@ -12,6 +12,11 @@ import {
 export interface SectionRef {
     subjectCode: string;
     courseNumber: number;
+    days: string;
+    time: string;
+    crn?: string;
+    instructor?: string;
+    rating?: string;
 }
 
 export interface RequirementCourse {

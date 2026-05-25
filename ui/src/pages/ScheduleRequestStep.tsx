@@ -109,41 +109,51 @@ function RequirementSectionsTable({
     const columns = useMemo<ColumnDef<RequirementSectionRow>[]>(
         () => [
             {
-                accessorKey: "subjectCode",
-                header: "Subject",
+                accessorKey: "days",
+                header: "Days",
                 cell: ({ row, getValue }) => (
                     <EditableTextCell
-                        value={String(getValue())}
+                        value={String(getValue() || "")}
                         onCommit={(value) =>
-                            onUpdateSection(row.index, {
-                                subjectCode: value.toUpperCase(),
-                            })
+                            onUpdateSection(row.index, { days: value })
                         }
-                        className="font-semibold uppercase"
                     />
                 ),
             },
             {
-                accessorKey: "courseNumber",
-                header: "Course #",
+                accessorKey: "time",
+                header: "Time",
                 cell: ({ row, getValue }) => (
-                    <EditableNumberCell
-                        value={Number(getValue())}
+                    <EditableTextCell
+                        value={String(getValue() || "")}
                         onCommit={(value) =>
-                            onUpdateSection(row.index, {
-                                courseNumber: value,
-                            })
+                            onUpdateSection(row.index, { time: value })
                         }
                     />
                 ),
             },
             {
-                id: "label",
-                header: "Course",
-                cell: ({ row }) => (
-                    <span className="text-sm text-background/70">
-                        {row.original.subjectCode} {row.original.courseNumber}
-                    </span>
+                accessorKey: "crn",
+                header: "CRN",
+                cell: ({ row, getValue }) => (
+                    <EditableTextCell
+                        value={String(getValue() || "")}
+                        onCommit={(value) =>
+                            onUpdateSection(row.index, { crn: value })
+                        }
+                    />
+                ),
+            },
+            {
+                accessorKey: "instructor",
+                header: "Instructor",
+                cell: ({ row, getValue }) => (
+                    <EditableTextCell
+                        value={String(getValue() || "")}
+                        onCommit={(value) =>
+                            onUpdateSection(row.index, { instructor: value })
+                        }
+                    />
                 ),
             },
             {
@@ -232,6 +242,8 @@ function parseCourseInput(rawInput: string) {
     return {
         subjectCode: match[1].toUpperCase(),
         courseNumber: Number.parseInt(match[2], 10),
+        days: "",
+        time: "",
     } satisfies RequirementSection;
 }
 
