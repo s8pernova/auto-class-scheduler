@@ -255,6 +255,9 @@ export default function ScheduleRequestStep() {
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
         null,
     );
+    const [highlightedCourseId, setHighlightedCourseId] = useState<
+        string | null
+    >(null);
 
     const selectedCourse = draft.requirementCourses.find(
         (group) => group.id === selectedCourseId,
@@ -277,11 +280,17 @@ export default function ScheduleRequestStep() {
         }
 
         const label = `${parsed.subjectCode} ${parsed.courseNumber}`;
-        const alreadyExists = draft.requirementCourses.some(
+        const existingGroup = draft.requirementCourses.find(
             (group) => group.label === label,
         );
 
-        if (alreadyExists) {
+        if (existingGroup) {
+            setHighlightedCourseId(existingGroup.id);
+            setTimeout(() => {
+                setHighlightedCourseId((prev) =>
+                    prev === existingGroup.id ? null : prev,
+                );
+            }, 1000);
             return;
         }
 
@@ -338,6 +347,7 @@ export default function ScheduleRequestStep() {
         const parsed = parseCourseInput(rawInput);
 
         if (!parsed) {
+            // TODO: alerts are only for temp dev stuff. change it
             alert("Please enter a valid course format, like CS 2104.");
             return;
         }
@@ -437,6 +447,8 @@ export default function ScheduleRequestStep() {
                     ) : (
                         draft.requirementCourses.map((group) => {
                             const isSelected = group.id === selectedCourseId;
+                            const isHighlighted =
+                                group.id === highlightedCourseId;
 
                             return (
                                 <div
@@ -444,10 +456,12 @@ export default function ScheduleRequestStep() {
                                     onClick={() =>
                                         setSelectedCourseId(group.id)
                                     }
-                                    className={`p-3 border rounded-md flex justify-between items-center cursor-pointer transition-colors ${
-                                        isSelected
-                                            ? "border-accent bg-accent/5"
-                                            : "border-background/20 bg-background/5 hover:border-background/40"
+                                    className={`p-3 border rounded-md flex justify-between items-center cursor-pointer transition-colors duration-500 ${
+                                        isHighlighted
+                                            ? "border-red-500 bg-red-500/10"
+                                            : isSelected
+                                              ? "border-accent bg-accent/5"
+                                              : "border-background/20 bg-background/5 hover:border-background/40"
                                     }`}
                                 >
                                     <div>
