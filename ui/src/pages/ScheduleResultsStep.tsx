@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
 import { useScheduleDraft } from "@/contexts/ScheduleDraftContext";
 import Card from "@/components/common/Card";
 
@@ -6,6 +6,11 @@ export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const { draft } = useScheduleDraft();
     const navigate = useNavigate();
+
+    // Route guard to prevent accessing results without selecting courses
+    if (draft.selectedCourses.length === 0) {
+        return <Navigate to={`/catalogs/${catalogId}/build`} replace />;
+    }
 
     function handleBack() {
         navigate(`/catalogs/${catalogId}/build`);
