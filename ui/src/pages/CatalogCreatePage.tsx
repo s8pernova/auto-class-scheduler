@@ -7,6 +7,7 @@ export default function CatalogCreatePage() {
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const currentYear = new Date().getFullYear();
 
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
@@ -38,22 +39,21 @@ export default function CatalogCreatePage() {
                     New Catalog
                 </h1>
                 <p className="text-sm text-background/60">
-                    Name your catalog to get started. You can add courses and configure it in the next step.
+                    Name your catalog to get started. You can add courses and
+                    configure it in the next step.
                 </p>
                 <input
                     id="catalog-name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Fall 2026 Schedule"
+                    placeholder={`e.g. Fall ${currentYear} Schedule`}
                     maxLength={200}
                     required
                     autoFocus
                     className="px-4 py-2 rounded-md border border-background/20 bg-white text-background placeholder:text-background/40 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
-                {error && (
-                    <p className="text-sm text-red-600">{error}</p>
-                )}
+                {error && <p className="text-sm text-red-600">{error}</p>}
                 <button
                     type="submit"
                     disabled={loading || !name.trim()}
