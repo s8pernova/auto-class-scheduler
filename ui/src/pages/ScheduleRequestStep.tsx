@@ -242,7 +242,7 @@ export default function ScheduleRequestStep() {
                                     }
                                     className="text-xl font-semibold text-background bg-transparent border-b border-transparent hover:border-background/20 focus:border-accent outline-none px-1 py-1 -ml-1 transition-colors"
                                 />
-                                <p className="text-background/60 text-sm mt-1 px-1">
+                                <p className="text-background/60 text-sm mt-1">
                                     Configure which specific courses fulfill
                                     this requirement.
                                 </p>

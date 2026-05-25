@@ -7,7 +7,7 @@ export default function WizardLayout() {
 
     return (
         // TODO: these values should be in the css as vars
-        <div className="h-screen grid grid-cols-[380px_1fr_300px] grid-rows-[auto_1fr] gap-[15px] p-[15px]">
+        <div className="h-screen grid grid-cols-[380px_1fr_300px] grid-rows-[auto_1fr] gap-y-[15px] gap-x-[10px] p-[15px]">
             <Navbar center={isWizardRoute ? <WizardStepper /> : null} />
             <Outlet />
         </div>
