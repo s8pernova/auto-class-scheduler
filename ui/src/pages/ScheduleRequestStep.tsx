@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     useScheduleDraft,
-    RequirementGroup,
+    RequirementCourse,
 } from "@/contexts/ScheduleDraftContext";
 
 export default function ScheduleRequestStep() {
@@ -11,10 +11,10 @@ export default function ScheduleRequestStep() {
     const navigate = useNavigate();
 
     // Master-detail state
-    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
-    const selectedGroup = draft.requirementGroups.find(
-        (g) => g.id === selectedGroupId,
+    const selectedCourse = draft.requirementCourses.find(
+        (g) => g.id === selectedCourseId,
     );
 
     function handleGenerate() {
@@ -23,7 +23,7 @@ export default function ScheduleRequestStep() {
         navigate(`/catalogs/${catalogId}/results/mock-result-123`);
     }
 
-    function handleAddGroup(e: React.FormEvent<HTMLFormElement>) {
+    function handleAddCourse(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const rawInput = String(formData.get("courseInput") || "").trim();
@@ -42,52 +42,52 @@ export default function ScheduleRequestStep() {
         const label = `${subjectCode} ${courseNumber}`;
 
         // Idempotency
-        if (draft.requirementGroups.find((g) => g.label === label)) {
+        if (draft.requirementCourses.find((g) => g.label === label)) {
             // TODO: highlight the existing group in red outline
             return;
         }
 
         const id = `req-${subjectCode.toLowerCase()}-${courseNumber}-${Date.now()}`;
 
-        const newGroup: RequirementGroup = {
+        const newGroup: RequirementCourse = {
             id,
             label,
-            minCourses: 1,
-            maxCourses: 1,
-            courses: [{ subjectCode, courseNumber }],
+            minSections: 1,
+            maxSections: 1,
+            sections: [{ subjectCode, courseNumber }],
         };
 
         updateDraft({
-            requirementGroups: [...draft.requirementGroups, newGroup],
+            requirementCourses: [...draft.requirementCourses, newGroup],
         });
-        setSelectedGroupId(id); // Select it immediately
+        setSelectedCourseId(id); // Select it immediately
         e.currentTarget.reset();
     }
 
-    function removeGroup(id: string, e: React.MouseEvent) {
+    function removeCourse(id: string, e: React.MouseEvent) {
         e.stopPropagation();
         updateDraft({
-            requirementGroups: draft.requirementGroups.filter(
+            requirementCourses: draft.requirementCourses.filter(
                 (g) => g.id !== id,
             ),
         });
-        if (selectedGroupId === id) {
-            setSelectedGroupId(null);
+        if (selectedCourseId === id) {
+            setSelectedCourseId(null);
         }
     }
 
-    function handleUpdateGroup(
+    function handleUpdateCourse(
         groupId: string,
-        patch: Partial<RequirementGroup>,
+        patch: Partial<RequirementCourse>,
     ) {
         updateDraft({
-            requirementGroups: draft.requirementGroups.map((g) =>
+            requirementCourses: draft.requirementCourses.map((g) =>
                 g.id === groupId ? { ...g, ...patch } : g,
             ),
         });
     }
 
-    function handleAddCourseToGroup(
+    function handleAddSectionToCourse(
         e: React.FormEvent<HTMLFormElement>,
         groupId: string,
     ) {
@@ -106,12 +106,12 @@ export default function ScheduleRequestStep() {
         const subjectCode = match[1].toUpperCase();
         const courseNumber = parseInt(match[2], 10);
 
-        const group = draft.requirementGroups.find((g) => g.id === groupId);
+        const group = draft.requirementCourses.find((g) => g.id === groupId);
         if (!group) return;
 
         // Check for duplicates
         if (
-            group.courses.find(
+            group.sections.find(
                 (c) =>
                     c.subjectCode === subjectCode &&
                     c.courseNumber === courseNumber,
@@ -121,23 +121,23 @@ export default function ScheduleRequestStep() {
             return;
         }
 
-        handleUpdateGroup(groupId, {
-            courses: [...group.courses, { subjectCode, courseNumber }],
+        handleUpdateCourse(groupId, {
+            sections: [...group.sections, { subjectCode, courseNumber }],
         });
 
         e.currentTarget.reset();
     }
 
-    function handleRemoveCourseFromGroup(
+    function handleRemoveSectionFromCourse(
         groupId: string,
         subjectCode: string,
         courseNumber: number,
     ) {
-        const group = draft.requirementGroups.find((g) => g.id === groupId);
+        const group = draft.requirementCourses.find((g) => g.id === groupId);
         if (!group) return;
 
-        handleUpdateGroup(groupId, {
-            courses: group.courses.filter(
+        handleUpdateCourse(groupId, {
+            sections: group.sections.filter(
                 (c) =>
                     !(
                         c.subjectCode === subjectCode &&
@@ -153,7 +153,7 @@ export default function ScheduleRequestStep() {
                 <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide">
                     Requirements
                 </h2>
-                <form onSubmit={handleAddGroup} className="flex gap-2">
+                <form onSubmit={handleAddCourse} className="flex gap-2">
                     <input
                         type="text"
                         name="courseInput"
@@ -171,17 +171,17 @@ export default function ScheduleRequestStep() {
                 </form>
 
                 <div className="flex flex-col gap-2 overflow-y-auto mt-2">
-                    {draft.requirementGroups.length === 0 ? (
+                    {draft.requirementCourses.length === 0 ? (
                         <p className="text-sm text-background/40 italic">
                             No requirements added yet.
                         </p>
                     ) : (
-                        draft.requirementGroups.map((group) => {
-                            const isSelected = group.id === selectedGroupId;
+                        draft.requirementCourses.map((group) => {
+                            const isSelected = group.id === selectedCourseId;
                             return (
                                 <div
                                     key={group.id}
-                                    onClick={() => setSelectedGroupId(group.id)}
+                                    onClick={() => setSelectedCourseId(group.id)}
                                     className={`p-3 border rounded-md flex justify-between items-center cursor-pointer transition-colors ${
                                         isSelected
                                             ? "border-accent bg-accent/5"
@@ -195,8 +195,8 @@ export default function ScheduleRequestStep() {
                                             {group.label}
                                         </h3>
                                         <p className="text-xs text-background/60 mt-1">
-                                            {group.courses.length} course
-                                            {group.courses.length !== 1
+                                            {group.sections.length} course
+                                            {group.sections.length !== 1
                                                 ? "s"
                                                 : ""}{" "}
                                             pool
@@ -204,7 +204,7 @@ export default function ScheduleRequestStep() {
                                     </div>
                                     <button
                                         onClick={(e) =>
-                                            removeGroup(group.id, e)
+                                            removeCourse(group.id, e)
                                         }
                                         className="text-red-500 hover:text-red-700 font-semibold text-sm px-2 py-1"
                                     >
@@ -218,7 +218,7 @@ export default function ScheduleRequestStep() {
             </aside>
 
             <main className="bg-surface rounded-[10px] p-6 flex flex-col">
-                {!selectedGroup ? (
+                {!selectedCourse ? (
                     <div className="flex-1 flex flex-col text-background/40">
                         <h1 className="text-xl font-semibold mb-2 text-background/60">
                             Build Your Schedule
@@ -234,9 +234,9 @@ export default function ScheduleRequestStep() {
                             <div>
                                 <input
                                     type="text"
-                                    value={selectedGroup.label}
+                                    value={selectedCourse.label}
                                     onChange={(e) =>
-                                        handleUpdateGroup(selectedGroup.id, {
+                                        handleUpdateCourse(selectedCourse.id, {
                                             label: e.target.value,
                                         })
                                     }
@@ -252,13 +252,13 @@ export default function ScheduleRequestStep() {
                                 <input
                                     type="number"
                                     min={1}
-                                    max={selectedGroup.courses.length || 1}
-                                    value={selectedGroup.minCourses}
+                                    max={selectedCourse.sections.length || 1}
+                                    value={selectedCourse.minSections}
                                     onChange={(e) =>
-                                        handleUpdateGroup(selectedGroup.id, {
-                                            minCourses:
+                                        handleUpdateCourse(selectedCourse.id, {
+                                            minSections:
                                                 parseInt(e.target.value) || 1,
-                                            maxCourses:
+                                            maxSections:
                                                 parseInt(e.target.value) || 1,
                                         })
                                     }
@@ -271,7 +271,7 @@ export default function ScheduleRequestStep() {
                         <div className="flex flex-col gap-2 mt-2">
                             <form
                                 onSubmit={(e) =>
-                                    handleAddCourseToGroup(e, selectedGroup.id)
+                                    handleAddSectionToCourse(e, selectedCourse.id)
                                 }
                                 className="flex gap-2 mb-2"
                             >
@@ -292,22 +292,22 @@ export default function ScheduleRequestStep() {
                             </form>
 
                             <div className="grid grid-cols-2 gap-3">
-                                {selectedGroup.courses.map((course) => (
+                                {selectedCourse.sections.map((section) => (
                                     <div
-                                        key={`${course.subjectCode}-${course.courseNumber}`}
+                                        key={`${section.subjectCode}-${section.courseNumber}`}
                                         className="p-3 border border-background/20 rounded-md flex justify-between items-center bg-background/5"
                                     >
                                         <span className="font-semibold text-background">
-                                            {course.subjectCode}{" "}
-                                            {course.courseNumber}
+                                            {section.subjectCode}{" "}
+                                            {section.courseNumber}
                                         </span>
-                                        {selectedGroup.courses.length > 1 && (
+                                        {selectedCourse.sections.length > 1 && (
                                             <button
                                                 onClick={() =>
-                                                    handleRemoveCourseFromGroup(
-                                                        selectedGroup.id,
-                                                        course.subjectCode,
-                                                        course.courseNumber,
+                                                    handleRemoveSectionFromCourse(
+                                                        selectedCourse.id,
+                                                        section.subjectCode,
+                                                        section.courseNumber,
                                                     )
                                                 }
                                                 className="text-background/40 hover:text-red-500 transition-colors text-sm"
@@ -326,7 +326,7 @@ export default function ScheduleRequestStep() {
                     <button
                         type="button"
                         onClick={handleGenerate}
-                        disabled={draft.requirementGroups.length === 0}
+                        disabled={draft.requirementCourses.length === 0}
                         className="px-6 py-2 bg-accent text-white rounded-md font-bold disabled:opacity-50 hover:bg-accent/90 transition-colors"
                     >
                         Generate Schedules →
