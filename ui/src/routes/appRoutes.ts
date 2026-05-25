@@ -12,6 +12,9 @@ export const CatalogCreatePage = lazy(
 export const ScheduleRequestStep = lazy(
     () => import("@/pages/ScheduleRequestStep"),
 );
+export const InstructorRatings = lazy(
+    () => import("@/pages/InstructorRatings"),
+);
 export const ScheduleResultsStep = lazy(
     () => import("@/pages/ScheduleResultsStep"),
 );
