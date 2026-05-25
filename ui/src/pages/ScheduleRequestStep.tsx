@@ -1,87 +1,304 @@
-import { useState } from "react";
+import { FaRegTrashAlt, FaPlus } from "react-icons/fa";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    useScheduleDraft,
+    ColumnDef,
+    flexRender,
+    getCoreRowModel,
+    useReactTable,
+} from "@tanstack/react-table";
+import {
     RequirementCourse,
+    useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
+
+type RequirementSection = RequirementCourse["sections"][number];
+
+type RequirementSectionRow = RequirementSection & {
+    rowKey: string;
+};
+
+type EditableTextCellProps = {
+    value: string;
+    onCommit: (value: string) => void;
+    className?: string;
+};
+
+function EditableTextCell({
+    value,
+    onCommit,
+    className = "",
+}: EditableTextCellProps) {
+    const [draftValue, setDraftValue] = useState(value);
+
+    function handleBlur() {
+        const nextValue = draftValue.trim();
+        if (nextValue && nextValue !== value) {
+            onCommit(nextValue);
+        } else {
+            setDraftValue(value);
+        }
+    }
+
+    return (
+        <input
+            value={draftValue}
+            onChange={(e) => setDraftValue(e.target.value)}
+            onBlur={handleBlur}
+            className={`w-full bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20 ${className}`}
+        />
+    );
+}
+
+type EditableNumberCellProps = {
+    value: number;
+    onCommit: (value: number) => void;
+};
+
+function EditableNumberCell({ value, onCommit }: EditableNumberCellProps) {
+    const [draftValue, setDraftValue] = useState(String(value));
+
+    function handleBlur() {
+        const nextValue = Number.parseInt(draftValue, 10);
+        if (
+            Number.isFinite(nextValue) &&
+            nextValue > 0 &&
+            nextValue !== value
+        ) {
+            onCommit(nextValue);
+        } else {
+            setDraftValue(String(value));
+        }
+    }
+
+    return (
+        <input
+            type="number"
+            min={1}
+            value={draftValue}
+            onChange={(e) => setDraftValue(e.target.value)}
+            onBlur={handleBlur}
+            className="w-24 bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20"
+        />
+    );
+}
+
+type RequirementSectionsTableProps = {
+    sections: RequirementSection[];
+    onUpdateSection: (
+        rowIndex: number,
+        patch: Partial<RequirementSection>,
+    ) => void;
+    onRemoveSection: (rowIndex: number) => void;
+};
+
+function RequirementSectionsTable({
+    sections,
+    onUpdateSection,
+    onRemoveSection,
+}: RequirementSectionsTableProps) {
+    const data = useMemo<RequirementSectionRow[]>(
+        () =>
+            sections.map((section, index) => ({
+                ...section,
+                rowKey: `${section.subjectCode}-${section.courseNumber}-${index}`,
+            })),
+        [sections],
+    );
+
+    const columns = useMemo<ColumnDef<RequirementSectionRow>[]>(
+        () => [
+            {
+                accessorKey: "subjectCode",
+                header: "Subject",
+                cell: ({ row, getValue }) => (
+                    <EditableTextCell
+                        value={String(getValue())}
+                        onCommit={(value) =>
+                            onUpdateSection(row.index, {
+                                subjectCode: value.toUpperCase(),
+                            })
+                        }
+                        className="font-semibold uppercase"
+                    />
+                ),
+            },
+            {
+                accessorKey: "courseNumber",
+                header: "Course #",
+                cell: ({ row, getValue }) => (
+                    <EditableNumberCell
+                        value={Number(getValue())}
+                        onCommit={(value) =>
+                            onUpdateSection(row.index, {
+                                courseNumber: value,
+                            })
+                        }
+                    />
+                ),
+            },
+            {
+                id: "label",
+                header: "Course",
+                cell: ({ row }) => (
+                    <span className="text-sm text-background/70">
+                        {row.original.subjectCode} {row.original.courseNumber}
+                    </span>
+                ),
+            },
+            {
+                id: "actions",
+                header: "",
+                cell: ({ row }) => (
+                    <div className="text-right">
+                        {sections.length > 1 && (
+                            <button
+                                type="button"
+                                onClick={() => onRemoveSection(row.index)}
+                                className="text-background/40 hover:text-red-500 transition-colors text-sm px-2 py-1"
+                            >
+                                <FaRegTrashAlt />
+                            </button>
+                        )}
+                    </div>
+                ),
+            },
+        ],
+        [onRemoveSection, onUpdateSection, sections.length],
+    );
+
+    const table = useReactTable({
+        data,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+        getRowId: (row) => row.rowKey,
+    });
+
+    return (
+        <table className="w-full text-left border-collapse mt-4">
+            <thead>
+                {table.getHeaderGroups().map((headerGroup) => (
+                    <tr
+                        key={headerGroup.id}
+                        className="border-b border-background/20"
+                    >
+                        {headerGroup.headers.map((header) => (
+                            <th
+                                key={header.id}
+                                className="text-background/60 text-sm font-semibold pb-2 px-2"
+                            >
+                                {header.isPlaceholder
+                                    ? null
+                                    : flexRender(
+                                          header.column.columnDef.header,
+                                          header.getContext(),
+                                      )}
+                            </th>
+                        ))}
+                    </tr>
+                ))}
+            </thead>
+            <tbody>
+                {table.getRowModel().rows.map((row) => (
+                    <tr
+                        key={row.id}
+                        className="border-b border-background/10 hover:bg-background/5 transition-colors"
+                    >
+                        {row.getVisibleCells().map((cell) => (
+                            <td
+                                key={cell.id}
+                                className="p-2 align-middle text-background"
+                            >
+                                {flexRender(
+                                    cell.column.columnDef.cell,
+                                    cell.getContext(),
+                                )}
+                            </td>
+                        ))}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+function parseCourseInput(rawInput: string) {
+    const match = rawInput.trim().match(/^([a-zA-Z]+)\s*(\d+)$/);
+
+    if (!match) {
+        return null;
+    }
+
+    return {
+        subjectCode: match[1].toUpperCase(),
+        courseNumber: Number.parseInt(match[2], 10),
+    } satisfies RequirementSection;
+}
 
 export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const { draft, updateDraft } = useScheduleDraft();
     const navigate = useNavigate();
 
-    // Master detail state
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
         null,
     );
 
-    // Table headers
-    const headers = [
-        { id: "crn", label: "CRN" },
-        { id: "days", label: "Days" },
-        { id: "time", label: "Time" },
-        { id: "instructor", label: "Instructor" },
-        { id: "rating", label: "Instructor Rating" },
-    ];
-
     const selectedCourse = draft.requirementCourses.find(
-        (g) => g.id === selectedCourseId,
+        (group) => group.id === selectedCourseId,
     );
 
     function handleGenerate() {
-        // TODO: call API to generate schedule and get resultSetId
-        // For now, navigate to mock resultSetId
         navigate(`/catalogs/${catalogId}/results/mock-result-123`);
     }
 
     function handleAddCourse(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
+
         const formData = new FormData(e.currentTarget);
-        const rawInput = String(formData.get("courseInput") || "").trim();
+        const rawInput = String(formData.get("courseInput") || "");
+        const parsed = parseCourseInput(rawInput);
 
-        if (!rawInput) return;
-
-        // Parse something like "CS 2104" or "cs2104"
-        const match = rawInput.match(/^([a-zA-Z]+)\s*(\d+)$/);
-        if (!match) {
-            alert("Please enter a valid course format (e.g., CS 2104)");
+        if (!parsed) {
+            alert("Please enter a valid course format, like CS 2104.");
             return;
         }
 
-        const subjectCode = match[1].toUpperCase();
-        const courseNumber = parseInt(match[2], 10);
-        const label = `${subjectCode} ${courseNumber}`;
+        const label = `${parsed.subjectCode} ${parsed.courseNumber}`;
+        const alreadyExists = draft.requirementCourses.some(
+            (group) => group.label === label,
+        );
 
-        // Idempotency
-        if (draft.requirementCourses.find((g) => g.label === label)) {
-            // TODO: highlight the existing group in red outline
+        if (alreadyExists) {
             return;
         }
 
-        const id = `req-${subjectCode.toLowerCase()}-${courseNumber}-${Date.now()}`;
+        const id = `req-${parsed.subjectCode.toLowerCase()}-${parsed.courseNumber}-${Date.now()}`;
 
         const newGroup: RequirementCourse = {
             id,
             label,
             minSections: 1,
             maxSections: 1,
-            sections: [{ subjectCode, courseNumber }],
+            sections: [],
         };
 
         updateDraft({
             requirementCourses: [...draft.requirementCourses, newGroup],
         });
-        setSelectedCourseId(id); // Select it immediately
+        setSelectedCourseId(id);
         e.currentTarget.reset();
     }
 
     function removeCourse(id: string, e: React.MouseEvent) {
         e.stopPropagation();
+
         updateDraft({
             requirementCourses: draft.requirementCourses.filter(
-                (g) => g.id !== id,
+                (group) => group.id !== id,
             ),
         });
+
         if (selectedCourseId === id) {
             setSelectedCourseId(null);
         }
@@ -92,8 +309,8 @@ export default function ScheduleRequestStep() {
         patch: Partial<RequirementCourse>,
     ) {
         updateDraft({
-            requirementCourses: draft.requirementCourses.map((g) =>
-                g.id === groupId ? { ...g, ...patch } : g,
+            requirementCourses: draft.requirementCourses.map((group) =>
+                group.id === groupId ? { ...group, ...patch } : group,
             ),
         });
     }
@@ -103,58 +320,76 @@ export default function ScheduleRequestStep() {
         groupId: string,
     ) {
         e.preventDefault();
+
         const formData = new FormData(e.currentTarget);
-        const rawInput = String(formData.get("subCourseInput") || "").trim();
+        const rawInput = String(formData.get("subCourseInput") || "");
+        const parsed = parseCourseInput(rawInput);
 
-        if (!rawInput) return;
-
-        const match = rawInput.match(/^([a-zA-Z]+)\s*(\d+)$/);
-        if (!match) {
-            alert("Please enter a valid course format (e.g., CS 2104)");
+        if (!parsed) {
+            alert("Please enter a valid course format, like CS 2104.");
             return;
         }
 
-        const subjectCode = match[1].toUpperCase();
-        const courseNumber = parseInt(match[2], 10);
-
-        const group = draft.requirementCourses.find((g) => g.id === groupId);
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
         if (!group) return;
 
-        // Check for duplicates
-        if (
-            group.sections.find(
-                (c) =>
-                    c.subjectCode === subjectCode &&
-                    c.courseNumber === courseNumber,
-            )
-        ) {
-            alert("Course already in this group");
+        const alreadyInGroup = group.sections.some(
+            (section) =>
+                section.subjectCode === parsed.subjectCode &&
+                section.courseNumber === parsed.courseNumber,
+        );
+
+        if (alreadyInGroup) {
+            alert("Course already in this pool.");
             return;
         }
 
         handleUpdateCourse(groupId, {
-            sections: [...group.sections, { subjectCode, courseNumber }],
+            sections: [...group.sections, parsed],
         });
 
         e.currentTarget.reset();
     }
 
-    function handleRemoveSectionFromCourse(
+    function handleUpdateSectionAtIndex(
         groupId: string,
-        subjectCode: string,
-        courseNumber: number,
+        rowIndex: number,
+        patch: Partial<RequirementSection>,
     ) {
-        const group = draft.requirementCourses.find((g) => g.id === groupId);
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
         if (!group) return;
 
+        const nextSections = group.sections.map((section, index) =>
+            index === rowIndex ? { ...section, ...patch } : section,
+        );
+
         handleUpdateCourse(groupId, {
-            sections: group.sections.filter(
-                (c) =>
-                    !(
-                        c.subjectCode === subjectCode &&
-                        c.courseNumber === courseNumber
-                    ),
-            ),
+            sections: nextSections,
+        });
+    }
+
+    function handleRemoveSectionAtIndex(groupId: string, rowIndex: number) {
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
+        if (!group || group.sections.length <= 1) return;
+
+        const nextSections = group.sections.filter(
+            (_, index) => index !== rowIndex,
+        );
+        const nextChooseCount = Math.min(
+            group.minSections,
+            nextSections.length,
+        );
+
+        handleUpdateCourse(groupId, {
+            sections: nextSections,
+            minSections: nextChooseCount,
+            maxSections: nextChooseCount,
         });
     }
 
@@ -164,6 +399,7 @@ export default function ScheduleRequestStep() {
                 <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide">
                     Requirements
                 </h2>
+
                 <form onSubmit={handleAddCourse} className="flex gap-2">
                     <input
                         type="text"
@@ -177,7 +413,7 @@ export default function ScheduleRequestStep() {
                         type="submit"
                         className="px-4 py-2 bg-accent text-white rounded-md font-medium hover:bg-accent/90 transition-colors"
                     >
-                        Add
+                        <FaPlus />
                     </button>
                 </form>
 
@@ -189,6 +425,7 @@ export default function ScheduleRequestStep() {
                     ) : (
                         draft.requirementCourses.map((group) => {
                             const isSelected = group.id === selectedCourseId;
+
                             return (
                                 <div
                                     key={group.id}
@@ -203,25 +440,27 @@ export default function ScheduleRequestStep() {
                                 >
                                     <div>
                                         <h3
-                                            className={`font-semibold ${isSelected ? "text-accent" : "text-background"}`}
+                                            className={`font-semibold ${
+                                                isSelected
+                                                    ? "text-accent"
+                                                    : "text-background"
+                                            }`}
                                         >
                                             {group.label}
                                         </h3>
                                         <p className="text-xs text-background/60 mt-1">
-                                            {group.sections.length} course
-                                            {group.sections.length !== 1
-                                                ? "s"
-                                                : ""}{" "}
-                                            pool
+                                            Choose {group.minSections} from{" "}
+                                            {group.sections.length}
                                         </p>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={(e) =>
                                             removeCourse(group.id, e)
                                         }
                                         className="text-red-500 hover:text-red-700 font-semibold text-sm px-2 py-1"
                                     >
-                                        Remove
+                                        <FaRegTrashAlt />
                                     </button>
                                 </div>
                             );
@@ -256,28 +495,9 @@ export default function ScheduleRequestStep() {
                                     className="text-xl font-semibold text-background bg-transparent border-b border-transparent hover:border-background/20 focus:border-accent outline-none px-1 py-1 -ml-1 transition-colors"
                                 />
                                 <p className="text-background/60 text-sm mt-1">
-                                    Configure which specific courses fulfill
-                                    this requirement.
+                                    Configure which courses can satisfy this
+                                    requirement.
                                 </p>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-background/80 bg-background/5 px-3 py-2 rounded-md">
-                                <span>Choose</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={selectedCourse.sections.length || 1}
-                                    value={selectedCourse.minSections}
-                                    onChange={(e) =>
-                                        handleUpdateCourse(selectedCourse.id, {
-                                            minSections:
-                                                parseInt(e.target.value) || 1,
-                                            maxSections:
-                                                parseInt(e.target.value) || 1,
-                                        })
-                                    }
-                                    className="w-12 px-2 py-1 bg-transparent border border-background/20 rounded focus:border-accent outline-none text-center"
-                                />
-                                <span>from pool</span>
                             </div>
                         </div>
 
@@ -294,7 +514,7 @@ export default function ScheduleRequestStep() {
                                 <input
                                     type="text"
                                     name="subCourseInput"
-                                    placeholder="Add alternative course (e.g. PHIL 1304)"
+                                    placeholder="Add section, like CS 2104"
                                     maxLength={15}
                                     required
                                     className="flex-1 px-3 py-2 border border-background/20 rounded-md bg-transparent focus:border-accent outline-none transition-colors uppercase text-sm"
@@ -303,67 +523,26 @@ export default function ScheduleRequestStep() {
                                     type="submit"
                                     className="px-4 py-2 bg-text/10 text-background rounded-md text-sm font-medium hover:bg-text/20 transition-colors"
                                 >
-                                    Add Alternative
+                                    Add Section
                                 </button>
                             </form>
 
-                            <table className="w-full text-left border-collapse mt-4">
-                                <thead>
-                                    <tr className="border-b border-background/20">
-                                        {headers.map((header) => (
-                                            <th
-                                                key={header.id}
-                                                className="text-background/60 text-sm font-semibold pb-2 px-2"
-                                            >
-                                                {header.label}
-                                            </th>
-                                        ))}
-                                        <th className="pb-2 px-2"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {selectedCourse.sections.map((section) => (
-                                        <tr
-                                            key={`${section.subjectCode}-${section.courseNumber}`}
-                                            className="border-b border-background/10 hover:bg-background/5 transition-colors"
-                                        >
-                                            <td className="p-3 font-semibold text-background">
-                                                {section.subjectCode}{" "}
-                                                {section.courseNumber}
-                                            </td>
-                                            <td className="p-3 text-background/60 text-sm">
-                                                --
-                                            </td>
-                                            <td className="p-3 text-background/60 text-sm">
-                                                --
-                                            </td>
-                                            <td className="p-3 text-background/60 text-sm">
-                                                --
-                                            </td>
-                                            <td className="p-3 text-background/60 text-sm">
-                                                --
-                                            </td>
-                                            <td className="p-3 text-right">
-                                                {selectedCourse.sections
-                                                    .length > 1 && (
-                                                    <button
-                                                        onClick={() =>
-                                                            handleRemoveSectionFromCourse(
-                                                                selectedCourse.id,
-                                                                section.subjectCode,
-                                                                section.courseNumber,
-                                                            )
-                                                        }
-                                                        className="text-background/40 hover:text-red-500 transition-colors text-sm"
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <RequirementSectionsTable
+                                sections={selectedCourse.sections}
+                                onUpdateSection={(rowIndex, patch) =>
+                                    handleUpdateSectionAtIndex(
+                                        selectedCourse.id,
+                                        rowIndex,
+                                        patch,
+                                    )
+                                }
+                                onRemoveSection={(rowIndex) =>
+                                    handleRemoveSectionAtIndex(
+                                        selectedCourse.id,
+                                        rowIndex,
+                                    )
+                                }
+                            />
                         </div>
                     </div>
                 )}
@@ -375,18 +554,19 @@ export default function ScheduleRequestStep() {
                         disabled={draft.requirementCourses.length === 0}
                         className="px-6 py-2 bg-accent text-white rounded-md font-bold disabled:opacity-50 hover:bg-accent/90 transition-colors"
                     >
-                        Generate Schedules →
+                        Generate Schedules
                     </button>
                 </div>
             </main>
 
             <aside className="bg-surface rounded-[10px] p-4">
-                <div className="">
+                <div>
                     <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide mb-3">
                         Selected Section
                     </h2>
                 </div>
-                <div className="">
+
+                <div>
                     <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide mb-3">
                         Preferences
                     </h2>
@@ -408,6 +588,7 @@ export default function ScheduleRequestStep() {
                             />
                             <span className="text-sm">Allow full sections</span>
                         </label>
+
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
