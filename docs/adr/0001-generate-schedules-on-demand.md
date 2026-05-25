@@ -114,7 +114,7 @@ The search service should:
 5. Reject a partial schedule immediately if the next section creates a time conflict.
 6. Reject a section if hard restrictions fail.
 7. Track derived metrics as the schedule is built.
-8. Return the best N schedules after filtering and scoring.
+8. Return the schedules after filtering.
 9. Persist nothing unless the user saves, favorites, exports, or shares a schedule.
 
 Derived metrics may include:
@@ -145,7 +145,6 @@ Suggested service boundary:
 
 - `generate_schedules(input)`: pure generation function with no database writes.
 - `save_schedule(user_id, generated_schedule)`: write path for user-selected schedules.
-- `score_schedule(schedule, preferences)`: ranking function.
 
 ### Security and privacy
 
