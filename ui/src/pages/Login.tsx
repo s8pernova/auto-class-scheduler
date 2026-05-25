@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from "@/clients/supabaseClient";
 
@@ -84,6 +85,8 @@ function Login() {
                     {isLoading ? "Signing in..." : "Log In"}
                 </button>
             </form>
+
+            <Link to="/signup">No account? Sign up here.</Link>
 
             {message && (
                 <p role={status === "error" ? "alert" : "status"}>{message}</p>
