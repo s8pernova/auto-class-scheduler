@@ -51,6 +51,10 @@ export default function AnimatedStepFrame({
     }
 
     return (
-        <div className={`wizard-step-frame ${transformClass}`}>{children}</div>
+        <div
+            className={`wizard-step-frame min-h-0 col-span-full grid grid-cols-subgrid ${transformClass}`}
+        >
+            {children}
+        </div>
     );
 }

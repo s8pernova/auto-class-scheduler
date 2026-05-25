@@ -43,7 +43,7 @@ export default function ScheduleRequestStep() {
 
         // Idempotency
         if (draft.requirementGroups.find((g) => g.label === label)) {
-            // TODO highlight the existing group in red outline
+            // TODO: highlight the existing group in red outline
             return;
         }
 
@@ -148,7 +148,7 @@ export default function ScheduleRequestStep() {
     }
 
     return (
-        <div className="grid grid-cols-[380px_1fr_300px] gap-[15px] h-full">
+        <>
             <aside className="bg-surface rounded-[10px] p-4 flex flex-col gap-4">
                 <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide">
                     Requirements
@@ -386,6 +386,6 @@ export default function ScheduleRequestStep() {
                     </div>
                 </div>
             </aside>
-        </div>
+        </>
     );
 }
