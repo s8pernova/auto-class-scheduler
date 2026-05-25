@@ -8,7 +8,7 @@ export default function ScheduleResultsStep() {
     const navigate = useNavigate();
 
     // Route guard to prevent accessing results without selecting courses
-    if (draft.selectedCourses.length === 0) {
+    if (draft.requirementGroups.length === 0) {
         return <Navigate to={`/catalogs/${catalogId}/build`} replace />;
     }
 

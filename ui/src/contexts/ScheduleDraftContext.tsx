@@ -9,6 +9,19 @@ import {
 
 // Types
 
+export interface CourseRef {
+    subjectCode: string;
+    courseNumber: number;
+}
+
+export interface RequirementGroup {
+    id: string;
+    label: string;
+    minCourses: number;
+    maxCourses: number;
+    courses: CourseRef[];
+}
+
 export interface BlockedTime {
     dayOfWeek: string;
     startTime: string;
@@ -16,13 +29,17 @@ export interface BlockedTime {
 }
 
 export interface SchedulePreferences {
+    allowFullSections?: boolean;
+    allowRestrictedSections?: boolean;
     campuses?: string[];
     times?: string[];
 }
 
 export interface ScheduleDraft {
     catalogId: string;
-    selectedCourses: string[];
+    requirementGroups: RequirementGroup[];
+    pinnedCrns: string[];
+    excludedCrns: string[];
     blockedTimes: BlockedTime[];
     preferences: SchedulePreferences;
 }
@@ -42,7 +59,9 @@ const ScheduleDraftContext = createContext<ScheduleDraftContextType | null>(
 function buildInitialDraft(catalogId: string): ScheduleDraft {
     return {
         catalogId,
-        selectedCourses: [],
+        requirementGroups: [],
+        pinnedCrns: [],
+        excludedCrns: [],
         blockedTimes: [],
         preferences: {},
     };
