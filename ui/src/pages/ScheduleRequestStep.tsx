@@ -10,8 +10,19 @@ export default function ScheduleRequestStep() {
     const { draft, updateDraft } = useScheduleDraft();
     const navigate = useNavigate();
 
-    // Master-detail state
-    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+    // Master detail state
+    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
+        null,
+    );
+
+    // Table headers
+    const headers = [
+        { id: "crn", label: "CRN" },
+        { id: "days", label: "Days" },
+        { id: "time", label: "Time" },
+        { id: "instructor", label: "Instructor" },
+        { id: "rating", label: "Instructor Rating" },
+    ];
 
     const selectedCourse = draft.requirementCourses.find(
         (g) => g.id === selectedCourseId,
@@ -181,7 +192,9 @@ export default function ScheduleRequestStep() {
                             return (
                                 <div
                                     key={group.id}
-                                    onClick={() => setSelectedCourseId(group.id)}
+                                    onClick={() =>
+                                        setSelectedCourseId(group.id)
+                                    }
                                     className={`p-3 border rounded-md flex justify-between items-center cursor-pointer transition-colors ${
                                         isSelected
                                             ? "border-accent bg-accent/5"
@@ -271,7 +284,10 @@ export default function ScheduleRequestStep() {
                         <div className="flex flex-col gap-2 mt-2">
                             <form
                                 onSubmit={(e) =>
-                                    handleAddSectionToCourse(e, selectedCourse.id)
+                                    handleAddSectionToCourse(
+                                        e,
+                                        selectedCourse.id,
+                                    )
                                 }
                                 className="flex gap-2 mb-2"
                             >
@@ -291,33 +307,63 @@ export default function ScheduleRequestStep() {
                                 </button>
                             </form>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                {selectedCourse.sections.map((section) => (
-                                    <div
-                                        key={`${section.subjectCode}-${section.courseNumber}`}
-                                        className="p-3 border border-background/20 rounded-md flex justify-between items-center bg-background/5"
-                                    >
-                                        <span className="font-semibold text-background">
-                                            {section.subjectCode}{" "}
-                                            {section.courseNumber}
-                                        </span>
-                                        {selectedCourse.sections.length > 1 && (
-                                            <button
-                                                onClick={() =>
-                                                    handleRemoveSectionFromCourse(
-                                                        selectedCourse.id,
-                                                        section.subjectCode,
-                                                        section.courseNumber,
-                                                    )
-                                                }
-                                                className="text-background/40 hover:text-red-500 transition-colors text-sm"
+                            <table className="w-full text-left border-collapse mt-4">
+                                <thead>
+                                    <tr className="border-b border-background/20">
+                                        {headers.map((header) => (
+                                            <th
+                                                key={header.id}
+                                                className="text-background/60 text-sm font-semibold pb-2 px-2"
                                             >
-                                                ✕
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                                                {header.label}
+                                            </th>
+                                        ))}
+                                        <th className="pb-2 px-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {selectedCourse.sections.map((section) => (
+                                        <tr
+                                            key={`${section.subjectCode}-${section.courseNumber}`}
+                                            className="border-b border-background/10 hover:bg-background/5 transition-colors"
+                                        >
+                                            <td className="p-3 font-semibold text-background">
+                                                {section.subjectCode}{" "}
+                                                {section.courseNumber}
+                                            </td>
+                                            <td className="p-3 text-background/60 text-sm">
+                                                --
+                                            </td>
+                                            <td className="p-3 text-background/60 text-sm">
+                                                --
+                                            </td>
+                                            <td className="p-3 text-background/60 text-sm">
+                                                --
+                                            </td>
+                                            <td className="p-3 text-background/60 text-sm">
+                                                --
+                                            </td>
+                                            <td className="p-3 text-right">
+                                                {selectedCourse.sections
+                                                    .length > 1 && (
+                                                    <button
+                                                        onClick={() =>
+                                                            handleRemoveSectionFromCourse(
+                                                                selectedCourse.id,
+                                                                section.subjectCode,
+                                                                section.courseNumber,
+                                                            )
+                                                        }
+                                                        className="text-background/40 hover:text-red-500 transition-colors text-sm"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}
