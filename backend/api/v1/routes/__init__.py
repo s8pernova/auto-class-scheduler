@@ -1,3 +1,3 @@
-from backend.api.v1.routes import favorites, health, schedules
+from backend.api.v1.routes import catalogs, favorites, health, schedules
 
-__all__ = ["favorites", "health", "schedules"]
+__all__ = ["catalogs", "favorites", "health", "schedules"]

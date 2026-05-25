@@ -1,6 +1,14 @@
 import { Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
-import { appRoutes, fallbackRoutes } from "@/routes/appRoutes";
+import { Routes, Route, Navigate } from "react-router-dom";
+import {
+    authRoutes,
+    fallbackRoutes,
+    CatalogCreatePage,
+    CatalogWizardShell,
+    ScheduleRequestStep,
+    ScheduleResultsStep,
+    WizardLayout,
+} from "@/routes/appRoutes";
 import Loading from "@/components/common/Loading";
 import Layout from "@/components/layouts/Default";
 
@@ -8,15 +16,45 @@ function App() {
     return (
         <Suspense fallback={<Loading />}>
             <Routes>
-                {appRoutes.map((route) => (
-                    <Route element={<Layout />}>
+                {/* Root redirect */}
+                <Route
+                    path="/"
+                    element={<Navigate to="/catalogs/new" replace />}
+                />
+
+                {/* Wizard routes */}
+                <Route element={<WizardLayout />}>
+                    <Route path="/catalogs/new" element={<CatalogCreatePage />} />
+                    <Route
+                        path="/catalogs/:catalogId"
+                        element={<CatalogWizardShell />}
+                    >
                         <Route
-                            key={route.path}
+                            index
+                            element={<Navigate to="build" replace />}
+                        />
+                        <Route
+                            path="build"
+                            element={<ScheduleRequestStep />}
+                        />
+                        <Route
+                            path="results"
+                            element={<ScheduleResultsStep />}
+                        />
+                    </Route>
+                </Route>
+
+                {/* Auth routes */}
+                {authRoutes.map((route) => (
+                    <Route element={<Layout />} key={route.path}>
+                        <Route
                             path={route.path}
                             element={<route.Component />}
                         />
                     </Route>
                 ))}
+
+                {/* Fallback */}
                 {fallbackRoutes.map((route) => (
                     <Route
                         key={route.path}
@@ -30,3 +68,4 @@ function App() {
 }
 
 export default App;
+

@@ -5,32 +5,42 @@ interface Route {
     Component: React.LazyExoticComponent<ComponentType<unknown>>;
 }
 
-export const appRoutes: Route[] = [
-    {
-        path: "/",
-        Component: lazy(() => import("@/pages/ScheduleBuilder.tsx")),
-    },
-    {
-        path: "/schedules",
-        Component: lazy(() => import("@/pages/PossibleSchedules.tsx")),
-    },
-    {
-        path: "/schedules/favorites",
-        Component: lazy(() => import("@/pages/FavoriteSchedules.tsx")),
-    },
+// Wizard step components (lazy-loaded)
+export const CatalogCreatePage = lazy(
+    () => import("@/pages/CatalogCreatePage"),
+);
+export const ScheduleRequestStep = lazy(
+    () => import("@/pages/ScheduleRequestStep"),
+);
+export const ScheduleResultsStep = lazy(
+    () => import("@/pages/ScheduleResultsStep"),
+);
+
+// Wizard shell (lazy-loaded)
+export const CatalogWizardShell = lazy(
+    () => import("@/components/wizard/CatalogWizardShell"),
+);
+
+// Layouts (lazy-loaded)
+export const WizardLayout = lazy(
+    () => import("@/components/layouts/WizardLayout"),
+);
+
+// Non-wizard routes
+export const authRoutes: Route[] = [
     {
         path: "/login",
-        Component: lazy(() => import("@/pages/Login.tsx")),
+        Component: lazy(() => import("@/pages/Login")),
     },
     {
         path: "/signup",
-        Component: lazy(() => import("@/pages/SignUp.tsx")),
+        Component: lazy(() => import("@/pages/SignUp")),
     },
 ];
 
 export const fallbackRoutes: Route[] = [
     {
         path: "*",
-        Component: lazy(() => import("@/pages/NotFound.tsx")),
+        Component: lazy(() => import("@/pages/NotFound")),
     },
 ];

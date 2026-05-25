@@ -1,7 +1,7 @@
 """
 Top-level API router.
 
-Mounts all versioned sub-routers.  Add future versions here (v2, v3, …).
+Mounts all versioned sub-routers. Add future versions here (v2, v3, …).
 """
 
 from fastapi import APIRouter

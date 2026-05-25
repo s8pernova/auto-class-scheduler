@@ -28,3 +28,40 @@ html {
     scrollbar-color: #0b1630 transparent;
     scrollbar-width: thick;
 }
+
+/* Wizard step transitions */
+
+.wizard-step-frame {
+    overflow: hidden;
+    will-change: transform, opacity;
+}
+
+@keyframes slide-in-right {
+    from {
+        transform: translateX(60px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        transform: translateX(-60px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.wizard-slide-in-right {
+    animation: slide-in-right 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.wizard-slide-in-left {
+    animation: slide-in-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}

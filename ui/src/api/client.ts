@@ -117,3 +117,54 @@ export async function healthCheck() {
     }
     return response.json();
 }
+
+// Catalogs
+
+interface CreateCatalogPayload {
+    name: string;
+    source_type?: string;
+    school_name?: string | null;
+    term_name?: string | null;
+}
+
+export interface CatalogResponse {
+    id: string;
+    name: string;
+    source_type: string;
+    school_name: string | null;
+    term_name: string | null;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * Create a new catalog.
+ */
+export async function createCatalog(
+    payload: CreateCatalogPayload,
+): Promise<CatalogResponse> {
+    const response = await fetch(`${BASE_URL}/catalogs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to create catalog: ${response.statusText}`);
+    }
+    return response.json();
+}
+
+/**
+ * Fetch a catalog by ID.
+ */
+export async function getCatalog(catalogId: string): Promise<CatalogResponse> {
+    const response = await fetch(`${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}`);
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new Error("Catalog not found");
+        }
+        throw new Error(`Failed to fetch catalog: ${response.statusText}`);
+    }
+    return response.json();
+}

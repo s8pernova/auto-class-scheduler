@@ -37,6 +37,6 @@ def create_favorite(client: Client, schedule_id: int) -> FavoriteResponse:
 
 
 def delete_favorite(client: Client, schedule_id: int) -> bool:
-    """Remove a favorite.  Returns ``True`` if a row was deleted."""
+    """Remove a favorite. Returns ``True`` if a row was deleted."""
     resp = client.table("favorites").delete().eq("schedule_id", schedule_id).execute()
     return len(resp.data) > 0
