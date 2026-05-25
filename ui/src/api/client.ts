@@ -122,6 +122,7 @@ export async function healthCheck() {
 
 interface CreateCatalogPayload {
     name: string;
+    description?: string | null;
     source_type?: string;
     school_name?: string | null;
     term_name?: string | null;
@@ -130,12 +131,17 @@ interface CreateCatalogPayload {
 export interface CatalogResponse {
     id: string;
     name: string;
+    description: string | null;
     source_type: string;
     school_name: string | null;
     term_name: string | null;
+    status: string;
+    row_count: number;
+    source_metadata: Record<string, unknown>;
     created_by: string | null;
     created_at: string;
     updated_at: string;
+    last_imported_at: string | null;
 }
 
 /**
