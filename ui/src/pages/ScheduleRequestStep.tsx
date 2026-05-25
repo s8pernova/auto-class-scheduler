@@ -90,12 +90,14 @@ type RequirementSectionsTableProps = {
         patch: Partial<RequirementSection>,
     ) => void;
     onRemoveSection: (rowIndex: number) => void;
+    onAddSection: (sectionData: Partial<RequirementSection>) => void;
 };
 
 function RequirementSectionsTable({
     sections,
     onUpdateSection,
     onRemoveSection,
+    onAddSection,
 }: RequirementSectionsTableProps) {
     const data = useMemo<RequirementSectionRow[]>(
         () =>
@@ -199,7 +201,24 @@ function RequirementSectionsTable({
     });
 
     return (
-        <table className="w-full text-left border-collapse mt-4">
+        <>
+            <form
+                id="add-section-form"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const days = String(formData.get("days") || "").trim();
+                    const time = String(formData.get("time") || "").trim();
+                    const crn = String(formData.get("crn") || "").trim();
+                    const instructor = String(formData.get("instructor") || "").trim();
+
+                    if (days || time || crn || instructor) {
+                        onAddSection({ days, time, crn, instructor });
+                        e.currentTarget.reset();
+                    }
+                }}
+            />
+            <table className="w-full text-left border-collapse mt-4">
             <thead>
                 {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id}>
@@ -212,7 +231,7 @@ function RequirementSectionsTable({
                                     colSpan={header.colSpan}
                                     className={
                                         isGroupHeader
-                                            ? "px-2 pt-1 pb-0 text-center text-xs font-bold uppercase text-background/50"
+                                            ? "px-2 pt-1 pb-2 mb-4 text-center text-xs font-bold uppercase text-background/50 border-b-2 border-background/40"
                                             : "px-2 pt-2 pb-2 text-left text-sm font-semibold text-background/60 border-b border-background/20"
                                     }
                                 >
@@ -247,8 +266,47 @@ function RequirementSectionsTable({
                         ))}
                     </tr>
                 ))}
+                <tr className="border-b border-background/10 hover:bg-background/5 transition-colors">
+                    {table.getAllLeafColumns().map((column) => {
+                        if (column.id === "actions") {
+                            return (
+                                <td key={column.id} className="p-2 align-middle text-right">
+                                    <button
+                                        type="submit"
+                                        form="add-section-form"
+                                        className="text-accent hover:text-accent/80 transition-colors text-sm px-2 py-1"
+                                    >
+                                        <FaPlus />
+                                    </button>
+                                </td>
+                            );
+                        }
+
+                        let placeholder = "";
+                        if (column.id === "days") placeholder = "MWF";
+                        else if (column.id === "time") placeholder = "10:00AM-11:00AM";
+                        else if (column.id === "crn") placeholder = "12345";
+                        else if (column.id === "instructor") placeholder = "Smith";
+
+                        return (
+                            <td
+                                key={column.id}
+                                className="p-2 align-middle text-background"
+                            >
+                                <input
+                                    type="text"
+                                    name={column.id}
+                                    form="add-section-form"
+                                    className="w-full bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20 text-sm"
+                                    placeholder={placeholder}
+                                />
+                            </td>
+                        );
+                    })}
+                </tr>
             </tbody>
         </table>
+        </>
     );
 }
 
@@ -357,42 +415,32 @@ export default function ScheduleRequestStep() {
     }
 
     function handleAddSectionToCourse(
-        e: React.FormEvent<HTMLFormElement>,
+        sectionData: Partial<RequirementSection>,
         groupId: string,
     ) {
-        e.preventDefault();
-
-        const formData = new FormData(e.currentTarget);
-        const rawInput = String(formData.get("subCourseInput") || "");
-        const parsed = parseCourseInput(rawInput);
-
-        if (!parsed) {
-            // TODO: alerts are only for temp dev stuff. change it
-            alert("Please enter a valid course format, like CS 2104.");
-            return;
-        }
-
         const group = draft.requirementCourses.find(
             (item) => item.id === groupId,
         );
         if (!group) return;
 
-        const alreadyInGroup = group.sections.some(
-            (section) =>
-                section.subjectCode === parsed.subjectCode &&
-                section.courseNumber === parsed.courseNumber,
-        );
-
-        if (alreadyInGroup) {
-            alert("Course already in this pool.");
-            return;
+        const parsedGroupCourse = parseCourseInput(group.label);
+        if (!parsedGroupCourse) {
+             alert("Group label is not a valid course format.");
+             return;
         }
 
-        handleUpdateCourse(groupId, {
-            sections: [...group.sections, parsed],
-        });
+        const newSection: RequirementSection = {
+            subjectCode: parsedGroupCourse.subjectCode,
+            courseNumber: parsedGroupCourse.courseNumber,
+            days: sectionData.days || "",
+            time: sectionData.time || "",
+            crn: sectionData.crn || "",
+            instructor: sectionData.instructor || "",
+        };
 
-        e.currentTarget.reset();
+        handleUpdateCourse(groupId, {
+            sections: [...group.sections, newSection],
+        });
     }
 
     function handleUpdateSectionAtIndex(
@@ -527,7 +575,7 @@ export default function ScheduleRequestStep() {
                         </p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-2">
                         <div className="flex justify-between items-start">
                             <div>
                                 <input
@@ -561,6 +609,12 @@ export default function ScheduleRequestStep() {
                                     handleRemoveSectionAtIndex(
                                         selectedCourse.id,
                                         rowIndex,
+                                    )
+                                }
+                                onAddSection={(sectionData) =>
+                                    handleAddSectionToCourse(
+                                        sectionData,
+                                        selectedCourse.id,
                                     )
                                 }
                             />
