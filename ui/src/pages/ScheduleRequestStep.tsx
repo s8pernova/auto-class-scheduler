@@ -64,7 +64,7 @@ export default function ScheduleRequestStep() {
 
     return (
         <div className="grid grid-cols-[380px_1fr_480px] gap-[15px] h-full">
-            <aside className="bg-surface rounded-[10px] p-4 flex flex-col gap-4">
+            <aside className="bg-surface rounded-[10px] p-4 flex flex-col gap-8">
                 <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide mb-3">
                     Add Requirements
                 </h2>
@@ -86,24 +86,10 @@ export default function ScheduleRequestStep() {
                         </button>
                     </form>
                 </div>
-            </aside>
-            <main className="bg-surface rounded-[10px] p-6 flex flex-col gap-4">
-                <h1 className="text-xl font-semibold text-background">
-                    Build Your Schedule
-                </h1>
-                <p className="text-background/60">
-                    Choose your required courses, elective pools, and
-                    preferences. Then generate possible schedules.
-                </p>
-
-                <div className="flex flex-col gap-3 mt-4">
-                    {draft.requirementGroups.length === 0 ? (
-                        <div className="text-background/40 italic p-4 border border-dashed border-background/20 rounded-md text-center">
-                            No requirements added yet. Type a course code on the
-                            left to add it.
-                        </div>
-                    ) : (
-                        draft.requirementGroups.map((group) => (
+                {/* Mapping of courses */}
+                {draft.requirementGroups && (
+                    <div className="space-y-3">
+                        {draft.requirementGroups.map((group) => (
                             <div
                                 key={group.id}
                                 className="p-3 border border-background/20 rounded-md flex justify-between items-center bg-background/5"
@@ -130,9 +116,22 @@ export default function ScheduleRequestStep() {
                                     Remove
                                 </button>
                             </div>
-                        ))
-                    )}
-                </div>
+                        ))}
+                    </div>
+                )}
+            </aside>
+            <main className="bg-surface rounded-[10px] p-6 flex flex-col gap-4">
+                <h1 className="text-xl font-semibold text-background">
+                    Build Your Schedule
+                </h1>
+
+                {/* Mapping of specific classes within course */}
+                <p className="text-background/60">
+                    Choose your required courses, elective pools, and
+                    preferences. Then generate possible schedules.
+                </p>
+
+                <div className="flex flex-col gap-3 mt-4"></div>
 
                 <div className="mt-auto flex justify-end pt-4 border-t border-background/10">
                     <button
