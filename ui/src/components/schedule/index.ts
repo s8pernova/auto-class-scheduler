@@ -4,3 +4,4 @@ export type { RequirementSectionsTableProps, ComboboxFieldOptions } from "./Requ
 export { RequirementsSidebar } from "./RequirementsSidebar";
 export { CourseDetailPanel } from "./CourseDetailPanel";
 export { PreferencesSidebar } from "./PreferencesSidebar";
+export { DaysInput } from "./DaysInput";

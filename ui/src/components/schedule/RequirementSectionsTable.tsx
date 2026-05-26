@@ -8,8 +8,9 @@ import {
 } from "@tanstack/react-table";
 import type { SectionRef } from "@/contexts/ScheduleDraftContext";
 import { EditableTextCell } from "./EditableTextCell";
-import { CreatableCombobox } from "@/components/common/CreatableCombobox";
+import { Combobox } from "@/components/common/Combobox";
 import { TimeRangeInput } from "./TimeRangeInput";
+import { DaysInput } from "./DaysInput";
 
 type RequirementSectionRow = SectionRef & {
     rowKey: string;
@@ -113,79 +114,6 @@ function getColumnSizeStyle(size?: number): CSSProperties | undefined {
     };
 }
 
-const DAY_OPTIONS = [
-    { label: "M", value: "M", name: "Monday" },
-    { label: "T", value: "T", name: "Tuesday" },
-    { label: "W", value: "W", name: "Wednesday" },
-    { label: "R", value: "R", name: "Thursday" },
-    { label: "F", value: "F", name: "Friday" },
-    { label: "S", value: "S", name: "Saturday" },
-] as const;
-
-function normalizeMeetingDays(value: string): string {
-    const selected = new Set(value.toUpperCase().replace(/\s+/g, "").split(""));
-
-    return DAY_OPTIONS.filter((day) => selected.has(day.value))
-        .map((day) => day.value)
-        .join("");
-}
-
-type DaysInputProps = {
-    value: string;
-    onChange: (value: string) => void;
-};
-
-function DaysInput({ value, onChange }: DaysInputProps) {
-    const normalizedValue = normalizeMeetingDays(value);
-    const selectedDays = new Set(normalizedValue.split(""));
-
-    function handleToggle(dayValue: string) {
-        const nextDays = new Set(selectedDays);
-
-        if (nextDays.has(dayValue)) {
-            nextDays.delete(dayValue);
-        } else {
-            nextDays.add(dayValue);
-        }
-
-        onChange(
-            DAY_OPTIONS.filter((day) => nextDays.has(day.value))
-                .map((day) => day.value)
-                .join(""),
-        );
-    }
-
-    return (
-        <div
-            className="inline-flex rounded border border-transparent hover:border-background/20 focus-within:border-accent"
-            role="group"
-            aria-label="Meeting days"
-        >
-            {DAY_OPTIONS.map((day) => {
-                const isSelected = selectedDays.has(day.value);
-
-                return (
-                    <button
-                        key={day.value}
-                        type="button"
-                        aria-pressed={isSelected}
-                        aria-label={day.name}
-                        title={day.name}
-                        onClick={() => handleToggle(day.value)}
-                        className={
-                            isSelected
-                                ? "min-w-8 px-2 py-1 text-sm font-semibold text-surface bg-accent"
-                                : "min-w-8 px-2 py-1 text-sm text-background/65 hover:text-background hover:bg-background/10"
-                        }
-                    >
-                        {day.label}
-                    </button>
-                );
-            })}
-        </div>
-    );
-}
-
 export function RequirementSectionsTable({
     sections,
     onUpdateSection,
@@ -267,7 +195,7 @@ export function RequirementSectionsTable({
                     return {
                         ...base,
                         cell: ({ row, getValue }) => (
-                            <CreatableCombobox
+                            <Combobox
                                 value={String(getValue() || "")}
                                 options={opts?.options ?? []}
                                 onChange={(value) =>
@@ -412,7 +340,7 @@ export function RequirementSectionsTable({
             case "combobox": {
                 const opts = fieldOptions[field.key];
                 return (
-                    <CreatableCombobox
+                    <Combobox
                         value={newSection[field.key]}
                         options={opts?.options ?? []}
                         onChange={(value) => updateDraftField(field.key, value)}

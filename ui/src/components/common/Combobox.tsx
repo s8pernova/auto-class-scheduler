@@ -99,7 +99,7 @@ function normalizeString(value: string) {
     return value.trim().replace(/\s+/g, " ");
 }
 
-type CreatableComboboxProps = {
+type ComboboxProps = {
     value: string;
     options: string[];
     onChange: (value: string) => void;
@@ -107,13 +107,13 @@ type CreatableComboboxProps = {
     placeholder?: string;
 };
 
-export function CreatableCombobox({
+export function Combobox({
     value,
     options,
     onChange,
     onCreateOption,
     placeholder = "Type or select...",
-}: CreatableComboboxProps) {
+}: ComboboxProps) {
     const selectOptions = useMemo<Option[]>(
         () =>
             options.map((option) => ({
