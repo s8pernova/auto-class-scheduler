@@ -1,5 +1,5 @@
 import { FaRegTrashAlt, FaPlus } from "react-icons/fa";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     ColumnDef,
@@ -31,6 +31,10 @@ function EditableTextCell({
 }: EditableTextCellProps) {
     const [draftValue, setDraftValue] = useState(value);
 
+    useEffect(() => {
+        setDraftValue(value);
+    }, [value]);
+
     function handleBlur() {
         const nextValue = draftValue.trim();
         if (nextValue && nextValue !== value) {
@@ -50,39 +54,6 @@ function EditableTextCell({
     );
 }
 
-type EditableNumberCellProps = {
-    value: number;
-    onCommit: (value: number) => void;
-};
-
-function EditableNumberCell({ value, onCommit }: EditableNumberCellProps) {
-    const [draftValue, setDraftValue] = useState(String(value));
-
-    function handleBlur() {
-        const nextValue = Number.parseInt(draftValue, 10);
-        if (
-            Number.isFinite(nextValue) &&
-            nextValue > 0 &&
-            nextValue !== value
-        ) {
-            onCommit(nextValue);
-        } else {
-            setDraftValue(String(value));
-        }
-    }
-
-    return (
-        <input
-            type="number"
-            min={1}
-            value={draftValue}
-            onChange={(e) => setDraftValue(e.target.value)}
-            onBlur={handleBlur}
-            className="w-24 bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20"
-        />
-    );
-}
-
 type RequirementSectionsTableProps = {
     sections: RequirementSection[];
     onUpdateSection: (
@@ -93,12 +64,56 @@ type RequirementSectionsTableProps = {
     onAddSection: (sectionData: Partial<RequirementSection>) => void;
 };
 
+type SectionFieldKey = "days" | "time" | "crn" | "instructor";
+
+type SectionDraft = Record<SectionFieldKey, string>;
+
+const SECTION_FIELDS = [
+    {
+        key: "days",
+        header: "Days",
+        placeholder: "MWF",
+    },
+    {
+        key: "time",
+        header: "Time",
+        placeholder: "10:00AM-11:00AM",
+    },
+    {
+        key: "crn",
+        header: "CRN",
+        placeholder: "12345",
+    },
+    {
+        key: "instructor",
+        header: "Instructor",
+        placeholder: "Smith",
+    },
+] as const satisfies readonly {
+    key: SectionFieldKey;
+    header: string;
+    placeholder: string;
+}[];
+
+function createEmptySectionDraft(): SectionDraft {
+    return {
+        days: "",
+        time: "",
+        crn: "",
+        instructor: "",
+    };
+}
+
 function RequirementSectionsTable({
     sections,
     onUpdateSection,
     onRemoveSection,
     onAddSection,
 }: RequirementSectionsTableProps) {
+    const [newSection, setNewSection] = useState<SectionDraft>(
+        createEmptySectionDraft,
+    );
+
     const data = useMemo<RequirementSectionRow[]>(
         () =>
             sections.map((section, index) => ({
@@ -108,68 +123,43 @@ function RequirementSectionsTable({
         [sections],
     );
 
-    const columns = useMemo<ColumnDef<RequirementSectionRow>[]>(
-        () => [
+    const columns = useMemo<ColumnDef<RequirementSectionRow>[]>(() => {
+        function makeTextColumn(
+            key: SectionFieldKey,
+            header: string,
+        ): ColumnDef<RequirementSectionRow> {
+            return {
+                id: key,
+                accessorFn: (row) => row[key] ?? "",
+                header,
+                cell: ({ row, getValue }) => (
+                    <EditableTextCell
+                        value={String(getValue() || "")}
+                        onCommit={(value) =>
+                            onUpdateSection(row.index, {
+                                [key]: value,
+                            } as Partial<RequirementSection>)
+                        }
+                    />
+                ),
+            };
+        }
+
+        return [
             {
                 id: "required",
                 header: "Required",
                 columns: [
-                    {
-                        accessorKey: "days",
-                        header: "Days",
-                        cell: ({ row, getValue }) => (
-                            <EditableTextCell
-                                value={String(getValue() || "")}
-                                onCommit={(value) =>
-                                    onUpdateSection(row.index, { days: value })
-                                }
-                            />
-                        ),
-                    },
-                    {
-                        accessorKey: "time",
-                        header: "Time",
-                        cell: ({ row, getValue }) => (
-                            <EditableTextCell
-                                value={String(getValue() || "")}
-                                onCommit={(value) =>
-                                    onUpdateSection(row.index, { time: value })
-                                }
-                            />
-                        ),
-                    },
+                    makeTextColumn("days", "Days"),
+                    makeTextColumn("time", "Time"),
                 ],
             },
             {
                 id: "optional",
                 header: "Optional",
                 columns: [
-                    {
-                        accessorKey: "crn",
-                        header: "CRN",
-                        cell: ({ row, getValue }) => (
-                            <EditableTextCell
-                                value={String(getValue() || "")}
-                                onCommit={(value) =>
-                                    onUpdateSection(row.index, { crn: value })
-                                }
-                            />
-                        ),
-                    },
-                    {
-                        accessorKey: "instructor",
-                        header: "Instructor",
-                        cell: ({ row, getValue }) => (
-                            <EditableTextCell
-                                value={String(getValue() || "")}
-                                onCommit={(value) =>
-                                    onUpdateSection(row.index, {
-                                        instructor: value,
-                                    })
-                                }
-                            />
-                        ),
-                    },
+                    makeTextColumn("crn", "CRN"),
+                    makeTextColumn("instructor", "Instructor"),
                 ],
             },
             {
@@ -182,6 +172,7 @@ function RequirementSectionsTable({
                                 type="button"
                                 onClick={() => onRemoveSection(row.index)}
                                 className="text-background/40 hover:text-red-500 transition-colors text-sm px-2 py-1"
+                                aria-label="Remove section"
                             >
                                 <FaRegTrashAlt />
                             </button>
@@ -189,9 +180,8 @@ function RequirementSectionsTable({
                     </div>
                 ),
             },
-        ],
-        [onRemoveSection, onUpdateSection, sections.length],
-    );
+        ];
+    }, [onRemoveSection, onUpdateSection, sections.length]);
 
     const table = useReactTable({
         data,
@@ -200,25 +190,31 @@ function RequirementSectionsTable({
         getRowId: (row) => row.rowKey,
     });
 
-    return (
-        <>
-            <form
-                id="add-section-form"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
-                    const days = String(formData.get("days") || "").trim();
-                    const time = String(formData.get("time") || "").trim();
-                    const crn = String(formData.get("crn") || "").trim();
-                    const instructor = String(formData.get("instructor") || "").trim();
+    const canAddSection =
+        newSection.days.trim().length > 0 && newSection.time.trim().length > 0;
 
-                    if (days || time || crn || instructor) {
-                        onAddSection({ days, time, crn, instructor });
-                        e.currentTarget.reset();
-                    }
-                }}
-            />
-            <table className="w-full text-left border-collapse mt-4">
+    function handleAddSection() {
+        if (!canAddSection) return;
+
+        onAddSection({
+            days: newSection.days.trim(),
+            time: newSection.time.trim(),
+            crn: newSection.crn.trim(),
+            instructor: newSection.instructor.trim(),
+        });
+
+        setNewSection(createEmptySectionDraft());
+    }
+
+    function handleAddRowKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        if (e.key !== "Enter") return;
+
+        e.preventDefault();
+        handleAddSection();
+    }
+
+    return (
+        <table className="w-full text-left border-separate border-spacing-0 mt-4">
             <thead>
                 {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id}>
@@ -231,22 +227,33 @@ function RequirementSectionsTable({
                                     colSpan={header.colSpan}
                                     className={
                                         isGroupHeader
-                                            ? "px-2 pt-1 pb-2 mb-4 text-center text-xs font-bold uppercase text-background/50 border-b-2 border-background/40"
+                                            ? "px-2 pt-3 pb-1 text-center"
                                             : "px-2 pt-2 pb-2 text-left text-sm font-semibold text-background/60 border-b border-background/20"
                                     }
                                 >
-                                    {header.isPlaceholder
-                                        ? null
-                                        : flexRender(
-                                              header.column.columnDef.header,
-                                              header.getContext(),
-                                          )}
+                                    {header.isPlaceholder ? null : isGroupHeader ? (
+                                        <div className="relative h-3 border-t border-x border-background/35 rounded-t-md">
+                                            <span className="absolute left-1/2 -top-2 -translate-x-1/2 bg-surface px-2 text-[10px] font-bold uppercase tracking-wide text-background/55">
+                                                {flexRender(
+                                                    header.column.columnDef
+                                                        .header,
+                                                    header.getContext(),
+                                                )}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        flexRender(
+                                            header.column.columnDef.header,
+                                            header.getContext(),
+                                        )
+                                    )}
                                 </th>
                             );
                         })}
                     </tr>
                 ))}
             </thead>
+
             <tbody>
                 {table.getRowModel().rows.map((row) => (
                     <tr
@@ -256,7 +263,7 @@ function RequirementSectionsTable({
                         {row.getVisibleCells().map((cell) => (
                             <td
                                 key={cell.id}
-                                className="p-2 align-middle text-background"
+                                className="p-2 align-middle text-background border-b border-background/10"
                             >
                                 {flexRender(
                                     cell.column.columnDef.cell,
@@ -266,15 +273,23 @@ function RequirementSectionsTable({
                         ))}
                     </tr>
                 ))}
-                <tr className="border-b border-background/10 hover:bg-background/5 transition-colors">
+            </tbody>
+
+            <tfoot>
+                <tr className="hover:bg-background/5 transition-colors">
                     {table.getAllLeafColumns().map((column) => {
                         if (column.id === "actions") {
                             return (
-                                <td key={column.id} className="p-2 align-middle text-right">
+                                <td
+                                    key={column.id}
+                                    className="p-2 align-middle text-right"
+                                >
                                     <button
-                                        type="submit"
-                                        form="add-section-form"
-                                        className="text-accent hover:text-accent/80 transition-colors text-sm px-2 py-1"
+                                        type="button"
+                                        onClick={handleAddSection}
+                                        disabled={!canAddSection}
+                                        className="text-accent hover:text-accent/80 disabled:text-background/25 disabled:cursor-not-allowed transition-colors text-sm px-2 py-1"
+                                        aria-label="Add section"
                                     >
                                         <FaPlus />
                                     </button>
@@ -282,11 +297,13 @@ function RequirementSectionsTable({
                             );
                         }
 
-                        let placeholder = "";
-                        if (column.id === "days") placeholder = "MWF";
-                        else if (column.id === "time") placeholder = "10:00AM-11:00AM";
-                        else if (column.id === "crn") placeholder = "12345";
-                        else if (column.id === "instructor") placeholder = "Smith";
+                        const field = SECTION_FIELDS.find(
+                            (item) => item.key === column.id,
+                        );
+
+                        if (!field) {
+                            return <td key={column.id} className="p-2" />;
+                        }
 
                         return (
                             <td
@@ -295,18 +312,24 @@ function RequirementSectionsTable({
                             >
                                 <input
                                     type="text"
-                                    name={column.id}
-                                    form="add-section-form"
+                                    value={newSection[field.key]}
+                                    onChange={(e) =>
+                                        setNewSection((current) => ({
+                                            ...current,
+                                            [field.key]: e.target.value,
+                                        }))
+                                    }
+                                    onKeyDown={handleAddRowKeyDown}
                                     className="w-full bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20 text-sm"
-                                    placeholder={placeholder}
+                                    placeholder={field.placeholder}
+                                    aria-label={`New section ${field.header}`}
                                 />
                             </td>
                         );
                     })}
                 </tr>
-            </tbody>
+            </tfoot>
         </table>
-        </>
     );
 }
 
@@ -425,8 +448,8 @@ export default function ScheduleRequestStep() {
 
         const parsedGroupCourse = parseCourseInput(group.label);
         if (!parsedGroupCourse) {
-             alert("Group label is not a valid course format.");
-             return;
+            alert("Group label is not a valid course format.");
+            return;
         }
 
         const newSection: RequirementSection = {
