@@ -28,6 +28,7 @@ type SectionFieldDef =
           key: "days";
           header: string;
           size?: number;
+          hug?: boolean;
       }
     | {
           type: "text";
@@ -35,12 +36,14 @@ type SectionFieldDef =
           header: string;
           placeholder: string;
           size?: number;
+          hug?: boolean;
       }
     | {
           type: "time";
           key: SectionFieldKey;
           header: string;
           size?: number;
+          hug?: boolean;
       }
     | {
           type: "combobox";
@@ -48,6 +51,7 @@ type SectionFieldDef =
           header: string;
           placeholder: string;
           size?: number;
+          hug?: boolean;
       };
 
 const SECTION_FIELDS: readonly SectionFieldDef[] = [
@@ -55,20 +59,20 @@ const SECTION_FIELDS: readonly SectionFieldDef[] = [
         type: "days",
         key: "days",
         header: "Days",
-        size: 196,
+        hug: true,
     },
     {
         type: "time",
         key: "time",
         header: "Time",
-        size: 240,
+        hug: true,
     },
     {
         type: "text",
         key: "crn",
         header: "CRN",
         placeholder: "12345",
-        size: 104,
+        size: 100,
     },
     {
         type: "combobox",
@@ -105,7 +109,19 @@ const ACTION_BUTTON_BASE = "transition-colors text-sm px-2 py-1";
 const ACTION_BUTTON_ENABLED = `${ACTION_BUTTON_BASE} text-background/40 hover:text-background/70`;
 const ACTION_BUTTON_DISABLED = `${ACTION_BUTTON_BASE} text-background/15 cursor-not-allowed`;
 
-function getColumnSizeStyle(size?: number): CSSProperties | undefined {
+function getColumnSizeStyle(
+    size?: number,
+    meta?: unknown,
+): CSSProperties | undefined {
+    const isHug = meta && typeof meta === "object" && "hug" in meta && meta.hug;
+
+    if (isHug) {
+        return {
+            width: "1%",
+            whiteSpace: "nowrap",
+        };
+    }
+
     if (!size) return undefined;
 
     return {
@@ -145,6 +161,7 @@ export function RequirementSectionsTable({
                     row[field.key] ?? "",
                 header: field.header,
                 size: field.size,
+                meta: { hug: field.hug },
             };
 
             switch (field.type) {
@@ -230,6 +247,7 @@ export function RequirementSectionsTable({
             {
                 id: "actions",
                 header: "",
+                meta: { hug: true },
                 cell: ({ row }) => (
                     <div className="flex justify-end gap-0.5">
                         <button
@@ -369,6 +387,7 @@ export function RequirementSectionsTable({
                                             ? undefined
                                             : getColumnSizeStyle(
                                                   header.column.columnDef.size,
+                                                  header.column.columnDef.meta,
                                               )
                                     }
                                     className={
@@ -411,6 +430,7 @@ export function RequirementSectionsTable({
                                 key={cell.id}
                                 style={getColumnSizeStyle(
                                     cell.column.columnDef.size,
+                                    cell.column.columnDef.meta,
                                 )}
                                 className="p-2 align-middle text-background border-b border-background/10"
                             >
@@ -433,6 +453,7 @@ export function RequirementSectionsTable({
                                     key={column.id}
                                     style={getColumnSizeStyle(
                                         column.columnDef.size,
+                                        column.columnDef.meta,
                                     )}
                                     className="p-2 align-middle"
                                 >
@@ -484,6 +505,7 @@ export function RequirementSectionsTable({
                                 key={column.id}
                                 style={getColumnSizeStyle(
                                     column.columnDef.size,
+                                    column.columnDef.meta,
                                 )}
                                 className="p-2 align-middle text-background"
                             >
