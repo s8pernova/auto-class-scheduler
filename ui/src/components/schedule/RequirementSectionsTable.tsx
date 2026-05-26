@@ -1,5 +1,5 @@
 import { FaRegTrashAlt, FaRegCopy, FaPlus } from "react-icons/fa";
-import { useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 import {
     type ColumnDef,
     flexRender,
@@ -27,17 +27,20 @@ type SectionFieldDef =
           key: SectionFieldKey;
           header: string;
           placeholder: string;
+          size?: number;
       }
     | {
           type: "time";
           key: SectionFieldKey;
           header: string;
+          size?: number;
       }
     | {
           type: "combobox";
           key: SectionFieldKey;
           header: string;
           placeholder: string;
+          size?: number;
       };
 
 const SECTION_FIELDS: readonly SectionFieldDef[] = [
@@ -46,17 +49,20 @@ const SECTION_FIELDS: readonly SectionFieldDef[] = [
         key: "days",
         header: "Days",
         placeholder: "MWF",
+        size: 100,
     },
     {
         type: "time",
         key: "time",
         header: "Time",
+        size: 240,
     },
     {
         type: "text",
         key: "crn",
         header: "CRN",
         placeholder: "12345",
+        size: 104,
     },
     {
         type: "combobox",
@@ -89,12 +95,18 @@ export type RequirementSectionsTableProps = {
     fieldOptions?: Partial<Record<SectionFieldKey, ComboboxFieldOptions>>;
 };
 
-const ACTION_BUTTON_BASE =
-    "transition-colors text-sm px-2 py-1";
-const ACTION_BUTTON_ENABLED =
-    `${ACTION_BUTTON_BASE} text-background/40 hover:text-background/70`;
-const ACTION_BUTTON_DISABLED =
-    `${ACTION_BUTTON_BASE} text-background/15 cursor-not-allowed`;
+const ACTION_BUTTON_BASE = "transition-colors text-sm px-2 py-1";
+const ACTION_BUTTON_ENABLED = `${ACTION_BUTTON_BASE} text-background/40 hover:text-background/70`;
+const ACTION_BUTTON_DISABLED = `${ACTION_BUTTON_BASE} text-background/15 cursor-not-allowed`;
+
+function getColumnSizeStyle(size?: number): CSSProperties | undefined {
+    if (!size) return undefined;
+
+    return {
+        width: `${size}px`,
+        minWidth: `${size}px`,
+    };
+}
 
 export function RequirementSectionsTable({
     sections,
@@ -126,6 +138,7 @@ export function RequirementSectionsTable({
                 accessorFn: (row: RequirementSectionRow) =>
                     row[field.key] ?? "",
                 header: field.header,
+                size: field.size,
             };
 
             switch (field.type) {
@@ -232,7 +245,13 @@ export function RequirementSectionsTable({
                 ),
             },
         ];
-    }, [onRemoveSection, onCopySection, onUpdateSection, sections.length, fieldOptions]);
+    }, [
+        onRemoveSection,
+        onCopySection,
+        onUpdateSection,
+        sections.length,
+        fieldOptions,
+    ]);
 
     const table = useReactTable({
         data,
@@ -318,6 +337,13 @@ export function RequirementSectionsTable({
                                 <th
                                     key={header.id}
                                     colSpan={header.colSpan}
+                                    style={
+                                        isGroupHeader
+                                            ? undefined
+                                            : getColumnSizeStyle(
+                                                  header.column.columnDef.size,
+                                              )
+                                    }
                                     className={
                                         isGroupHeader
                                             ? "px-2 pt-3 pb-1 text-center"
@@ -356,6 +382,9 @@ export function RequirementSectionsTable({
                         {row.getVisibleCells().map((cell) => (
                             <td
                                 key={cell.id}
+                                style={getColumnSizeStyle(
+                                    cell.column.columnDef.size,
+                                )}
                                 className="p-2 align-middle text-background border-b border-background/10"
                             >
                                 {flexRender(
@@ -375,6 +404,9 @@ export function RequirementSectionsTable({
                             return (
                                 <td
                                     key={column.id}
+                                    style={getColumnSizeStyle(
+                                        column.columnDef.size,
+                                    )}
                                     className="p-2 align-middle"
                                 >
                                     <div className="flex justify-end gap-0.5">
@@ -423,6 +455,9 @@ export function RequirementSectionsTable({
                         return (
                             <td
                                 key={column.id}
+                                style={getColumnSizeStyle(
+                                    column.columnDef.size,
+                                )}
                                 className="p-2 align-middle text-background"
                             >
                                 {renderFooterInput(field)}

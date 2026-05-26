@@ -1,35 +1,23 @@
-// Converts "10:00AM" or "1:30PM" to 24h "HH:MM" for <input type="time">
-function to24h(raw: string): string {
-    const match = raw
-        .trim()
-        .toUpperCase()
-        .match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+import { TbArrowNarrowRightDashed } from "react-icons/tb";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 
-    if (!match) return "";
+dayjs.extend(customParseFormat);
 
-    let hours = Number.parseInt(match[1], 10);
-    const minutes = match[2];
-    const period = match[3];
+const DISPLAY_TIME_FORMAT = "h:mmA";
+const INPUT_TIME_FORMAT = "HH:mm";
 
-    if (period === "AM" && hours === 12) hours = 0;
-    if (period === "PM" && hours !== 12) hours += 12;
+function parseDisplayTime(raw: string): string {
+    const normalized = raw.trim().toUpperCase().replace(/\s+/g, "");
+    const parsed = dayjs(normalized, DISPLAY_TIME_FORMAT, true);
 
-    return `${String(hours).padStart(2, "0")}:${minutes}`;
+    return parsed.isValid() ? parsed.format(INPUT_TIME_FORMAT) : "";
 }
 
-// Converts 24h "HH:MM" back to "10:00AM" display format
-function to12h(time24: string): string {
-    const [rawHours, minutes] = time24.split(":");
+function formatDisplayTime(time24: string): string {
+    const parsed = dayjs(time24, INPUT_TIME_FORMAT, true);
 
-    if (!rawHours || !minutes) return "";
-
-    let hours = Number.parseInt(rawHours, 10);
-    const period = hours >= 12 ? "PM" : "AM";
-
-    if (hours === 0) hours = 12;
-    else if (hours > 12) hours -= 12;
-
-    return `${hours}:${minutes}${period}`;
+    return parsed.isValid() ? parsed.format(DISPLAY_TIME_FORMAT) : "";
 }
 
 // Parses "10:00AM-11:00AM" into [start24h, end24h]
@@ -37,15 +25,15 @@ function parseTimeRange(value: string): [string, string] {
     if (!value || !value.includes("-")) return ["", ""];
 
     const [startRaw, endRaw] = value.split("-");
-    return [to24h(startRaw), to24h(endRaw)];
+    return [parseDisplayTime(startRaw), parseDisplayTime(endRaw)];
 }
 
 // Composes [start24h, end24h] back into "10:00AM-11:00AM"
 function formatTimeRange(start24: string, end24: string): string {
     if (!start24 && !end24) return "";
-    if (!start24) return to12h(end24);
-    if (!end24) return to12h(start24);
-    return `${to12h(start24)}-${to12h(end24)}`;
+    if (!start24) return formatDisplayTime(end24);
+    if (!end24) return formatDisplayTime(start24);
+    return `${formatDisplayTime(start24)}-${formatDisplayTime(end24)}`;
 }
 
 type TimeRangeInputProps = {
@@ -81,7 +69,7 @@ export function TimeRangeInput({
                 className={inputClass}
                 aria-label="Start time"
             />
-            <span className="text-background/40 text-xs">-</span>
+            <TbArrowNarrowRightDashed />
             <input
                 type="time"
                 value={end}
