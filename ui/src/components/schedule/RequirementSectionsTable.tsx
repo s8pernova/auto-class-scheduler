@@ -261,9 +261,9 @@ export function RequirementSectionsTable({
                         <button
                             type="button"
                             onClick={() => onRemoveSection(row.index)}
-                            disabled={sections.length <= 1}
+                            disabled={sections.length == 0}
                             className={
-                                sections.length > 1
+                                sections.length > 0
                                     ? `${ACTION_BUTTON_ENABLED} hover:!text-red-500`
                                     : ACTION_BUTTON_DISABLED
                             }

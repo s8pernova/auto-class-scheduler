@@ -34,11 +34,11 @@ const comboboxStyles: StylesConfig<Option, false> = {
         ...base,
         margin: 0,
         padding: 0,
-        color: "var(--text)",
+        color: "var(--bg)",
     }),
     singleValue: (base) => ({
         ...base,
-        color: "var(--text)",
+        color: "var(--bg)",
     }),
     placeholder: (base) => ({
         ...base,
@@ -96,7 +96,11 @@ const comboboxStyles: StylesConfig<Option, false> = {
 };
 
 function normalizeString(value: string) {
-    return value.trim().replace(/\s+/g, " ");
+    return value
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, " ")
+        .replace(/\b\w/g, (s) => s.toUpperCase());
 }
 
 type ComboboxProps = {
