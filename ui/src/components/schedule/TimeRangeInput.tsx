@@ -33,16 +33,17 @@ function normalizeTimeValue(raw: string): string {
 }
 
 function parseTimeRange(value: string): [string, string] {
-    if (!value || !value.includes("-")) return ["", ""];
+    if (!value) return ["", ""];
 
-    const [startRaw, endRaw] = value.split("-");
+    const parts = value.split("-");
+    const startRaw = parts[0] || "";
+    const endRaw = parts[1] || "";
+    
     return [normalizeTimeValue(startRaw), normalizeTimeValue(endRaw)];
 }
 
 function formatTimeRange(start: string, end: string): string {
     if (!start && !end) return "";
-    if (!start) return end;
-    if (!end) return start;
     return `${start}-${end}`;
 }
 
