@@ -30,7 +30,7 @@ export default function CatalogCreatePage() {
     }
 
     return (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex items-center justify-center h-full col-span-full">
             <form
                 onSubmit={handleCreate}
                 className="bg-surface rounded-[10px] p-8 flex flex-col gap-4 w-full max-w-md"
