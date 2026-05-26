@@ -2,7 +2,10 @@ import type {
     RequirementCourse,
     SectionRef,
 } from "@/contexts/ScheduleDraftContext";
-import { RequirementSectionsTable } from "./RequirementSectionsTable";
+import {
+    RequirementSectionsTable,
+    type ComboboxFieldOptions,
+} from "./RequirementSectionsTable";
 
 type CourseDetailPanelProps = {
     selectedCourse: RequirementCourse | undefined;
@@ -12,6 +15,7 @@ type CourseDetailPanelProps = {
     onRemoveSection: (rowIndex: number) => void;
     onAddSection: (sectionData: Partial<SectionRef>) => void;
     onGenerate: () => void;
+    fieldOptions?: Partial<Record<string, ComboboxFieldOptions>>;
 };
 
 export function CourseDetailPanel({
@@ -22,6 +26,7 @@ export function CourseDetailPanel({
     onRemoveSection,
     onAddSection,
     onGenerate,
+    fieldOptions,
 }: CourseDetailPanelProps) {
     return (
         <main className="bg-surface rounded-[10px] p-6 flex flex-col">
@@ -60,6 +65,7 @@ export function CourseDetailPanel({
                             onUpdateSection={onUpdateSection}
                             onRemoveSection={onRemoveSection}
                             onAddSection={onAddSection}
+                            fieldOptions={fieldOptions}
                         />
                     </div>
                 </div>

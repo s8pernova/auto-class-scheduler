@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     type RequirementCourse,
@@ -21,10 +21,24 @@ export default function ScheduleRequestStep() {
     const [highlightedCourseId, setHighlightedCourseId] = useState<
         string | null
     >(null);
+    const [createdInstructors, setCreatedInstructors] = useState<string[]>([]);
 
     const selectedCourse = draft.requirementCourses.find(
         (group) => group.id === selectedCourseId,
     );
+
+    // Collect unique instructor names from all sections + manually created ones
+    const instructorOptions = useMemo(() => {
+        const names = new Set<string>(createdInstructors);
+        for (const course of draft.requirementCourses) {
+            for (const section of course.sections) {
+                if (section.instructor) {
+                    names.add(section.instructor);
+                }
+            }
+        }
+        return [...names].sort((a, b) => a.localeCompare(b));
+    }, [draft.requirementCourses, createdInstructors]);
 
     function handleGenerate() {
         navigate(`/catalogs/${catalogId}/results/mock-result-123`);
@@ -211,6 +225,15 @@ export default function ScheduleRequestStep() {
                     }
                 }}
                 onGenerate={handleGenerate}
+                fieldOptions={{
+                    instructor: {
+                        options: instructorOptions,
+                        onCreateOption: (name) =>
+                            setCreatedInstructors((prev) =>
+                                prev.includes(name) ? prev : [...prev, name],
+                            ),
+                    },
+                }}
             />
 
             <PreferencesSidebar

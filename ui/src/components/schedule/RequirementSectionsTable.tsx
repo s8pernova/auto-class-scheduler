@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import type { SectionRef } from "@/contexts/ScheduleDraftContext";
 import { EditableTextCell } from "./EditableTextCell";
+import { CreatableCombobox } from "@/components/common/CreatableCombobox";
 
 type RequirementSectionRow = SectionRef & {
     rowKey: string;
@@ -17,32 +18,48 @@ type SectionFieldKey = "days" | "time" | "crn" | "instructor";
 
 type SectionDraft = Record<SectionFieldKey, string>;
 
-const SECTION_FIELDS = [
+// Discriminated union for field definitions.
+// Add new variants here (e.g. "time", "select") to extend input types.
+type SectionFieldDef =
+    | {
+          type: "text";
+          key: SectionFieldKey;
+          header: string;
+          placeholder: string;
+      }
+    | {
+          type: "combobox";
+          key: SectionFieldKey;
+          header: string;
+          placeholder: string;
+      };
+
+const SECTION_FIELDS: readonly SectionFieldDef[] = [
     {
+        type: "text",
         key: "days",
         header: "Days",
         placeholder: "MWF",
     },
     {
+        type: "text",
         key: "time",
         header: "Time",
         placeholder: "10:00AM-11:00AM",
     },
     {
+        type: "text",
         key: "crn",
         header: "CRN",
         placeholder: "12345",
     },
     {
+        type: "combobox",
         key: "instructor",
         header: "Instructor",
         placeholder: "Smith",
     },
-] as const satisfies readonly {
-    key: SectionFieldKey;
-    header: string;
-    placeholder: string;
-}[];
+];
 
 function createEmptySectionDraft(): SectionDraft {
     return {
@@ -53,11 +70,17 @@ function createEmptySectionDraft(): SectionDraft {
     };
 }
 
+export type ComboboxFieldOptions = {
+    options: string[];
+    onCreateOption?: (value: string) => void;
+};
+
 export type RequirementSectionsTableProps = {
     sections: SectionRef[];
     onUpdateSection: (rowIndex: number, patch: Partial<SectionRef>) => void;
     onRemoveSection: (rowIndex: number) => void;
     onAddSection: (sectionData: Partial<SectionRef>) => void;
+    fieldOptions?: Partial<Record<SectionFieldKey, ComboboxFieldOptions>>;
 };
 
 export function RequirementSectionsTable({
@@ -65,6 +88,7 @@ export function RequirementSectionsTable({
     onUpdateSection,
     onRemoveSection,
     onAddSection,
+    fieldOptions = {},
 }: RequirementSectionsTableProps) {
     const [newSection, setNewSection] = useState<SectionDraft>(
         createEmptySectionDraft,
@@ -80,43 +104,67 @@ export function RequirementSectionsTable({
     );
 
     const columns = useMemo<ColumnDef<RequirementSectionRow>[]>(() => {
-        function makeTextColumn(
-            key: SectionFieldKey,
-            header: string,
+        function makeColumn(
+            field: SectionFieldDef,
         ): ColumnDef<RequirementSectionRow> {
-            return {
-                id: key,
-                accessorFn: (row) => row[key] ?? "",
-                header,
-                cell: ({ row, getValue }) => (
-                    <EditableTextCell
-                        value={String(getValue() || "")}
-                        onCommit={(value) =>
-                            onUpdateSection(row.index, {
-                                [key]: value,
-                            } as Partial<SectionRef>)
-                        }
-                    />
-                ),
+            const base = {
+                id: field.key,
+                accessorFn: (row: RequirementSectionRow) =>
+                    row[field.key] ?? "",
+                header: field.header,
             };
+
+            switch (field.type) {
+                case "text":
+                    return {
+                        ...base,
+                        cell: ({ row, getValue }) => (
+                            <EditableTextCell
+                                value={String(getValue() || "")}
+                                onCommit={(value) =>
+                                    onUpdateSection(row.index, {
+                                        [field.key]: value,
+                                    } as Partial<SectionRef>)
+                                }
+                            />
+                        ),
+                    };
+                case "combobox": {
+                    const opts = fieldOptions[field.key];
+                    return {
+                        ...base,
+                        cell: ({ row, getValue }) => (
+                            <CreatableCombobox
+                                value={String(getValue() || "")}
+                                options={opts?.options ?? []}
+                                onChange={(value) =>
+                                    onUpdateSection(row.index, {
+                                        [field.key]: value,
+                                    } as Partial<SectionRef>)
+                                }
+                                onCreateOption={opts?.onCreateOption}
+                                placeholder={field.placeholder}
+                            />
+                        ),
+                    };
+                }
+            }
         }
 
         return [
             {
                 id: "required",
                 header: "Required",
-                columns: [
-                    makeTextColumn("days", "Days"),
-                    makeTextColumn("time", "Time"),
-                ],
+                columns: SECTION_FIELDS.filter(
+                    (f) => f.key === "days" || f.key === "time",
+                ).map(makeColumn),
             },
             {
                 id: "optional",
                 header: "Optional",
-                columns: [
-                    makeTextColumn("crn", "CRN"),
-                    makeTextColumn("instructor", "Instructor"),
-                ],
+                columns: SECTION_FIELDS.filter(
+                    (f) => f.key === "crn" || f.key === "instructor",
+                ).map(makeColumn),
             },
             {
                 id: "actions",
@@ -137,7 +185,7 @@ export function RequirementSectionsTable({
                 ),
             },
         ];
-    }, [onRemoveSection, onUpdateSection, sections.length]);
+    }, [onRemoveSection, onUpdateSection, sections.length, fieldOptions]);
 
     const table = useReactTable({
         data,
@@ -167,6 +215,41 @@ export function RequirementSectionsTable({
 
         e.preventDefault();
         handleAddSection();
+    }
+
+    function updateDraftField(key: SectionFieldKey, value: string) {
+        setNewSection((current) => ({ ...current, [key]: value }));
+    }
+
+    function renderFooterInput(field: SectionFieldDef) {
+        switch (field.type) {
+            case "text":
+                return (
+                    <input
+                        type="text"
+                        value={newSection[field.key]}
+                        onChange={(e) =>
+                            updateDraftField(field.key, e.target.value)
+                        }
+                        onKeyDown={handleAddRowKeyDown}
+                        className="w-full bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20 text-sm"
+                        placeholder={field.placeholder}
+                        aria-label={`New section ${field.header}`}
+                    />
+                );
+            case "combobox": {
+                const opts = fieldOptions[field.key];
+                return (
+                    <CreatableCombobox
+                        value={newSection[field.key]}
+                        options={opts?.options ?? []}
+                        onChange={(value) => updateDraftField(field.key, value)}
+                        onCreateOption={opts?.onCreateOption}
+                        placeholder={field.placeholder}
+                    />
+                );
+            }
+        }
     }
 
     return (
@@ -266,20 +349,7 @@ export function RequirementSectionsTable({
                                 key={column.id}
                                 className="p-2 align-middle text-background"
                             >
-                                <input
-                                    type="text"
-                                    value={newSection[field.key]}
-                                    onChange={(e) =>
-                                        setNewSection((current) => ({
-                                            ...current,
-                                            [field.key]: e.target.value,
-                                        }))
-                                    }
-                                    onKeyDown={handleAddRowKeyDown}
-                                    className="w-full bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20 text-sm"
-                                    placeholder={field.placeholder}
-                                    aria-label={`New section ${field.header}`}
-                                />
+                                {renderFooterInput(field)}
                             </td>
                         );
                     })}
