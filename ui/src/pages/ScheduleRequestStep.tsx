@@ -183,6 +183,25 @@ export default function ScheduleRequestStep() {
         });
     }
 
+    function handleCopySectionAtIndex(groupId: string, rowIndex: number) {
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
+        if (!group) return;
+
+        const source = group.sections[rowIndex];
+        if (!source) return;
+
+        const copy = { ...source };
+        const nextSections = [
+            ...group.sections.slice(0, rowIndex + 1),
+            copy,
+            ...group.sections.slice(rowIndex + 1),
+        ];
+
+        handleUpdateCourse(groupId, { sections: nextSections });
+    }
+
     return (
         <>
             <RequirementsSidebar
@@ -214,6 +233,11 @@ export default function ScheduleRequestStep() {
                 onRemoveSection={(rowIndex) => {
                     if (selectedCourse) {
                         handleRemoveSectionAtIndex(selectedCourse.id, rowIndex);
+                    }
+                }}
+                onCopySection={(rowIndex) => {
+                    if (selectedCourse) {
+                        handleCopySectionAtIndex(selectedCourse.id, rowIndex);
                     }
                 }}
                 onAddSection={(sectionData) => {

@@ -1,4 +1,4 @@
-import { FaRegTrashAlt, FaPlus } from "react-icons/fa";
+import { FaRegTrashAlt, FaRegCopy, FaPlus } from "react-icons/fa";
 import { useMemo, useState } from "react";
 import {
     type ColumnDef,
@@ -84,14 +84,23 @@ export type RequirementSectionsTableProps = {
     sections: SectionRef[];
     onUpdateSection: (rowIndex: number, patch: Partial<SectionRef>) => void;
     onRemoveSection: (rowIndex: number) => void;
+    onCopySection: (rowIndex: number) => void;
     onAddSection: (sectionData: Partial<SectionRef>) => void;
     fieldOptions?: Partial<Record<SectionFieldKey, ComboboxFieldOptions>>;
 };
+
+const ACTION_BUTTON_BASE =
+    "transition-colors text-sm px-2 py-1";
+const ACTION_BUTTON_ENABLED =
+    `${ACTION_BUTTON_BASE} text-background/40 hover:text-background/70`;
+const ACTION_BUTTON_DISABLED =
+    `${ACTION_BUTTON_BASE} text-background/15 cursor-not-allowed`;
 
 export function RequirementSectionsTable({
     sections,
     onUpdateSection,
     onRemoveSection,
+    onCopySection,
     onAddSection,
     fieldOptions = {},
 }: RequirementSectionsTableProps) {
@@ -189,22 +198,41 @@ export function RequirementSectionsTable({
                 id: "actions",
                 header: "",
                 cell: ({ row }) => (
-                    <div className="text-right">
-                        {sections.length > 1 && (
-                            <button
-                                type="button"
-                                onClick={() => onRemoveSection(row.index)}
-                                className="text-background/40 hover:text-red-500 transition-colors text-sm px-2 py-1"
-                                aria-label="Remove section"
-                            >
-                                <FaRegTrashAlt />
-                            </button>
-                        )}
+                    <div className="flex justify-end gap-0.5">
+                        <button
+                            type="button"
+                            onClick={() => onCopySection(row.index)}
+                            className={ACTION_BUTTON_ENABLED}
+                            aria-label="Copy section"
+                        >
+                            <FaRegCopy />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onRemoveSection(row.index)}
+                            disabled={sections.length <= 1}
+                            className={
+                                sections.length > 1
+                                    ? `${ACTION_BUTTON_ENABLED} hover:!text-red-500`
+                                    : ACTION_BUTTON_DISABLED
+                            }
+                            aria-label="Remove section"
+                        >
+                            <FaRegTrashAlt />
+                        </button>
+                        <button
+                            type="button"
+                            disabled
+                            className={ACTION_BUTTON_DISABLED}
+                            aria-label="Add section"
+                        >
+                            <FaPlus />
+                        </button>
                     </div>
                 ),
             },
         ];
-    }, [onRemoveSection, onUpdateSection, sections.length, fieldOptions]);
+    }, [onRemoveSection, onCopySection, onUpdateSection, sections.length, fieldOptions]);
 
     const table = useReactTable({
         data,
@@ -347,17 +375,39 @@ export function RequirementSectionsTable({
                             return (
                                 <td
                                     key={column.id}
-                                    className="p-2 align-middle text-right"
+                                    className="p-2 align-middle"
                                 >
-                                    <button
-                                        type="button"
-                                        onClick={handleAddSection}
-                                        disabled={!canAddSection}
-                                        className="text-accent hover:text-accent/80 disabled:text-background/25 disabled:cursor-not-allowed transition-colors text-sm px-2 py-1"
-                                        aria-label="Add section"
-                                    >
-                                        <FaPlus />
-                                    </button>
+                                    <div className="flex justify-end gap-0.5">
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className={ACTION_BUTTON_DISABLED}
+                                            aria-label="Copy section"
+                                        >
+                                            <FaRegCopy />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className={ACTION_BUTTON_DISABLED}
+                                            aria-label="Remove section"
+                                        >
+                                            <FaRegTrashAlt />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleAddSection}
+                                            disabled={!canAddSection}
+                                            className={
+                                                canAddSection
+                                                    ? `${ACTION_BUTTON_ENABLED} !text-accent hover:!text-accent/80`
+                                                    : ACTION_BUTTON_DISABLED
+                                            }
+                                            aria-label="Add section"
+                                        >
+                                            <FaPlus />
+                                        </button>
+                                    </div>
                                 </td>
                             );
                         }

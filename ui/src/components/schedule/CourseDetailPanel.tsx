@@ -13,6 +13,7 @@ type CourseDetailPanelProps = {
     onUpdateCourseLabel: (label: string) => void;
     onUpdateSection: (rowIndex: number, patch: Partial<SectionRef>) => void;
     onRemoveSection: (rowIndex: number) => void;
+    onCopySection: (rowIndex: number) => void;
     onAddSection: (sectionData: Partial<SectionRef>) => void;
     onGenerate: () => void;
     fieldOptions?: Partial<Record<string, ComboboxFieldOptions>>;
@@ -24,6 +25,7 @@ export function CourseDetailPanel({
     onUpdateCourseLabel,
     onUpdateSection,
     onRemoveSection,
+    onCopySection,
     onAddSection,
     onGenerate,
     fieldOptions,
@@ -64,6 +66,7 @@ export function CourseDetailPanel({
                             sections={selectedCourse.sections}
                             onUpdateSection={onUpdateSection}
                             onRemoveSection={onRemoveSection}
+                            onCopySection={onCopySection}
                             onAddSection={onAddSection}
                             fieldOptions={fieldOptions}
                         />
