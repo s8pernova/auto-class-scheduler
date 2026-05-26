@@ -1,46 +1,50 @@
-import { TbArrowNarrowRightDashed } from "react-icons/tb";
-import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
-
-dayjs.extend(customParseFormat);
-
-const DISPLAY_TIME_FORMAT = "h:mmA";
-const INPUT_TIME_FORMAT = "HH:mm";
-
-function parseDisplayTime(raw: string): string {
-    const normalized = raw.trim().toUpperCase().replace(/\s+/g, "");
-    const parsed = dayjs(normalized, DISPLAY_TIME_FORMAT, true);
-
-    return parsed.isValid() ? parsed.format(INPUT_TIME_FORMAT) : "";
-}
-
-function formatDisplayTime(time24: string): string {
-    const parsed = dayjs(time24, INPUT_TIME_FORMAT, true);
-
-    return parsed.isValid() ? parsed.format(DISPLAY_TIME_FORMAT) : "";
-}
-
-// Parses "10:00AM-11:00AM" into [start24h, end24h]
-function parseTimeRange(value: string): [string, string] {
-    if (!value || !value.includes("-")) return ["", ""];
-
-    const [startRaw, endRaw] = value.split("-");
-    return [parseDisplayTime(startRaw), parseDisplayTime(endRaw)];
-}
-
-// Composes [start24h, end24h] back into "10:00AM-11:00AM"
-function formatTimeRange(start24: string, end24: string): string {
-    if (!start24 && !end24) return "";
-    if (!start24) return formatDisplayTime(end24);
-    if (!end24) return formatDisplayTime(start24);
-    return `${formatDisplayTime(start24)}-${formatDisplayTime(end24)}`;
-}
+import TimePicker from "react-time-picker";
+import "react-time-picker/dist/TimePicker.css";
 
 type TimeRangeInputProps = {
     value: string;
     onChange: (value: string) => void;
     className?: string;
 };
+
+function normalizeTimeValue(raw: string): string {
+    const trimmed = raw.trim();
+    const time24Match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+
+    if (time24Match) {
+        return `${time24Match[1].padStart(2, "0")}:${time24Match[2]}`;
+    }
+
+    const time12Match = trimmed
+        .toUpperCase()
+        .replace(/\s+/g, "")
+        .match(/^(\d{1,2}):(\d{2})(AM|PM)$/);
+
+    if (!time12Match) return "";
+
+    let hours = Number.parseInt(time12Match[1], 10);
+    const minutes = time12Match[2];
+    const period = time12Match[3];
+
+    if (period === "AM" && hours === 12) hours = 0;
+    if (period === "PM" && hours !== 12) hours += 12;
+
+    return `${String(hours).padStart(2, "0")}:${minutes}`;
+}
+
+function parseTimeRange(value: string): [string, string] {
+    if (!value || !value.includes("-")) return ["", ""];
+
+    const [startRaw, endRaw] = value.split("-");
+    return [normalizeTimeValue(startRaw), normalizeTimeValue(endRaw)];
+}
+
+function formatTimeRange(start: string, end: string): string {
+    if (!start && !end) return "";
+    if (!start) return end;
+    if (!end) return start;
+    return `${start}-${end}`;
+}
 
 export function TimeRangeInput({
     value,
@@ -49,33 +53,46 @@ export function TimeRangeInput({
 }: TimeRangeInputProps) {
     const [start, end] = parseTimeRange(value);
 
-    function handleStartChange(e: React.ChangeEvent<HTMLInputElement>) {
-        onChange(formatTimeRange(e.target.value, end));
+    function handleStartChange(nextValue: string | null) {
+        onChange(formatTimeRange(nextValue ?? "", end));
     }
 
-    function handleEndChange(e: React.ChangeEvent<HTMLInputElement>) {
-        onChange(formatTimeRange(start, e.target.value));
+    function handleEndChange(nextValue: string | null) {
+        onChange(formatTimeRange(start, nextValue ?? ""));
     }
-
-    const inputClass =
-        "bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20 text-sm";
 
     return (
         <div className={`flex items-center gap-1 ${className}`}>
-            <input
-                type="time"
+            <TimePicker
                 value={start}
                 onChange={handleStartChange}
-                className={inputClass}
-                aria-label="Start time"
+                disableClock
+                clearIcon={null}
+                clockIcon={null}
+                format="h:mm a"
+                maxDetail="minute"
+                locale="en-US"
+                className="section-time-picker"
+                hourAriaLabel="Start hour"
+                minuteAriaLabel="Start minute"
+                amPmAriaLabel="Start period"
+                nativeInputAriaLabel="Start time"
             />
-            <TbArrowNarrowRightDashed />
-            <input
-                type="time"
+            <span className="text-background/40 text-xs">-</span>
+            <TimePicker
                 value={end}
                 onChange={handleEndChange}
-                className={inputClass}
-                aria-label="End time"
+                disableClock
+                clearIcon={null}
+                clockIcon={null}
+                format="h:mm a"
+                maxDetail="minute"
+                locale="en-US"
+                className="section-time-picker"
+                hourAriaLabel="End hour"
+                minuteAriaLabel="End minute"
+                amPmAriaLabel="End period"
+                nativeInputAriaLabel="End time"
             />
         </div>
     );

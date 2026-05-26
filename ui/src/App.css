@@ -29,6 +29,40 @@ html {
     scrollbar-width: thick;
 }
 
+.section-time-picker {
+    width: 5.75rem;
+    color: var(--bg);
+    font-size: 0.875rem;
+}
+
+.section-time-picker .react-time-picker__wrapper {
+    min-height: 2rem;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    background: transparent;
+    transition: border-color 0.15s ease;
+}
+
+.section-time-picker:hover .react-time-picker__wrapper {
+    border-color: color-mix(in srgb, var(--bg) 20%, transparent);
+}
+
+.section-time-picker:focus-within .react-time-picker__wrapper {
+    border-color: var(--accent);
+}
+
+.section-time-picker .react-time-picker__inputGroup {
+    min-width: 0;
+    padding: 0 0.5rem;
+}
+
+.section-time-picker .react-time-picker__inputGroup__input,
+.section-time-picker .react-time-picker__inputGroup__divider,
+.section-time-picker .react-time-picker__inputGroup__leadingZero,
+.section-time-picker .react-time-picker__inputGroup__amPm {
+    color: var(--bg);
+}
+
 /* Wizard step transitions */
 
 .wizard-step-frame {
