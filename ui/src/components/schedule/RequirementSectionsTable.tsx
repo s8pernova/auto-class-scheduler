@@ -9,6 +9,7 @@ import {
 import type { SectionRef } from "@/contexts/ScheduleDraftContext";
 import { EditableTextCell } from "./EditableTextCell";
 import { CreatableCombobox } from "@/components/common/CreatableCombobox";
+import { TimeRangeInput } from "./TimeRangeInput";
 
 type RequirementSectionRow = SectionRef & {
     rowKey: string;
@@ -19,13 +20,18 @@ type SectionFieldKey = "days" | "time" | "crn" | "instructor";
 type SectionDraft = Record<SectionFieldKey, string>;
 
 // Discriminated union for field definitions.
-// Add new variants here (e.g. "time", "select") to extend input types.
+// Add new variants here (e.g. "select") to extend input types.
 type SectionFieldDef =
     | {
           type: "text";
           key: SectionFieldKey;
           header: string;
           placeholder: string;
+      }
+    | {
+          type: "time";
+          key: SectionFieldKey;
+          header: string;
       }
     | {
           type: "combobox";
@@ -42,10 +48,9 @@ const SECTION_FIELDS: readonly SectionFieldDef[] = [
         placeholder: "MWF",
     },
     {
-        type: "text",
+        type: "time",
         key: "time",
         header: "Time",
-        placeholder: "10:00AM-11:00AM",
     },
     {
         type: "text",
@@ -122,6 +127,20 @@ export function RequirementSectionsTable({
                             <EditableTextCell
                                 value={String(getValue() || "")}
                                 onCommit={(value) =>
+                                    onUpdateSection(row.index, {
+                                        [field.key]: value,
+                                    } as Partial<SectionRef>)
+                                }
+                            />
+                        ),
+                    };
+                case "time":
+                    return {
+                        ...base,
+                        cell: ({ row, getValue }) => (
+                            <TimeRangeInput
+                                value={String(getValue() || "")}
+                                onChange={(value) =>
                                     onUpdateSection(row.index, {
                                         [field.key]: value,
                                     } as Partial<SectionRef>)
@@ -235,6 +254,13 @@ export function RequirementSectionsTable({
                         className="w-full bg-transparent outline-none border border-transparent rounded px-2 py-1 focus:border-accent hover:border-background/20 text-sm"
                         placeholder={field.placeholder}
                         aria-label={`New section ${field.header}`}
+                    />
+                );
+            case "time":
+                return (
+                    <TimeRangeInput
+                        value={newSection[field.key]}
+                        onChange={(value) => updateDraftField(field.key, value)}
                     />
                 );
             case "combobox": {
