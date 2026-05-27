@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 
 from backend.api.v1.schemas.catalogs import CatalogCreate, CatalogResponse
 from backend.api.v1.services import catalogs as catalog_service
@@ -20,6 +20,12 @@ async def create_catalog(
     user_id: UserIdDep,
 ) -> CatalogResponse:
     """Create a new catalog."""
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to create a catalog",
+        )
+
     return catalog_service.create_catalog(client, payload, user_id=user_id)
 
 

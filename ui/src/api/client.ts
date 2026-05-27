@@ -4,6 +4,8 @@
  * All requests target the versioned ``/api/v1`` namespace.
  */
 
+import { supabase } from "@/clients/supabaseClient";
+
 const BASE_URL = "/api/v1";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,6 +65,23 @@ async function buildApiErrorMessage(
     }
 
     return `${fallback}: ${response.statusText}`;
+}
+
+async function buildAuthHeaders(): Promise<HeadersInit> {
+    const {
+        data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+}
+
+async function buildJsonAuthHeaders(): Promise<HeadersInit> {
+    return {
+        "Content-Type": "application/json",
+        ...(await buildAuthHeaders()),
+    };
 }
 
 interface GetSchedulesOptions {
@@ -312,11 +331,13 @@ export async function createCatalog(
 ): Promise<CatalogResponse> {
     const response = await fetch(`${BASE_URL}/catalogs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await buildJsonAuthHeaders(),
         body: JSON.stringify(payload),
     });
     if (!response.ok) {
-        throw new Error(`Failed to create catalog: ${response.statusText}`);
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to create catalog"),
+        );
     }
     return response.json();
 }
@@ -327,6 +348,9 @@ export async function createCatalog(
 export async function getCatalog(catalogId: string): Promise<CatalogResponse> {
     const response = await fetch(
         `${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}`,
+        {
+            headers: await buildAuthHeaders(),
+        },
     );
     if (!response.ok) {
         if (response.status === 404) {
