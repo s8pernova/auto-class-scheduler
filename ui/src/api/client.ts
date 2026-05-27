@@ -91,16 +91,12 @@ export interface ScheduleGenerateSectionInput {
     crn?: string;
     instructorName?: string;
     instructorRating?: number | null;
-    campus?: string;
-    modality?: string;
-    credits?: number;
     meetings: ScheduleGenerateMeetingInput[];
 }
 
 export interface ScheduleGenerateCourseInput {
     subjectCode: string;
     courseNumber: number;
-    courseTitle?: string;
     sections: ScheduleGenerateSectionInput[];
 }
 
@@ -112,11 +108,6 @@ export interface ScheduleGenerateBlockedTimeInput {
 
 export interface ScheduleGeneratePreferences {
     blockedTimes: ScheduleGenerateBlockedTimeInput[];
-    allowCampusSwitch: boolean;
-    allowFullSections?: boolean;
-    allowRestrictedSections?: boolean;
-    campuses: string[];
-    times: string[];
 }
 
 export interface ScheduleGenerateRequest {
@@ -130,23 +121,18 @@ export interface GeneratedMeetingResponse {
     dayOfWeek: string;
     startTime: string;
     endTime: string;
-    campus: string;
 }
 
 export interface GeneratedSectionResponse {
     subjectCode: string;
     courseNumber: number;
     sectionCode: string;
-    courseTitle: string;
-    credits: number;
-    modality?: string | null;
     instructorName?: string | null;
     meetings: GeneratedMeetingResponse[];
 }
 
 export interface GeneratedScheduleResponse {
     resultId: string;
-    totalCredits: number;
     totalInstructorScore?: number | null;
     numSections: number;
     meetsMon: boolean;
@@ -157,7 +143,6 @@ export interface GeneratedScheduleResponse {
     meetsSat: boolean;
     earliestStart: string;
     latestEnd: string;
-    campusPattern: string;
     sections: GeneratedSectionResponse[];
 }
 

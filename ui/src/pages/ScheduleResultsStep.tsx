@@ -3,7 +3,7 @@ import { useNavigate, useParams, Navigate } from "react-router-dom";
 import type { GeneratedScheduleResponse } from "@/api/client";
 import { useScheduleDraft } from "@/contexts/ScheduleDraftContext";
 
-type SortKey = "earliestStart" | "latestEnd" | "instructorScore" | "credits";
+type SortKey = "earliestStart" | "latestEnd" | "instructorScore";
 type DayFilter =
     | "all"
     | "meetsMon"
@@ -17,7 +17,6 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
     { value: "earliestStart", label: "Earliest start" },
     { value: "latestEnd", label: "Earliest finish" },
     { value: "instructorScore", label: "Instructor score" },
-    { value: "credits", label: "Credits" },
 ];
 
 const DAY_FILTERS: { value: DayFilter; label: string }[] = [
@@ -88,11 +87,6 @@ function sortSchedules(
                         second.totalInstructorScore,
                     ) || first.earliestStart.localeCompare(second.earliestStart)
                 );
-            case "credits":
-                return (
-                    second.totalCredits - first.totalCredits ||
-                    first.earliestStart.localeCompare(second.earliestStart)
-                );
         }
     });
 }
@@ -103,35 +97,21 @@ export default function ScheduleResultsStep() {
     const navigate = useNavigate();
     const [sortKey, setSortKey] = useState<SortKey>("earliestStart");
     const [dayFilter, setDayFilter] = useState<DayFilter>("all");
-    const [campusFilter, setCampusFilter] = useState("all");
     const [selectedResultId, setSelectedResultId] = useState<string | null>(
         null,
     );
     const generationResult = draft.generationResult;
     const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
-    const campusOptions = useMemo(
-        () =>
-            [
-                ...new Set(
-                    allSchedules.map((schedule) => schedule.campusPattern),
-                ),
-            ].sort((a, b) => a.localeCompare(b)),
-        [allSchedules],
-    );
     const visibleSchedules = useMemo(() => {
         const filtered = allSchedules.filter((schedule) => {
             const matchesDay =
                 dayFilter === "all" ? true : Boolean(schedule[dayFilter]);
-            const matchesCampus =
-                campusFilter === "all"
-                    ? true
-                    : schedule.campusPattern === campusFilter;
 
-            return matchesDay && matchesCampus;
+            return matchesDay;
         });
 
         return sortSchedules(filtered, sortKey);
-    }, [allSchedules, campusFilter, dayFilter, sortKey]);
+    }, [allSchedules, dayFilter, sortKey]);
     const selectedSchedule =
         visibleSchedules.find(
             (schedule) => schedule.resultId === selectedResultId,
@@ -196,26 +176,6 @@ export default function ScheduleResultsStep() {
                         </select>
                     </label>
 
-                    <label className="block">
-                        <span className="block text-xs font-semibold text-background/50 uppercase tracking-wide mb-1">
-                            Campus
-                        </span>
-                        <select
-                            value={campusFilter}
-                            onChange={(event) =>
-                                setCampusFilter(event.target.value)
-                            }
-                            className="w-full rounded-md border border-background/20 bg-surface px-2 py-1 text-background focus:border-accent outline-none"
-                        >
-                            <option value="all">Any campus</option>
-                            {campusOptions.map((campus) => (
-                                <option key={campus} value={campus}>
-                                    {campus}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
                     <div className="border-t border-background/10 pt-3 space-y-1">
                         <p>{generationResult.validCount} valid schedules</p>
                         <p>{visibleSchedules.length} visible after filters</p>
@@ -250,10 +210,6 @@ export default function ScheduleResultsStep() {
                                             Schedule {schedule.resultId}
                                         </h3>
                                         <p className="text-xs text-background/60 mt-1">
-                                            {schedule.totalCredits} credits,{" "}
-                                            {schedule.campusPattern}
-                                        </p>
-                                        <p className="text-xs text-background/50 mt-1">
                                             {scheduleDayCount(schedule)} meeting
                                             days
                                         </p>
@@ -327,7 +283,6 @@ export default function ScheduleResultsStep() {
                                 {formatTime(selectedSchedule.earliestStart)} -{" "}
                                 {formatTime(selectedSchedule.latestEnd)}
                             </p>
-                            <p>{selectedSchedule.campusPattern}</p>
                             {selectedSchedule.totalInstructorScore != null ? (
                                 <p>
                                     Instructor score{" "}
@@ -354,15 +309,12 @@ export default function ScheduleResultsStep() {
                                     <div className="mt-2 space-y-1 text-xs text-background/55">
                                         {section.meetings.map((meeting) => (
                                             <p
-                                                key={`${meeting.dayOfWeek}-${meeting.startTime}-${meeting.endTime}-${meeting.campus}`}
+                                                key={`${meeting.dayOfWeek}-${meeting.startTime}-${meeting.endTime}`}
                                             >
                                                 {meeting.dayOfWeek}{" "}
                                                 {formatTime(meeting.startTime)}
                                                 {" - "}
                                                 {formatTime(meeting.endTime)}
-                                                {meeting.campus
-                                                    ? `, ${meeting.campus}`
-                                                    : ""}
                                             </p>
                                         ))}
                                     </div>

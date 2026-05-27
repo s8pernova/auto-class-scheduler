@@ -29,8 +29,8 @@ requests, and a clean path to saving favorites later.
 Constraints:
 
 - The MVP should save user-built catalogs without storing every generated result.
-- Catalog rows should be queryable by course, section, CRN, instructor, campus,
-  modality, and meeting time.
+- Catalog rows should be queryable by course, section, CRN, instructor, and
+  meeting time.
 - The schema should support manual entry, paste-to-table entry, and later CSV or
   importer flows through the same canonical model.
 - User-created catalogs must stay user-owned through RLS.
@@ -88,8 +88,8 @@ depending on opaque JSON parsing.
 
 This choice supports:
 
-- Field-level validation and constraints for course numbers, CRNs, credits, and
-  meeting times.
+- Field-level validation and constraints for course numbers, CRNs, and meeting
+  times.
 - Efficient queries and indexes for catalog editing, duplicate detection,
   filtering, and generation.
 - Row-level ownership through normal RLS policies.
@@ -129,13 +129,9 @@ catalog_sections
   catalog_id uuid not null references catalogs(id) on delete cascade
   subject_code text not null
   course_number integer not null
-  course_title text
   section_code text
   crn text
   instructor_name text
-  credits integer
-  campus text
-  modality text
   sort_order integer not null
   source_metadata jsonb not null
   created_at timestamptz not null
@@ -147,8 +143,6 @@ catalog_section_meetings
   days text not null
   start_time time not null
   end_time time not null
-  campus text
-  location text
   sort_order integer not null
 ```
 
@@ -160,11 +154,10 @@ Recommended constraints and indexes:
 - `(catalog_id, crn)`: non-unique index for duplicate warnings and lookup.
 - `catalog_section_meetings.section_id`: index for loading meetings.
 - `end_time > start_time`: check constraint on meetings.
-- `credits >= 0`: check constraint on section credits when provided.
 
-The database should avoid over-normalizing instructors, campuses, and modalities
-in the MVP. They can remain text fields until there is a real need for canonical
-cross-catalog entities.
+The MVP catalog table should only store fields the BYOC flow actually collects.
+Course title, credits, campus, modality, room/location, seats, and restriction
+fields are deferred until the product supports entering or importing them.
 
 ### API / interfaces
 

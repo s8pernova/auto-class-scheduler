@@ -24,16 +24,12 @@ larger catalogs.
     {
       "subjectCode": "PHYS",
       "courseNumber": 241,
-      "courseTitle": "University Physics",
       "sections": [
         {
           "sectionCode": "001",
           "crn": "12345",
           "instructorName": "Smith",
           "instructorRating": 4.6,
-          "campus": "Blacksburg",
-          "modality": "in-person",
-          "credits": 4,
           "meetings": [
             {
               "days": "MWF",
@@ -46,10 +42,7 @@ larger catalogs.
     }
   ],
   "preferences": {
-    "blockedTimes": [],
-    "allowCampusSwitch": false,
-    "campuses": [],
-    "times": []
+    "blockedTimes": []
   },
   "maxResults": 100
 }

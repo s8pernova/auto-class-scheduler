@@ -95,11 +95,6 @@ export function buildScheduleGenerateRequest(
                 startTime: blockedTime.startTime,
                 endTime: blockedTime.endTime,
             })),
-            allowCampusSwitch: false,
-            allowFullSections: draft.preferences.allowFullSections,
-            allowRestrictedSections: draft.preferences.allowRestrictedSections,
-            campuses: draft.preferences.campuses ?? [],
-            times: draft.preferences.times ?? [],
         },
         maxResults: 100,
     };

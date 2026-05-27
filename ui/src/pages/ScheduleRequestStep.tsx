@@ -8,7 +8,6 @@ import {
 import { parseCourseInput } from "@/utils/parseCourseInput";
 import { RequirementsSidebar } from "@/components/schedule/RequirementsSidebar";
 import { CourseDetailPanel } from "@/components/schedule/CourseDetailPanel";
-import { PreferencesSidebar } from "@/components/schedule/PreferencesSidebar";
 
 export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
@@ -80,8 +79,6 @@ export default function ScheduleRequestStep() {
         const newGroup: RequirementCourse = {
             id,
             label,
-            minSections: 1,
-            maxSections: 1,
             sections: [],
         };
 
@@ -175,15 +172,9 @@ export default function ScheduleRequestStep() {
         const nextSections = group.sections.filter(
             (_, index) => index !== rowIndex,
         );
-        const nextChooseCount = Math.min(
-            group.minSections,
-            nextSections.length,
-        );
 
         handleUpdateCourse(groupId, {
             sections: nextSections,
-            minSections: nextChooseCount,
-            maxSections: nextChooseCount,
         });
     }
 
@@ -264,17 +255,6 @@ export default function ScheduleRequestStep() {
                 }}
             />
 
-            <PreferencesSidebar
-                preferences={draft.preferences}
-                onUpdatePreferences={(patch) =>
-                    updateDraft({
-                        preferences: {
-                            ...draft.preferences,
-                            ...patch,
-                        },
-                    })
-                }
-            />
         </>
     );
 }

@@ -31,7 +31,7 @@ export function CourseDetailPanel({
     fieldOptions,
 }: CourseDetailPanelProps) {
     return (
-        <main className="bg-surface rounded-[10px] p-6 flex flex-col">
+        <main className="col-span-2 bg-surface rounded-[10px] p-6 flex flex-col">
             {!selectedCourse ? (
                 <div className="flex-1 flex flex-col text-background/40">
                     <h1 className="text-xl font-semibold mb-2 text-background/60">

@@ -74,8 +74,10 @@ export function RequirementsSidebar({
                                         {group.label}
                                     </h3>
                                     <p className="text-xs text-background/60 mt-1">
-                                        Choose {group.minSections} from{" "}
-                                        {group.sections.length}
+                                        {group.sections.length} candidate{" "}
+                                        {group.sections.length === 1
+                                            ? "section"
+                                            : "sections"}
                                     </p>
                                 </div>
                                 <button

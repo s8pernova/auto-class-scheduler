@@ -14,7 +14,6 @@ from backend.api.v1.schemas.schedules import (
     ScheduleGenerateBlockedTimeInput,
     ScheduleGenerateRequest,
     ScheduleGenerateResponse,
-    ScheduleGenerateSectionInput,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
 )
@@ -52,7 +51,6 @@ def generate_schedules_from_request(
 ) -> ScheduleGenerateResponse:
     """Generate transient schedule options from BYOC section input."""
     sections_by_course: dict[tuple[str, int], list[Section]] = {}
-    section_inputs_by_id: dict[int, ScheduleGenerateSectionInput] = {}
 
     for course in payload.courses:
         course_key = (course.subject_code, course.course_number)
@@ -64,13 +62,12 @@ def generate_schedules_from_request(
                 or section_input.crn
                 or f"{course.subject_code}-{course.course_number}-{index}"
             )
-            campus = section_input.campus or "Unspecified"
             meetings = [
                 Meeting(
                     day=day,
                     start=meeting.start_time,
                     end=meeting.end_time,
-                    campus=campus,
+                    campus="Unspecified",
                 )
                 for meeting in section_input.meetings
                 for day in _expand_meeting_days(meeting.days)
@@ -80,13 +77,12 @@ def generate_schedules_from_request(
                 subject=course.subject_code,
                 number=course.course_number,
                 section_code=section_code,
-                title=course.course_title or "",
-                credits=section_input.credits or 0,
+                title="",
+                credits=0,
                 instructor=section_input.instructor_name or "",
                 rating=section_input.instructor_rating,
                 meetings=meetings,
             )
-            section_inputs_by_id[id(section)] = section_input
             course_sections.append(section)
 
         sections_by_course[course_key] = course_sections
@@ -105,7 +101,6 @@ def generate_schedules_from_request(
     generated = generate_section_combinations(
         sections_by_course,
         target_courses,
-        allow_campus_switch=payload.preferences.allow_campus_switch,
     )
     valid = [
         schedule
@@ -121,7 +116,6 @@ def generate_schedules_from_request(
         _build_generated_schedule_response(
             index=index,
             sections=sections,
-            section_inputs_by_id=section_inputs_by_id,
         )
         for index, sections in enumerate(returned, start=1)
     ]
@@ -224,41 +218,38 @@ def _build_generated_schedule_response(
     *,
     index: int,
     sections: list[Section],
-    section_inputs_by_id: dict[int, ScheduleGenerateSectionInput],
 ) -> GeneratedScheduleResponse:
     summary = compute_schedule_summary(sections)
 
     return GeneratedScheduleResponse(
         result_id=f"generated-{index}",
-        **summary,
+        total_instructor_score=summary["total_instructor_score"],
+        num_sections=summary["num_sections"],
+        meets_mon=summary["meets_mon"],
+        meets_tue=summary["meets_tue"],
+        meets_wed=summary["meets_wed"],
+        meets_thu=summary["meets_thu"],
+        meets_fri=summary["meets_fri"],
+        meets_sat=summary["meets_sat"],
+        earliest_start=summary["earliest_start"],
+        latest_end=summary["latest_end"],
         sections=[
-            _build_generated_section_response(section, section_inputs_by_id)
-            for section in sections
+            _build_generated_section_response(section) for section in sections
         ],
     )
 
 
-def _build_generated_section_response(
-    section: Section,
-    section_inputs_by_id: dict[int, ScheduleGenerateSectionInput],
-) -> GeneratedSectionResponse:
-    source_input = section_inputs_by_id.get(id(section))
-    modality = source_input.modality if source_input else None
-
+def _build_generated_section_response(section: Section) -> GeneratedSectionResponse:
     return GeneratedSectionResponse(
         subject_code=section.subject,
         course_number=section.number,
         section_code=section.section_code,
-        course_title=section.title,
-        credits=section.credits,
-        modality=modality,
         instructor_name=section.instructor or None,
         meetings=[
             GeneratedMeetingResponse(
                 day_of_week=meeting.day,
                 start_time=meeting.start,
                 end_time=meeting.end,
-                campus=meeting.campus,
             )
             for meeting in section.meetings
         ],

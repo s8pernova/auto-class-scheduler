@@ -105,9 +105,6 @@ class ScheduleGenerateSectionInput(_CamelModel):
     crn: str | None = Field(default=None, max_length=50)
     instructor_name: str | None = Field(default=None, max_length=200)
     instructor_rating: float | None = Field(default=None, ge=0, le=5)
-    campus: str | None = Field(default=None, max_length=100)
-    modality: str | None = Field(default=None, max_length=100)
-    credits: int | None = Field(default=None, ge=0, le=30)
     meetings: list[ScheduleGenerateMeetingInput] = Field(..., min_length=1)
 
 
@@ -116,7 +113,6 @@ class ScheduleGenerateCourseInput(_CamelModel):
 
     subject_code: str = Field(..., min_length=1, max_length=20)
     course_number: int = Field(..., ge=0, le=9999)
-    course_title: str | None = Field(default=None, max_length=300)
     sections: list[ScheduleGenerateSectionInput] = Field(
         ...,
         min_length=1,
@@ -159,11 +155,6 @@ class ScheduleGeneratePreferences(_CamelModel):
     blocked_times: list[ScheduleGenerateBlockedTimeInput] = Field(
         default_factory=list,
     )
-    allow_campus_switch: bool = False
-    allow_full_sections: bool | None = None
-    allow_restricted_sections: bool | None = None
-    campuses: list[str] = Field(default_factory=list)
-    times: list[str] = Field(default_factory=list)
 
 
 class ScheduleGenerateRequest(_CamelModel):
@@ -189,7 +180,6 @@ class GeneratedMeetingResponse(_CamelModel):
     day_of_week: str
     start_time: time
     end_time: time
-    campus: str
 
 
 class GeneratedSectionResponse(_CamelModel):
@@ -198,9 +188,6 @@ class GeneratedSectionResponse(_CamelModel):
     subject_code: str
     course_number: int
     section_code: str
-    course_title: str
-    credits: int
-    modality: str | None = None
     instructor_name: str | None = None
     meetings: list[GeneratedMeetingResponse] = Field(default_factory=list)
 
@@ -209,7 +196,6 @@ class GeneratedScheduleResponse(_CamelModel):
     """One generated, unsaved schedule option."""
 
     result_id: str
-    total_credits: int
     total_instructor_score: float | None = None
     num_sections: int
     meets_mon: bool
@@ -220,7 +206,6 @@ class GeneratedScheduleResponse(_CamelModel):
     meets_sat: bool
     earliest_start: time
     latest_end: time
-    campus_pattern: str
     sections: list[GeneratedSectionResponse] = Field(default_factory=list)
 
 

@@ -23,8 +23,6 @@ export interface SectionRef {
 export interface RequirementCourse {
     id: string;
     label: string;
-    minSections: number;
-    maxSections: number;
     sections: SectionRef[];
 }
 
@@ -34,22 +32,12 @@ export interface BlockedTime {
     endTime: string;
 }
 
-export interface SchedulePreferences {
-    allowFullSections?: boolean;
-    allowRestrictedSections?: boolean;
-    campuses?: string[];
-    times?: string[];
-}
-
 export type InstructorRatings = Record<string, number | null>;
 
 export interface ScheduleDraft {
     catalogId: string;
     requirementCourses: RequirementCourse[];
-    pinnedCrns: string[];
-    excludedCrns: string[];
     blockedTimes: BlockedTime[];
-    preferences: SchedulePreferences;
     instructorRatings: InstructorRatings;
     generationResult: ScheduleGenerateResponse | null;
 }
@@ -68,10 +56,7 @@ const ScheduleDraftContext = createContext<ScheduleDraftContextType | null>(
 
 const GENERATION_INPUT_KEYS = [
     "requirementCourses",
-    "pinnedCrns",
-    "excludedCrns",
     "blockedTimes",
-    "preferences",
     "instructorRatings",
 ] as const;
 
@@ -91,10 +76,7 @@ function buildInitialDraft(catalogId: string): ScheduleDraft {
     return {
         catalogId,
         requirementCourses: [],
-        pinnedCrns: [],
-        excludedCrns: [],
         blockedTimes: [],
-        preferences: {},
         instructorRatings: {},
         generationResult: null,
     };
