@@ -3,7 +3,11 @@ import Navbar from "@/components/common/Navbar";
 import WizardStepper from "@/components/wizard/WizardStepper";
 
 export default function WizardLayout() {
-    const isWizardRoute = useMatch("/catalogs/:catalogId/*");
+    const isCatalogCreateRoute = useMatch("/catalogs/new");
+    const isBuildRoute = useMatch("/catalogs/:catalogId/build");
+    const isInstructorRoute = useMatch("/catalogs/:catalogId/instructors");
+    const isWizardRoute =
+        isCatalogCreateRoute || isBuildRoute || isInstructorRoute;
 
     return (
         // TODO: these values should be in the css as vars

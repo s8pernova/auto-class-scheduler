@@ -4,7 +4,6 @@ const STEPS = [
     { key: "new", label: "Catalog" },
     { key: "build", label: "Build" },
     { key: "instructors", label: "Instructors" },
-    { key: "results", label: "Results" },
 ] as const;
 
 function resolveActiveIndex(pathname: string): number {

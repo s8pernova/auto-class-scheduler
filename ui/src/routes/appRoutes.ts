@@ -5,7 +5,7 @@ interface Route {
     Component: React.LazyExoticComponent<ComponentType<unknown>>;
 }
 
-// Wizard step components (lazy-loaded)
+// Catalog flow pages (lazy-loaded)
 export const CatalogCreatePage = lazy(
     () => import("@/pages/CatalogCreatePage"),
 );
@@ -19,7 +19,10 @@ export const ScheduleResultsStep = lazy(
     () => import("@/pages/ScheduleResultsStep"),
 );
 
-// Wizard shell (lazy-loaded)
+// Catalog flow shells (lazy-loaded)
+export const CatalogFlowShell = lazy(
+    () => import("@/components/wizard/CatalogFlowShell"),
+);
 export const CatalogWizardShell = lazy(
     () => import("@/components/wizard/CatalogWizardShell"),
 );

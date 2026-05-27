@@ -4,6 +4,7 @@ import {
     authRoutes,
     fallbackRoutes,
     CatalogCreatePage,
+    CatalogFlowShell,
     CatalogWizardShell,
     ScheduleRequestStep,
     InstructorRatings,
@@ -23,7 +24,7 @@ function App() {
                     element={<Navigate to="/catalogs/new" replace />}
                 />
 
-                {/* Wizard routes */}
+                {/* Catalog flow routes */}
                 <Route element={<WizardLayout />}>
                     <Route
                         path="/catalogs/new"
@@ -31,17 +32,22 @@ function App() {
                     />
                     <Route
                         path="/catalogs/:catalogId"
-                        element={<CatalogWizardShell />}
+                        element={<CatalogFlowShell />}
                     >
                         <Route
                             index
                             element={<Navigate to="build" replace />}
                         />
-                        <Route path="build" element={<ScheduleRequestStep />} />
-                        <Route
-                            path="instructors"
-                            element={<InstructorRatings />}
-                        />
+                        <Route element={<CatalogWizardShell />}>
+                            <Route
+                                path="build"
+                                element={<ScheduleRequestStep />}
+                            />
+                            <Route
+                                path="instructors"
+                                element={<InstructorRatings />}
+                            />
+                        </Route>
                         <Route
                             path="results"
                             element={<ScheduleResultsStep />}
