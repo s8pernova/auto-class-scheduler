@@ -8,6 +8,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+MAX_GENERATE_COURSES = 12
+MAX_GENERATE_SECTIONS_PER_COURSE = 30
+
 
 def _to_camel(field_name: str) -> str:
     parts = field_name.split("_")
@@ -114,7 +117,11 @@ class ScheduleGenerateCourseInput(_CamelModel):
     subject_code: str = Field(..., min_length=1, max_length=20)
     course_number: int = Field(..., ge=0, le=9999)
     course_title: str | None = Field(default=None, max_length=300)
-    sections: list[ScheduleGenerateSectionInput] = Field(..., min_length=1)
+    sections: list[ScheduleGenerateSectionInput] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_GENERATE_SECTIONS_PER_COURSE,
+    )
 
     @field_validator("subject_code")
     @classmethod
@@ -165,7 +172,11 @@ class ScheduleGenerateRequest(_CamelModel):
     metadata: ScheduleGenerateMetadata = Field(
         default_factory=ScheduleGenerateMetadata,
     )
-    courses: list[ScheduleGenerateCourseInput] = Field(..., min_length=1)
+    courses: list[ScheduleGenerateCourseInput] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_GENERATE_COURSES,
+    )
     preferences: ScheduleGeneratePreferences = Field(
         default_factory=ScheduleGeneratePreferences,
     )

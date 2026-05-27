@@ -31,6 +31,7 @@ DAY_CODE_TO_NAME = {
     "F": "Fri",
     "S": "Sat",
 }
+MAX_CANDIDATE_COMBINATIONS = 250_000
 
 # Public API
 
@@ -94,6 +95,13 @@ def generate_schedules_from_request(
         (course.subject_code, course.course_number) for course in payload.courses
     ]
     candidate_count = math.prod(len(sections_by_course[key]) for key in target_courses)
+    if candidate_count > MAX_CANDIDATE_COMBINATIONS:
+        raise ValueError(
+            "Schedule request has "
+            f"{candidate_count:,} possible combinations. Reduce the number of "
+            "courses or candidate sections before generating."
+        )
+
     generated = generate_section_combinations(
         sections_by_course,
         target_courses,

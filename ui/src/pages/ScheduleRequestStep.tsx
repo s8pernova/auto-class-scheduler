@@ -170,7 +170,7 @@ export default function ScheduleRequestStep() {
         const group = draft.requirementCourses.find(
             (item) => item.id === groupId,
         );
-        if (!group || group.sections.length <= 1) return;
+        if (!group) return;
 
         const nextSections = group.sections.filter(
             (_, index) => index !== rowIndex,

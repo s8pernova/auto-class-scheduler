@@ -7,6 +7,11 @@ Use explicit arrays rather than course-name object keys. Course identity belongs
 in fields such as `subjectCode` and `courseNumber`; this keeps the JSON stable
 and easy to validate.
 
+The MVP endpoint accepts up to 12 courses, up to 30 candidate sections per
+course, and rejects requests above 250,000 possible section combinations. This
+keeps transient generation responsive until the engine grows pruning support for
+larger catalogs.
+
 ```json
 {
   "metadata": {

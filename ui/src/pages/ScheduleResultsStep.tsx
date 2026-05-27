@@ -1,20 +1,152 @@
+import { useMemo, useState } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
+import type { GeneratedScheduleResponse } from "@/api/client";
 import { useScheduleDraft } from "@/contexts/ScheduleDraftContext";
+
+type SortKey = "earliestStart" | "latestEnd" | "instructorScore" | "credits";
+type DayFilter =
+    | "all"
+    | "meetsMon"
+    | "meetsTue"
+    | "meetsWed"
+    | "meetsThu"
+    | "meetsFri"
+    | "meetsSat";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+    { value: "earliestStart", label: "Earliest start" },
+    { value: "latestEnd", label: "Earliest finish" },
+    { value: "instructorScore", label: "Instructor score" },
+    { value: "credits", label: "Credits" },
+];
+
+const DAY_FILTERS: { value: DayFilter; label: string }[] = [
+    { value: "all", label: "Any day" },
+    { value: "meetsMon", label: "Monday" },
+    { value: "meetsTue", label: "Tuesday" },
+    { value: "meetsWed", label: "Wednesday" },
+    { value: "meetsThu", label: "Thursday" },
+    { value: "meetsFri", label: "Friday" },
+    { value: "meetsSat", label: "Saturday" },
+];
+const EMPTY_SCHEDULES: GeneratedScheduleResponse[] = [];
+
+function formatTime(value: string): string {
+    const [hoursText = "0", minutes = "00"] = value.split(":");
+    const hours = Number(hoursText);
+
+    if (!Number.isFinite(hours)) {
+        return value;
+    }
+
+    const suffix = hours >= 12 ? "PM" : "AM";
+    const displayHour = hours % 12 || 12;
+    return `${displayHour}:${minutes.padStart(2, "0")} ${suffix}`;
+}
+
+function scheduleDayCount(schedule: GeneratedScheduleResponse): number {
+    return [
+        schedule.meetsMon,
+        schedule.meetsTue,
+        schedule.meetsWed,
+        schedule.meetsThu,
+        schedule.meetsFri,
+        schedule.meetsSat,
+    ].filter(Boolean).length;
+}
+
+function compareNullableScores(
+    first: number | null | undefined,
+    second: number | null | undefined,
+): number {
+    if (first == null && second == null) return 0;
+    if (first == null) return 1;
+    if (second == null) return -1;
+    return second - first;
+}
+
+function sortSchedules(
+    schedules: GeneratedScheduleResponse[],
+    sortKey: SortKey,
+): GeneratedScheduleResponse[] {
+    return [...schedules].sort((first, second) => {
+        switch (sortKey) {
+            case "earliestStart":
+                return (
+                    first.earliestStart.localeCompare(second.earliestStart) ||
+                    first.latestEnd.localeCompare(second.latestEnd)
+                );
+            case "latestEnd":
+                return (
+                    first.latestEnd.localeCompare(second.latestEnd) ||
+                    first.earliestStart.localeCompare(second.earliestStart)
+                );
+            case "instructorScore":
+                return (
+                    compareNullableScores(
+                        first.totalInstructorScore,
+                        second.totalInstructorScore,
+                    ) ||
+                    first.earliestStart.localeCompare(second.earliestStart)
+                );
+            case "credits":
+                return (
+                    second.totalCredits - first.totalCredits ||
+                    first.earliestStart.localeCompare(second.earliestStart)
+                );
+        }
+    });
+}
 
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const { draft } = useScheduleDraft();
     const navigate = useNavigate();
+    const [sortKey, setSortKey] = useState<SortKey>("earliestStart");
+    const [dayFilter, setDayFilter] = useState<DayFilter>("all");
+    const [campusFilter, setCampusFilter] = useState("all");
+    const [selectedResultId, setSelectedResultId] = useState<string | null>(
+        null,
+    );
+    const generationResult = draft.generationResult;
+    const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
+    const campusOptions = useMemo(
+        () =>
+            [
+                ...new Set(
+                    allSchedules.map((schedule) => schedule.campusPattern),
+                ),
+            ].sort((a, b) => a.localeCompare(b)),
+        [allSchedules],
+    );
+    const visibleSchedules = useMemo(() => {
+        const filtered = allSchedules.filter((schedule) => {
+            const matchesDay =
+                dayFilter === "all" ? true : Boolean(schedule[dayFilter]);
+            const matchesCampus =
+                campusFilter === "all"
+                    ? true
+                    : schedule.campusPattern === campusFilter;
+
+            return matchesDay && matchesCampus;
+        });
+
+        return sortSchedules(filtered, sortKey);
+    }, [allSchedules, campusFilter, dayFilter, sortKey]);
+    const selectedSchedule =
+        visibleSchedules.find(
+            (schedule) => schedule.resultId === selectedResultId,
+        ) ??
+        visibleSchedules[0] ??
+        null;
 
     if (draft.requirementCourses.length === 0) {
         return <Navigate to={`/catalogs/${catalogId}/build`} replace />;
     }
 
-    if (!draft.generationResult) {
+    if (!generationResult) {
         return <Navigate to={`/catalogs/${catalogId}/instructors`} replace />;
     }
-
-    const { generationResult } = draft;
 
     function handleBack() {
         navigate(`/catalogs/${catalogId}/instructors`);
@@ -26,24 +158,98 @@ export default function ScheduleResultsStep() {
                 <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide mb-3">
                     Filters
                 </h2>
-                <div className="text-sm text-background/70 space-y-2">
-                    <p>Catalog: {draft.catalogId}</p>
-                    <p>{generationResult.validCount} valid schedules</p>
-                    <p>{generationResult.returnedCount} shown</p>
+                <div className="text-sm text-background/70 space-y-4">
+                    <label className="block">
+                        <span className="block text-xs font-semibold text-background/50 uppercase tracking-wide mb-1">
+                            Sort by
+                        </span>
+                        <select
+                            value={sortKey}
+                            onChange={(event) =>
+                                setSortKey(event.target.value as SortKey)
+                            }
+                            className="w-full rounded-md border border-background/20 bg-surface px-2 py-1 text-background focus:border-accent outline-none"
+                        >
+                            {SORT_OPTIONS.map((option) => (
+                                <option
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="block">
+                        <span className="block text-xs font-semibold text-background/50 uppercase tracking-wide mb-1">
+                            Meets on
+                        </span>
+                        <select
+                            value={dayFilter}
+                            onChange={(event) =>
+                                setDayFilter(event.target.value as DayFilter)
+                            }
+                            className="w-full rounded-md border border-background/20 bg-surface px-2 py-1 text-background focus:border-accent outline-none"
+                        >
+                            {DAY_FILTERS.map((option) => (
+                                <option
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="block">
+                        <span className="block text-xs font-semibold text-background/50 uppercase tracking-wide mb-1">
+                            Campus
+                        </span>
+                        <select
+                            value={campusFilter}
+                            onChange={(event) =>
+                                setCampusFilter(event.target.value)
+                            }
+                            className="w-full rounded-md border border-background/20 bg-surface px-2 py-1 text-background focus:border-accent outline-none"
+                        >
+                            <option value="all">Any campus</option>
+                            {campusOptions.map((campus) => (
+                                <option key={campus} value={campus}>
+                                    {campus}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <div className="border-t border-background/10 pt-3 space-y-1">
+                        <p>{generationResult.validCount} valid schedules</p>
+                        <p>{visibleSchedules.length} visible after filters</p>
+                    </div>
                 </div>
             </aside>
 
             <main className="bg-surface rounded-[10px] p-[10px] overflow-y-auto">
-                {generationResult.schedules.length === 0 ? (
+                {visibleSchedules.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-background/50 text-sm">
                         No valid schedules matched these constraints.
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-[10px]">
-                        {generationResult.schedules.map((schedule) => (
-                            <div
+                        {visibleSchedules.map((schedule) => (
+                            <button
+                                type="button"
                                 key={schedule.resultId}
-                                className="border border-background/10 rounded-[10px] p-4 bg-background/5"
+                                onClick={() =>
+                                    setSelectedResultId(schedule.resultId)
+                                }
+                                className={`text-left border rounded-[10px] p-4 transition-colors ${
+                                    selectedSchedule?.resultId ===
+                                    schedule.resultId
+                                        ? "border-accent bg-accent/10"
+                                        : "border-background/10 bg-background/5 hover:border-background/30"
+                                }`}
                             >
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
@@ -54,11 +260,17 @@ export default function ScheduleResultsStep() {
                                             {schedule.totalCredits} credits,{" "}
                                             {schedule.campusPattern}
                                         </p>
+                                        <p className="text-xs text-background/50 mt-1">
+                                            {scheduleDayCount(schedule)} meeting
+                                            days
+                                        </p>
                                     </div>
                                     <div className="text-right text-sm text-background/70">
                                         <p>
-                                            {schedule.earliestStart} -{" "}
-                                            {schedule.latestEnd}
+                                            {formatTime(
+                                                schedule.earliestStart,
+                                            )}{" "}
+                                            - {formatTime(schedule.latestEnd)}
                                         </p>
                                         {schedule.totalInstructorScore !=
                                         null ? (
@@ -85,10 +297,22 @@ export default function ScheduleResultsStep() {
                                                 {section.instructorName ||
                                                     "Instructor TBD"}
                                             </div>
+                                            <div className="text-xs text-background/50 mt-1">
+                                                {section.meetings
+                                                    .map(
+                                                        (meeting) =>
+                                                            `${meeting.dayOfWeek} ${formatTime(
+                                                                meeting.startTime,
+                                                            )}-${formatTime(
+                                                                meeting.endTime,
+                                                            )}`,
+                                                    )
+                                                    .join(", ")}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 )}
@@ -102,6 +326,60 @@ export default function ScheduleResultsStep() {
                     <p>{generationResult.candidateCount} total combinations</p>
                     <p>{generationResult.validCount} passed filters</p>
                 </div>
+                {selectedSchedule ? (
+                    <div className="min-h-0 overflow-y-auto border-t border-background/10 pt-4">
+                        <h3 className="font-semibold text-background mb-2">
+                            {selectedSchedule.resultId}
+                        </h3>
+                        <div className="text-sm text-background/70 space-y-1 mb-4">
+                            <p>
+                                {formatTime(selectedSchedule.earliestStart)} -{" "}
+                                {formatTime(selectedSchedule.latestEnd)}
+                            </p>
+                            <p>{selectedSchedule.campusPattern}</p>
+                            {selectedSchedule.totalInstructorScore != null ? (
+                                <p>
+                                    Instructor score{" "}
+                                    {selectedSchedule.totalInstructorScore}
+                                </p>
+                            ) : null}
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            {selectedSchedule.sections.map((section) => (
+                                <div
+                                    key={`${selectedSchedule.resultId}-detail-${section.subjectCode}-${section.courseNumber}-${section.sectionCode}`}
+                                    className="border border-background/10 rounded-md p-3 text-sm"
+                                >
+                                    <p className="font-semibold text-background">
+                                        {section.subjectCode}{" "}
+                                        {section.courseNumber}-{" "}
+                                        {section.sectionCode}
+                                    </p>
+                                    <p className="text-background/60">
+                                        {section.instructorName ||
+                                            "Instructor TBD"}
+                                    </p>
+                                    <div className="mt-2 space-y-1 text-xs text-background/55">
+                                        {section.meetings.map((meeting) => (
+                                            <p
+                                                key={`${meeting.dayOfWeek}-${meeting.startTime}-${meeting.endTime}-${meeting.campus}`}
+                                            >
+                                                {meeting.dayOfWeek}{" "}
+                                                {formatTime(meeting.startTime)}
+                                                {" - "}
+                                                {formatTime(meeting.endTime)}
+                                                {meeting.campus
+                                                    ? `, ${meeting.campus}`
+                                                    : ""}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
                 <div className="mt-auto">
                     <button
                         type="button"
