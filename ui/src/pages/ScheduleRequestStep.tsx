@@ -40,8 +40,12 @@ export default function ScheduleRequestStep() {
         return [...names].sort((a, b) => a.localeCompare(b));
     }, [draft.requirementCourses, createdInstructors]);
 
-    function handleGenerate() {
-        navigate(`/catalogs/${catalogId}/results/mock-result-123`);
+    const canContinue =
+        draft.requirementCourses.length > 0 &&
+        draft.requirementCourses.every((course) => course.sections.length > 0);
+
+    function handleContinue() {
+        navigate(`/catalogs/${catalogId}/instructors`);
     }
 
     function handleAddCourse(e: React.FormEvent<HTMLFormElement>) {
@@ -139,7 +143,7 @@ export default function ScheduleRequestStep() {
         };
 
         handleUpdateCourse(groupId, {
-            sections: [...group.sections, newSection],
+            sections: [newSection, ...group.sections],
         });
     }
 
@@ -215,7 +219,7 @@ export default function ScheduleRequestStep() {
 
             <CourseDetailPanel
                 selectedCourse={selectedCourse}
-                canGenerate={draft.requirementCourses.length > 0}
+                canContinue={canContinue}
                 onUpdateCourseLabel={(label) => {
                     if (selectedCourse) {
                         handleUpdateCourse(selectedCourse.id, { label });
@@ -248,7 +252,7 @@ export default function ScheduleRequestStep() {
                         );
                     }
                 }}
-                onGenerate={handleGenerate}
+                onContinue={handleContinue}
                 fieldOptions={{
                     instructor: {
                         options: instructorOptions,

@@ -4,12 +4,33 @@ Schedule query service - Supabase edition.
 
 from __future__ import annotations
 
+import math
+
 from backend.api.v1.schemas.schedules import (
+    GeneratedMeetingResponse,
+    GeneratedScheduleResponse,
+    GeneratedSectionResponse,
     MeetingResponse,
+    ScheduleGenerateBlockedTimeInput,
+    ScheduleGenerateRequest,
+    ScheduleGenerateResponse,
+    ScheduleGenerateSectionInput,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
 )
+from backend.core.generator import compute_schedule_summary
+from backend.core.generator import generate_schedules as generate_section_combinations
+from backend.core.models import Meeting, Section
 from supabase import Client
+
+DAY_CODE_TO_NAME = {
+    "M": "Mon",
+    "T": "Tue",
+    "W": "Wed",
+    "R": "Thu",
+    "F": "Fri",
+    "S": "Sat",
+}
 
 # Public API
 
@@ -23,6 +44,86 @@ def get_schedule_exists(client: Client, schedule_id: int) -> bool:
         .execute()
     )
     return (resp.count or 0) > 0
+
+
+def generate_schedules_from_request(
+    payload: ScheduleGenerateRequest,
+) -> ScheduleGenerateResponse:
+    """Generate transient schedule options from BYOC section input."""
+    sections_by_course: dict[tuple[str, int], list[Section]] = {}
+    section_inputs_by_id: dict[int, ScheduleGenerateSectionInput] = {}
+
+    for course in payload.courses:
+        course_key = (course.subject_code, course.course_number)
+        course_sections: list[Section] = []
+
+        for index, section_input in enumerate(course.sections, start=1):
+            section_code = (
+                section_input.section_code
+                or section_input.crn
+                or f"{course.subject_code}-{course.course_number}-{index}"
+            )
+            campus = section_input.campus or "Unspecified"
+            meetings = [
+                Meeting(
+                    day=day,
+                    start=meeting.start_time,
+                    end=meeting.end_time,
+                    campus=campus,
+                )
+                for meeting in section_input.meetings
+                for day in _expand_meeting_days(meeting.days)
+            ]
+
+            section = Section(
+                subject=course.subject_code,
+                number=course.course_number,
+                section_code=section_code,
+                title=course.course_title or "",
+                credits=section_input.credits or 0,
+                instructor=section_input.instructor_name or "",
+                rating=section_input.instructor_rating,
+                meetings=meetings,
+            )
+            section_inputs_by_id[id(section)] = section_input
+            course_sections.append(section)
+
+        sections_by_course[course_key] = course_sections
+
+    target_courses = [
+        (course.subject_code, course.course_number) for course in payload.courses
+    ]
+    candidate_count = math.prod(len(sections_by_course[key]) for key in target_courses)
+    generated = generate_section_combinations(
+        sections_by_course,
+        target_courses,
+        allow_campus_switch=payload.preferences.allow_campus_switch,
+    )
+    valid = [
+        schedule
+        for schedule in generated
+        if not _schedule_overlaps_blocked_times(
+            schedule,
+            payload.preferences.blocked_times,
+        )
+    ]
+    returned = valid[: payload.max_results]
+
+    schedules = [
+        _build_generated_schedule_response(
+            index=index,
+            sections=sections,
+            section_inputs_by_id=section_inputs_by_id,
+        )
+        for index, sections in enumerate(returned, start=1)
+    ]
+
+    return ScheduleGenerateResponse(
+        candidate_count=candidate_count,
+        valid_count=len(valid),
+        returned_count=len(schedules),
+        schedules=schedules,
+    )
 
 
 def list_schedules(
@@ -73,6 +174,87 @@ def list_schedules(
 
 
 # Internal Helpers
+
+
+def _expand_meeting_days(days: str) -> list[str]:
+    return [DAY_CODE_TO_NAME[day] for day in days]
+
+
+def _schedule_overlaps_blocked_times(
+    sections: list[Section],
+    blocked_times: list[ScheduleGenerateBlockedTimeInput],
+) -> bool:
+    if not blocked_times:
+        return False
+
+    meetings = [meeting for section in sections for meeting in section.meetings]
+    blocked_meetings = [
+        Meeting(
+            day=day,
+            start=blocked_time.start_time,
+            end=blocked_time.end_time,
+            campus="Blocked",
+        )
+        for blocked_time in blocked_times
+        for day in _expand_meeting_days(blocked_time.days)
+    ]
+
+    return any(
+        _meetings_overlap(meeting, blocked)
+        for meeting in meetings
+        for blocked in blocked_meetings
+    )
+
+
+def _meetings_overlap(first: Meeting, second: Meeting) -> bool:
+    return first.day == second.day and max(first.start, second.start) < min(
+        first.end, second.end
+    )
+
+
+def _build_generated_schedule_response(
+    *,
+    index: int,
+    sections: list[Section],
+    section_inputs_by_id: dict[int, ScheduleGenerateSectionInput],
+) -> GeneratedScheduleResponse:
+    summary = compute_schedule_summary(sections)
+
+    return GeneratedScheduleResponse(
+        result_id=f"generated-{index}",
+        **summary,
+        sections=[
+            _build_generated_section_response(section, section_inputs_by_id)
+            for section in sections
+        ],
+    )
+
+
+def _build_generated_section_response(
+    section: Section,
+    section_inputs_by_id: dict[int, ScheduleGenerateSectionInput],
+) -> GeneratedSectionResponse:
+    source_input = section_inputs_by_id.get(id(section))
+    modality = source_input.modality if source_input else None
+
+    return GeneratedSectionResponse(
+        subject_code=section.subject,
+        course_number=section.number,
+        section_code=section.section_code,
+        course_title=section.title,
+        credits=section.credits,
+        modality=modality,
+        instructor_name=section.instructor or None,
+        meetings=[
+            GeneratedMeetingResponse(
+                day_of_week=meeting.day,
+                start_time=meeting.start,
+                end_time=meeting.end,
+                campus=meeting.campus,
+            )
+            for meeting in section.meetings
+        ],
+    )
 
 
 # NOTE: LEGACY CODE

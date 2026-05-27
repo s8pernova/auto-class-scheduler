@@ -420,32 +420,7 @@ export function RequirementSectionsTable({
             </thead>
 
             <tbody>
-                {table.getRowModel().rows.map((row) => (
-                    <tr
-                        key={row.id}
-                        className="border-b border-background/10 hover:bg-background/5 transition-colors"
-                    >
-                        {row.getVisibleCells().map((cell) => (
-                            <td
-                                key={cell.id}
-                                style={getColumnSizeStyle(
-                                    cell.column.columnDef.size,
-                                    cell.column.columnDef.meta,
-                                )}
-                                className="p-2 align-middle text-background border-b border-background/10"
-                            >
-                                {flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext(),
-                                )}
-                            </td>
-                        ))}
-                    </tr>
-                ))}
-            </tbody>
-
-            <tfoot>
-                <tr className="hover:bg-background/5 transition-colors">
+                <tr className="border-b border-background/10 hover:bg-background/5 transition-colors">
                     {table.getAllLeafColumns().map((column) => {
                         if (column.id === "actions") {
                             return (
@@ -455,7 +430,7 @@ export function RequirementSectionsTable({
                                         column.columnDef.size,
                                         column.columnDef.meta,
                                     )}
-                                    className="p-2 align-middle"
+                                    className="p-2 align-middle border-b border-background/10"
                                 >
                                     <div className="flex justify-end gap-0.5">
                                         <button
@@ -497,7 +472,12 @@ export function RequirementSectionsTable({
                         );
 
                         if (!field) {
-                            return <td key={column.id} className="p-2" />;
+                            return (
+                                <td
+                                    key={column.id}
+                                    className="p-2 border-b border-background/10"
+                                />
+                            );
                         }
 
                         return (
@@ -507,14 +487,37 @@ export function RequirementSectionsTable({
                                     column.columnDef.size,
                                     column.columnDef.meta,
                                 )}
-                                className="p-2 align-middle text-background"
+                                className="p-2 align-middle text-background border-b border-background/10"
                             >
                                 {renderFooterInput(field)}
                             </td>
                         );
                     })}
                 </tr>
-            </tfoot>
+
+                {table.getRowModel().rows.map((row) => (
+                    <tr
+                        key={row.id}
+                        className="border-b border-background/10 hover:bg-background/5 transition-colors"
+                    >
+                        {row.getVisibleCells().map((cell) => (
+                            <td
+                                key={cell.id}
+                                style={getColumnSizeStyle(
+                                    cell.column.columnDef.size,
+                                    cell.column.columnDef.meta,
+                                )}
+                                className="p-2 align-middle text-background border-b border-background/10"
+                            >
+                                {flexRender(
+                                    cell.column.columnDef.cell,
+                                    cell.getContext(),
+                                )}
+                            </td>
+                        ))}
+                    </tr>
+                ))}
+            </tbody>
         </table>
     );
 }

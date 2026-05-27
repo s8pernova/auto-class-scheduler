@@ -14,6 +14,101 @@ interface GetSchedulesOptions {
     times?: string[] | null;
 }
 
+export interface ScheduleGenerateMetadata {
+    catalogId?: string;
+    name?: string;
+    schoolName?: string;
+    termName?: string;
+}
+
+export interface ScheduleGenerateMeetingInput {
+    days: string;
+    startTime: string;
+    endTime: string;
+}
+
+export interface ScheduleGenerateSectionInput {
+    sectionCode?: string;
+    crn?: string;
+    instructorName?: string;
+    instructorRating?: number | null;
+    campus?: string;
+    modality?: string;
+    credits?: number;
+    meetings: ScheduleGenerateMeetingInput[];
+}
+
+export interface ScheduleGenerateCourseInput {
+    subjectCode: string;
+    courseNumber: number;
+    courseTitle?: string;
+    sections: ScheduleGenerateSectionInput[];
+}
+
+export interface ScheduleGenerateBlockedTimeInput {
+    days: string;
+    startTime: string;
+    endTime: string;
+}
+
+export interface ScheduleGeneratePreferences {
+    blockedTimes: ScheduleGenerateBlockedTimeInput[];
+    allowCampusSwitch: boolean;
+    allowFullSections?: boolean;
+    allowRestrictedSections?: boolean;
+    campuses: string[];
+    times: string[];
+}
+
+export interface ScheduleGenerateRequest {
+    metadata: ScheduleGenerateMetadata;
+    courses: ScheduleGenerateCourseInput[];
+    preferences: ScheduleGeneratePreferences;
+    maxResults: number;
+}
+
+export interface GeneratedMeetingResponse {
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+    campus: string;
+}
+
+export interface GeneratedSectionResponse {
+    subjectCode: string;
+    courseNumber: number;
+    sectionCode: string;
+    courseTitle: string;
+    credits: number;
+    modality?: string | null;
+    instructorName?: string | null;
+    meetings: GeneratedMeetingResponse[];
+}
+
+export interface GeneratedScheduleResponse {
+    resultId: string;
+    totalCredits: number;
+    totalInstructorScore?: number | null;
+    numSections: number;
+    meetsMon: boolean;
+    meetsTue: boolean;
+    meetsWed: boolean;
+    meetsThu: boolean;
+    meetsFri: boolean;
+    meetsSat: boolean;
+    earliestStart: string;
+    latestEnd: string;
+    campusPattern: string;
+    sections: GeneratedSectionResponse[];
+}
+
+export interface ScheduleGenerateResponse {
+    candidateCount: number;
+    validCount: number;
+    returnedCount: number;
+    schedules: GeneratedScheduleResponse[];
+}
+
 /**
  * Fetch all schedules
  * @param {Object} options - Query options
@@ -52,6 +147,23 @@ export async function getSchedules({
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch schedules: ${response.statusText}`);
+    }
+    return response.json();
+}
+
+/**
+ * Generate transient schedules from BYOC candidate sections.
+ */
+export async function generateSchedules(
+    payload: ScheduleGenerateRequest,
+): Promise<ScheduleGenerateResponse> {
+    const response = await fetch(`${BASE_URL}/schedules/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to generate schedules: ${response.statusText}`);
     }
     return response.json();
 }

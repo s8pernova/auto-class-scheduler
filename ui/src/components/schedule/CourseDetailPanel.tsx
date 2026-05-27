@@ -9,25 +9,25 @@ import {
 
 type CourseDetailPanelProps = {
     selectedCourse: RequirementCourse | undefined;
-    canGenerate: boolean;
+    canContinue: boolean;
     onUpdateCourseLabel: (label: string) => void;
     onUpdateSection: (rowIndex: number, patch: Partial<SectionRef>) => void;
     onRemoveSection: (rowIndex: number) => void;
     onCopySection: (rowIndex: number) => void;
     onAddSection: (sectionData: Partial<SectionRef>) => void;
-    onGenerate: () => void;
+    onContinue: () => void;
     fieldOptions?: Partial<Record<string, ComboboxFieldOptions>>;
 };
 
 export function CourseDetailPanel({
     selectedCourse,
-    canGenerate,
+    canContinue,
     onUpdateCourseLabel,
     onUpdateSection,
     onRemoveSection,
     onCopySection,
     onAddSection,
-    onGenerate,
+    onContinue,
     fieldOptions,
 }: CourseDetailPanelProps) {
     return (
@@ -77,11 +77,11 @@ export function CourseDetailPanel({
             <div className="mt-auto flex justify-end pt-4 border-t border-background/10">
                 <button
                     type="button"
-                    onClick={onGenerate}
-                    disabled={!canGenerate}
+                    onClick={onContinue}
+                    disabled={!canContinue}
                     className="px-6 py-2 bg-accent text-white rounded-md font-bold disabled:opacity-50 hover:bg-accent/90 transition-colors"
                 >
-                    Generate Schedules
+                    Continue
                 </button>
             </div>
         </main>

@@ -6,11 +6,23 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
-from backend.api.v1.schemas.schedules import ScheduleSummaryResponse
+from backend.api.v1.schemas.schedules import (
+    ScheduleGenerateRequest,
+    ScheduleGenerateResponse,
+    ScheduleSummaryResponse,
+)
 from backend.api.v1.services import schedules as schedule_service
 from backend.dependencies import SupabaseDep
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
+
+
+@router.post("/generate", response_model=ScheduleGenerateResponse)
+async def generate_schedules(
+    payload: ScheduleGenerateRequest,
+) -> ScheduleGenerateResponse:
+    """Generate transient schedules from user-entered candidate sections."""
+    return schedule_service.generate_schedules_from_request(payload)
 
 
 @router.get("", response_model=list[ScheduleSummaryResponse])

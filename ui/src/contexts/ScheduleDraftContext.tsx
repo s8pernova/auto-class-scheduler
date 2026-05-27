@@ -1,3 +1,4 @@
+import type { ScheduleGenerateResponse } from "@/api/client";
 import {
     createContext,
     useCallback,
@@ -40,6 +41,8 @@ export interface SchedulePreferences {
     times?: string[];
 }
 
+export type InstructorRatings = Record<string, number | null>;
+
 export interface ScheduleDraft {
     catalogId: string;
     requirementCourses: RequirementCourse[];
@@ -47,6 +50,8 @@ export interface ScheduleDraft {
     excludedCrns: string[];
     blockedTimes: BlockedTime[];
     preferences: SchedulePreferences;
+    instructorRatings: InstructorRatings;
+    generationResult: ScheduleGenerateResponse | null;
 }
 
 interface ScheduleDraftContextType {
@@ -61,6 +66,27 @@ const ScheduleDraftContext = createContext<ScheduleDraftContextType | null>(
     null,
 );
 
+const GENERATION_INPUT_KEYS = [
+    "requirementCourses",
+    "pinnedCrns",
+    "excludedCrns",
+    "blockedTimes",
+    "preferences",
+    "instructorRatings",
+] as const;
+
+function patchChangesGenerationInputs(
+    patch: Partial<Omit<ScheduleDraft, "catalogId">>,
+): boolean {
+    if (Object.prototype.hasOwnProperty.call(patch, "generationResult")) {
+        return false;
+    }
+
+    return GENERATION_INPUT_KEYS.some((key) =>
+        Object.prototype.hasOwnProperty.call(patch, key),
+    );
+}
+
 function buildInitialDraft(catalogId: string): ScheduleDraft {
     return {
         catalogId,
@@ -69,6 +95,8 @@ function buildInitialDraft(catalogId: string): ScheduleDraft {
         excludedCrns: [],
         blockedTimes: [],
         preferences: {},
+        instructorRatings: {},
+        generationResult: null,
     };
 }
 
@@ -87,7 +115,23 @@ export function ScheduleDraftProvider({
 
     const updateDraft = useCallback(
         (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => {
-            setDraft((prev) => ({ ...prev, ...patch }));
+            setDraft((prev) => {
+                const hasGenerationResultPatch =
+                    Object.prototype.hasOwnProperty.call(
+                        patch,
+                        "generationResult",
+                    );
+
+                return {
+                    ...prev,
+                    ...patch,
+                    generationResult: patchChangesGenerationInputs(patch)
+                        ? null
+                        : hasGenerationResultPatch
+                          ? (patch.generationResult ?? null)
+                          : prev.generationResult,
+                };
+            });
         },
         [],
     );
