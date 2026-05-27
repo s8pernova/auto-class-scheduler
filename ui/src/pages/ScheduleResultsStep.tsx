@@ -86,8 +86,7 @@ function sortSchedules(
                     compareNullableScores(
                         first.totalInstructorScore,
                         second.totalInstructorScore,
-                    ) ||
-                    first.earliestStart.localeCompare(second.earliestStart)
+                    ) || first.earliestStart.localeCompare(second.earliestStart)
                 );
             case "credits":
                 return (
@@ -153,7 +152,7 @@ export default function ScheduleResultsStep() {
     }
 
     return (
-        <div className="grid grid-cols-[288px_1fr_280px] gap-[15px] h-full">
+        <>
             <aside className="bg-surface rounded-[10px] p-4">
                 <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide mb-3">
                     Filters
@@ -171,10 +170,7 @@ export default function ScheduleResultsStep() {
                             className="w-full rounded-md border border-background/20 bg-surface px-2 py-1 text-background focus:border-accent outline-none"
                         >
                             {SORT_OPTIONS.map((option) => (
-                                <option
-                                    key={option.value}
-                                    value={option.value}
-                                >
+                                <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>
                             ))}
@@ -193,10 +189,7 @@ export default function ScheduleResultsStep() {
                             className="w-full rounded-md border border-background/20 bg-surface px-2 py-1 text-background focus:border-accent outline-none"
                         >
                             {DAY_FILTERS.map((option) => (
-                                <option
-                                    key={option.value}
-                                    value={option.value}
-                                >
+                                <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>
                             ))}
@@ -267,9 +260,7 @@ export default function ScheduleResultsStep() {
                                     </div>
                                     <div className="text-right text-sm text-background/70">
                                         <p>
-                                            {formatTime(
-                                                schedule.earliestStart,
-                                            )}{" "}
+                                            {formatTime(schedule.earliestStart)}{" "}
                                             - {formatTime(schedule.latestEnd)}
                                         </p>
                                         {schedule.totalInstructorScore !=
@@ -390,6 +381,6 @@ export default function ScheduleResultsStep() {
                     </button>
                 </div>
             </aside>
-        </div>
+        </>
     );
 }
