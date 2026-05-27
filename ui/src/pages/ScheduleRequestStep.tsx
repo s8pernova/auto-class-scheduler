@@ -5,6 +5,8 @@ import {
     type SectionRef,
     useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
+import { replaceCatalogSections } from "@/api/client";
+import { buildCatalogSectionsReplaceRequest } from "@/utils/buildScheduleGenerateRequest";
 import { parseCourseInput } from "@/utils/parseCourseInput";
 import { RequirementsSidebar } from "@/components/schedule/RequirementsSidebar";
 import { CourseDetailPanel } from "@/components/schedule/CourseDetailPanel";
@@ -21,6 +23,8 @@ export default function ScheduleRequestStep() {
         string | null
     >(null);
     const [createdInstructors, setCreatedInstructors] = useState<string[]>([]);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const selectedCourse = draft.requirementCourses.find(
         (group) => group.id === selectedCourseId,
@@ -43,8 +47,24 @@ export default function ScheduleRequestStep() {
         draft.requirementCourses.length > 0 &&
         draft.requirementCourses.every((course) => course.sections.length > 0);
 
-    function handleContinue() {
-        navigate(`/catalogs/${catalogId}/instructors`);
+    async function handleContinue() {
+        if (!catalogId) return;
+
+        setSaveError(null);
+        setIsSaving(true);
+
+        try {
+            const payload = buildCatalogSectionsReplaceRequest(draft);
+            await replaceCatalogSections(catalogId, payload);
+            navigate(`/catalogs/${catalogId}/instructors`);
+        } catch (err) {
+            setSaveError(
+                err instanceof Error
+                    ? err.message
+                    : "Failed to save catalog sections.",
+            );
+            setIsSaving(false);
+        }
     }
 
     function handleAddCourse(e: React.FormEvent<HTMLFormElement>) {
@@ -244,6 +264,8 @@ export default function ScheduleRequestStep() {
                     }
                 }}
                 onContinue={handleContinue}
+                isContinuing={isSaving}
+                continueError={saveError}
                 fieldOptions={{
                     instructor: {
                         options: instructorOptions,

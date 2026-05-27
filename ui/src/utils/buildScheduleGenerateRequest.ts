@@ -1,4 +1,5 @@
 import type {
+    CatalogSectionsReplaceRequest,
     ScheduleGenerateMetadata,
     ScheduleGenerateRequest,
 } from "@/api/client";
@@ -25,20 +26,6 @@ function splitTimeRange(value: string): { startTime: string; endTime: string } {
     return { startTime, endTime };
 }
 
-function getInstructorRating(
-    draft: ScheduleDraft,
-    instructorName: string | undefined,
-): number | null | undefined {
-    if (!instructorName) return undefined;
-
-    return Object.prototype.hasOwnProperty.call(
-        draft.instructorRatings,
-        instructorName,
-    )
-        ? draft.instructorRatings[instructorName]
-        : undefined;
-}
-
 function buildMeeting(section: SectionRef) {
     if (!section.days.trim()) {
         throw new Error("Each section needs meeting days.");
@@ -47,6 +34,42 @@ function buildMeeting(section: SectionRef) {
     return {
         days: section.days.trim(),
         ...splitTimeRange(section.time),
+    };
+}
+
+export function buildCatalogSectionsReplaceRequest(
+    draft: ScheduleDraft,
+): CatalogSectionsReplaceRequest {
+    let sortOrder = 0;
+
+    return {
+        sections: draft.requirementCourses.flatMap((course) => {
+            const parsed = parseCourseInput(course.label);
+
+            if (!parsed) {
+                throw new Error(`${course.label} is not a valid course code.`);
+            }
+            if (course.sections.length === 0) {
+                throw new Error(`${course.label} needs at least one section.`);
+            }
+
+            return course.sections.map((section) => {
+                const crn = optionalString(section.crn);
+                const instructorName = optionalString(section.instructor);
+                const currentSortOrder = sortOrder;
+                sortOrder += 1;
+
+                return {
+                    subjectCode: parsed.subjectCode,
+                    courseNumber: parsed.courseNumber,
+                    sectionCode: crn,
+                    crn,
+                    instructorName,
+                    sortOrder: currentSortOrder,
+                    meetings: [{ ...buildMeeting(section), sortOrder: 0 }],
+                };
+            });
+        }),
     };
 }
 
@@ -59,42 +82,13 @@ export function buildScheduleGenerateRequest(
             catalogId: draft.catalogId,
             ...metadata,
         },
-        courses: draft.requirementCourses.map((course) => {
-            const parsed = parseCourseInput(course.label);
-
-            if (!parsed) {
-                throw new Error(`${course.label} is not a valid course code.`);
-            }
-            if (course.sections.length === 0) {
-                throw new Error(`${course.label} needs at least one section.`);
-            }
-
-            return {
-                subjectCode: parsed.subjectCode,
-                courseNumber: parsed.courseNumber,
-                sections: course.sections.map((section) => {
-                    const crn = optionalString(section.crn);
-                    const instructorName = optionalString(section.instructor);
-
-                    return {
-                        sectionCode: crn,
-                        crn,
-                        instructorName,
-                        instructorRating: getInstructorRating(
-                            draft,
-                            instructorName,
-                        ),
-                        meetings: [buildMeeting(section)],
-                    };
-                }),
-            };
-        }),
         preferences: {
             blockedTimes: draft.blockedTimes.map((blockedTime) => ({
                 days: blockedTime.dayOfWeek,
                 startTime: blockedTime.startTime,
                 endTime: blockedTime.endTime,
             })),
+            instructorRatings: draft.instructorRatings,
         },
         maxResults: 100,
     };

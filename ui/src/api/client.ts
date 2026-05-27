@@ -94,29 +94,6 @@ interface GetSchedulesOptions {
 
 export interface ScheduleGenerateMetadata {
     catalogId?: string;
-    name?: string;
-    schoolName?: string;
-    termName?: string;
-}
-
-export interface ScheduleGenerateMeetingInput {
-    days: string;
-    startTime: string;
-    endTime: string;
-}
-
-export interface ScheduleGenerateSectionInput {
-    sectionCode?: string;
-    crn?: string;
-    instructorName?: string;
-    instructorRating?: number | null;
-    meetings: ScheduleGenerateMeetingInput[];
-}
-
-export interface ScheduleGenerateCourseInput {
-    subjectCode: string;
-    courseNumber: number;
-    sections: ScheduleGenerateSectionInput[];
 }
 
 export interface ScheduleGenerateBlockedTimeInput {
@@ -127,11 +104,11 @@ export interface ScheduleGenerateBlockedTimeInput {
 
 export interface ScheduleGeneratePreferences {
     blockedTimes: ScheduleGenerateBlockedTimeInput[];
+    instructorRatings: Record<string, number | null>;
 }
 
 export interface ScheduleGenerateRequest {
     metadata: ScheduleGenerateMetadata;
-    courses: ScheduleGenerateCourseInput[];
     preferences: ScheduleGeneratePreferences;
     maxResults: number;
 }
@@ -215,14 +192,14 @@ export async function getSchedules({
 }
 
 /**
- * Generate transient schedules from BYOC candidate sections.
+ * Generate transient schedules from saved catalog candidate sections.
  */
 export async function generateSchedules(
     payload: ScheduleGenerateRequest,
 ): Promise<ScheduleGenerateResponse> {
     const response = await fetch(`${BASE_URL}/schedules/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await buildJsonAuthHeaders(),
         body: JSON.stringify(payload),
     });
     if (!response.ok) {
@@ -323,6 +300,52 @@ export interface CatalogResponse {
     last_imported_at: string | null;
 }
 
+export interface CatalogSectionMeetingInput {
+    days: string;
+    startTime: string;
+    endTime: string;
+    sortOrder?: number;
+}
+
+export interface CatalogSectionInput {
+    subjectCode: string;
+    courseNumber: number;
+    sectionCode?: string | null;
+    crn?: string | null;
+    instructorName?: string | null;
+    sortOrder?: number;
+    sourceMetadata?: Record<string, unknown>;
+    meetings: CatalogSectionMeetingInput[];
+}
+
+export interface CatalogSectionsReplaceRequest {
+    sections: CatalogSectionInput[];
+}
+
+export interface CatalogSectionMeetingResponse {
+    id: string;
+    sectionId: string;
+    days: string;
+    startTime: string;
+    endTime: string;
+    sortOrder: number;
+}
+
+export interface CatalogSectionResponse {
+    id: string;
+    catalogId: string;
+    subjectCode: string;
+    courseNumber: number;
+    sectionCode: string | null;
+    crn: string | null;
+    instructorName: string | null;
+    sortOrder: number;
+    sourceMetadata: Record<string, unknown>;
+    createdAt: string;
+    updatedAt: string;
+    meetings: CatalogSectionMeetingResponse[];
+}
+
 /**
  * Create a new catalog.
  */
@@ -357,6 +380,49 @@ export async function getCatalog(catalogId: string): Promise<CatalogResponse> {
             throw new Error("Catalog not found");
         }
         throw new Error(`Failed to fetch catalog: ${response.statusText}`);
+    }
+    return response.json();
+}
+
+/**
+ * Fetch normalized sections for a catalog.
+ */
+export async function getCatalogSections(
+    catalogId: string,
+): Promise<CatalogSectionResponse[]> {
+    const response = await fetch(
+        `${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}/sections`,
+        {
+            headers: await buildAuthHeaders(),
+        },
+    );
+    if (!response.ok) {
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to fetch catalog sections"),
+        );
+    }
+    return response.json();
+}
+
+/**
+ * Replace a catalog's normalized candidate sections.
+ */
+export async function replaceCatalogSections(
+    catalogId: string,
+    payload: CatalogSectionsReplaceRequest,
+): Promise<CatalogSectionResponse[]> {
+    const response = await fetch(
+        `${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}/sections`,
+        {
+            method: "PUT",
+            headers: await buildJsonAuthHeaders(),
+            body: JSON.stringify(payload),
+        },
+    );
+    if (!response.ok) {
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to save catalog sections"),
+        );
     }
     return response.json();
 }

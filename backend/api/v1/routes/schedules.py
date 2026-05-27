@@ -20,10 +20,11 @@ router = APIRouter(prefix="/schedules", tags=["schedules"])
 @router.post("/generate", response_model=ScheduleGenerateResponse)
 async def generate_schedules(
     payload: ScheduleGenerateRequest,
+    client: SupabaseDep,
 ) -> ScheduleGenerateResponse:
-    """Generate transient schedules from user-entered candidate sections."""
+    """Generate transient schedules from saved catalog candidate sections."""
     try:
-        return schedule_service.generate_schedules_from_request(payload)
+        return schedule_service.generate_schedules_from_request(client, payload)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

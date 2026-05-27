@@ -5,6 +5,7 @@ Schedule query service - Supabase edition.
 from __future__ import annotations
 
 import math
+from uuid import UUID
 
 from backend.api.v1.schemas.schedules import (
     GeneratedMeetingResponse,
@@ -17,6 +18,7 @@ from backend.api.v1.schemas.schedules import (
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
 )
+from backend.api.v1.services import catalogs as catalog_service
 from backend.core.generator import compute_schedule_summary
 from backend.core.generator import generate_schedules as generate_section_combinations
 from backend.core.models import Meeting, Section
@@ -47,49 +49,26 @@ def get_schedule_exists(client: Client, schedule_id: int) -> bool:
 
 
 def generate_schedules_from_request(
+    client: Client,
     payload: ScheduleGenerateRequest,
 ) -> ScheduleGenerateResponse:
-    """Generate transient schedule options from BYOC section input."""
-    sections_by_course: dict[tuple[str, int], list[Section]] = {}
+    """Generate transient schedule options from a saved BYOC catalog."""
+    catalog_id = payload.metadata.catalog_id
+    if catalog_id is None:
+        raise ValueError("catalogId is required to generate schedules")
 
-    for course in payload.courses:
-        course_key = (course.subject_code, course.course_number)
-        course_sections: list[Section] = []
+    catalog = catalog_service.get_catalog(client, catalog_id)
+    if catalog is None:
+        raise ValueError("Catalog not found or not accessible")
 
-        for index, section_input in enumerate(course.sections, start=1):
-            section_code = (
-                section_input.section_code
-                or section_input.crn
-                or f"{course.subject_code}-{course.course_number}-{index}"
-            )
-            meetings = [
-                Meeting(
-                    day=day,
-                    start=meeting.start_time,
-                    end=meeting.end_time,
-                    campus="Unspecified",
-                )
-                for meeting in section_input.meetings
-                for day in _expand_meeting_days(meeting.days)
-            ]
+    sections_by_course, target_courses = _load_catalog_generation_sections(
+        client,
+        catalog_id,
+        instructor_ratings=payload.preferences.instructor_ratings,
+    )
+    if not target_courses:
+        raise ValueError("Catalog has no saved candidate sections")
 
-            section = Section(
-                subject=course.subject_code,
-                number=course.course_number,
-                section_code=section_code,
-                title="",
-                credits=0,
-                instructor=section_input.instructor_name or "",
-                rating=section_input.instructor_rating,
-                meetings=meetings,
-            )
-            course_sections.append(section)
-
-        sections_by_course[course_key] = course_sections
-
-    target_courses = [
-        (course.subject_code, course.course_number) for course in payload.courses
-    ]
     candidate_count = math.prod(len(sections_by_course[key]) for key in target_courses)
     if candidate_count > MAX_CANDIDATE_COMBINATIONS:
         raise ValueError(
@@ -178,8 +157,80 @@ def list_schedules(
 # Internal Helpers
 
 
+def _load_catalog_generation_sections(
+    client: Client,
+    catalog_id: UUID,
+    *,
+    instructor_ratings: dict[str, float | None],
+) -> tuple[dict[tuple[str, int], list[Section]], list[tuple[str, int]]]:
+    catalog_sections = catalog_service.list_catalog_sections(client, catalog_id)
+
+    sections_by_course: dict[tuple[str, int], list[Section]] = {}
+    target_courses: list[tuple[str, int]] = []
+    section_counts_by_course: dict[tuple[str, int], int] = {}
+
+    for catalog_section in catalog_sections:
+        course_key = (
+            catalog_section.subject_code,
+            catalog_section.course_number,
+        )
+        if course_key not in sections_by_course:
+            sections_by_course[course_key] = []
+            target_courses.append(course_key)
+
+        section_counts_by_course[course_key] = (
+            section_counts_by_course.get(course_key, 0) + 1
+        )
+        section_index = section_counts_by_course[course_key]
+        section_code = (
+            catalog_section.section_code
+            or catalog_section.crn
+            or f"{catalog_section.subject_code}-{catalog_section.course_number}-{section_index}"
+        )
+        instructor_name = catalog_section.instructor_name or ""
+        rating = instructor_ratings.get(instructor_name) if instructor_name else None
+
+        if not catalog_section.meetings:
+            raise ValueError(
+                "Catalog section "
+                f"{catalog_section.subject_code} {catalog_section.course_number} "
+                f"{section_code} has no meetings"
+            )
+
+        meetings = [
+            Meeting(
+                day=day,
+                start=meeting.start_time,
+                end=meeting.end_time,
+                campus="Unspecified",
+            )
+            for meeting in catalog_section.meetings
+            for day in _expand_meeting_days(meeting.days)
+        ]
+
+        sections_by_course[course_key].append(
+            Section(
+                subject=catalog_section.subject_code,
+                number=catalog_section.course_number,
+                section_code=section_code,
+                title="",
+                credits=0,
+                instructor=instructor_name,
+                rating=rating,
+                meetings=meetings,
+            )
+        )
+
+    return sections_by_course, target_courses
+
+
 def _expand_meeting_days(days: str) -> list[str]:
-    return [DAY_CODE_TO_NAME[day] for day in days]
+    try:
+        return [DAY_CODE_TO_NAME[day] for day in days]
+    except KeyError as exc:
+        raise ValueError(
+            "Unknown meeting day code. Use M, T, W, R, F, S; use R for Thursday."
+        ) from exc
 
 
 def _schedule_overlaps_blocked_times(

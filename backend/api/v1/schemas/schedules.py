@@ -8,9 +8,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-MAX_GENERATE_COURSES = 12
-MAX_GENERATE_SECTIONS_PER_COURSE = 30
-
 
 def _to_camel(field_name: str) -> str:
     parts = field_name.split("_")
@@ -66,63 +63,9 @@ def _normalize_days(value: str) -> str:
 
 
 class ScheduleGenerateMetadata(_CamelModel):
-    """Request metadata that describes where the BYOC draft came from."""
+    """Saved catalog identity for a generation request."""
 
     catalog_id: UUID | None = None
-    name: str | None = Field(default=None, max_length=200)
-    school_name: str | None = Field(default=None, max_length=200)
-    term_name: str | None = Field(default=None, max_length=100)
-
-
-class ScheduleGenerateMeetingInput(_CamelModel):
-    """One meeting pattern for a candidate section."""
-
-    days: str = Field(..., min_length=1, examples=["MWF", "TR"])
-    start_time: time = Field(..., examples=["17:00", "5:00 PM"])
-    end_time: time = Field(..., examples=["18:40", "6:40 PM"])
-
-    @field_validator("days")
-    @classmethod
-    def validate_days(cls, value: str) -> str:
-        return _normalize_days(value)
-
-    @field_validator("start_time", "end_time", mode="before")
-    @classmethod
-    def validate_time(cls, value: Any) -> time:
-        return _parse_time_input(value)
-
-    @model_validator(mode="after")
-    def validate_time_order(self) -> "ScheduleGenerateMeetingInput":
-        if self.end_time <= self.start_time:
-            raise ValueError("endTime must be after startTime")
-        return self
-
-
-class ScheduleGenerateSectionInput(_CamelModel):
-    """One candidate section that can satisfy a course."""
-
-    section_code: str | None = Field(default=None, max_length=50)
-    crn: str | None = Field(default=None, max_length=50)
-    instructor_name: str | None = Field(default=None, max_length=200)
-    instructor_rating: float | None = Field(default=None, ge=0, le=5)
-    meetings: list[ScheduleGenerateMeetingInput] = Field(..., min_length=1)
-
-
-class ScheduleGenerateCourseInput(_CamelModel):
-    """A course with the candidate sections entered by the user."""
-
-    subject_code: str = Field(..., min_length=1, max_length=20)
-    course_number: int = Field(..., ge=0, le=9999)
-    sections: list[ScheduleGenerateSectionInput] = Field(
-        ...,
-        min_length=1,
-        max_length=MAX_GENERATE_SECTIONS_PER_COURSE,
-    )
-
-    @field_validator("subject_code")
-    @classmethod
-    def normalize_subject_code(cls, value: str) -> str:
-        return value.strip().upper()
 
 
 class ScheduleGenerateBlockedTimeInput(_CamelModel):
@@ -155,18 +98,25 @@ class ScheduleGeneratePreferences(_CamelModel):
     blocked_times: list[ScheduleGenerateBlockedTimeInput] = Field(
         default_factory=list,
     )
+    instructor_ratings: dict[str, float | None] = Field(default_factory=dict)
+
+    @field_validator("instructor_ratings")
+    @classmethod
+    def validate_instructor_ratings(
+        cls,
+        value: dict[str, float | None],
+    ) -> dict[str, float | None]:
+        for rating in value.values():
+            if rating is not None and not 0 <= rating <= 5:
+                raise ValueError("Instructor ratings must be between 0 and 5")
+        return value
 
 
 class ScheduleGenerateRequest(_CamelModel):
-    """Request body for generating schedules from user-entered sections."""
+    """Request body for generating schedules from saved catalog sections."""
 
     metadata: ScheduleGenerateMetadata = Field(
         default_factory=ScheduleGenerateMetadata,
-    )
-    courses: list[ScheduleGenerateCourseInput] = Field(
-        ...,
-        min_length=1,
-        max_length=MAX_GENERATE_COURSES,
     )
     preferences: ScheduleGeneratePreferences = Field(
         default_factory=ScheduleGeneratePreferences,
