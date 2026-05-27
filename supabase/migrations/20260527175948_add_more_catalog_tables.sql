@@ -3,7 +3,7 @@
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS catalog_sections (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     catalog_id      UUID        NOT NULL REFERENCES catalogs(id) ON DELETE CASCADE,
     subject_code    TEXT        NOT NULL,
     course_number   INTEGER     NOT NULL CHECK (course_number >= 0 AND course_number <= 9999),
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS catalog_sections (
 );
 
 CREATE TABLE IF NOT EXISTS catalog_section_meetings (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
     section_id UUID    NOT NULL REFERENCES catalog_sections(id) ON DELETE CASCADE,
     days       TEXT    NOT NULL,
     start_time TIME    NOT NULL,
