@@ -78,7 +78,7 @@ export default function InstructorRatings() {
     }
 
     return (
-        <div className="grid grid-cols-[288px_1fr_280px] gap-[15px] h-full">
+        <>
             <aside className="bg-surface rounded-[10px] p-4 flex flex-col gap-4">
                 <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide">
                     Instructors
@@ -210,6 +210,6 @@ export default function InstructorRatings() {
                     <p>{instructorNames.length} instructors</p>
                 </div>
             </aside>
-        </div>
+        </>
     );
 }
