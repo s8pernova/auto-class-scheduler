@@ -75,11 +75,11 @@ export default function ScheduleRequestStep() {
         const parsed = parseCourseInput(rawInput);
 
         if (!parsed) {
-            alert("Please enter a valid course format, like CS 2104.");
+            alert("Please enter a course name.");
             return;
         }
 
-        const label = `${parsed.subjectCode} ${parsed.courseNumber}`;
+        const label = parsed;
         const existingGroup = draft.requirementCourses.find(
             (group) => group.label === label,
         );
@@ -94,7 +94,11 @@ export default function ScheduleRequestStep() {
             return;
         }
 
-        const id = `req-${parsed.subjectCode.toLowerCase()}-${parsed.courseNumber}-${Date.now()}`;
+        const slug = label
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "");
+        const id = `req-${slug || "course"}-${Date.now()}`;
 
         const newGroup: RequirementCourse = {
             id,
@@ -143,16 +147,7 @@ export default function ScheduleRequestStep() {
         );
         if (!group) return;
 
-        const parsedGroupCourse = parseCourseInput(group.label);
-        if (!parsedGroupCourse) {
-            // TODO: change the some other form of feedback with better UI
-            alert("Group label is not a valid course format.");
-            return;
-        }
-
         const newSection: SectionRef = {
-            subjectCode: parsedGroupCourse.subjectCode,
-            courseNumber: parsedGroupCourse.courseNumber,
             days: sectionData.days || "",
             time: sectionData.time || "",
             crn: sectionData.crn || "",

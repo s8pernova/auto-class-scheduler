@@ -18,7 +18,7 @@ class _CamelModel(BaseModel):
     """Base model for new JSON request/response bodies.
 
     Python code uses snake_case fields, while the external JSON contract can use
-    camelCase names such as ``subjectCode`` and ``startTime``.
+    camelCase names such as ``courseName`` and ``startTime``.
     """
 
     model_config = ConfigDict(
@@ -135,8 +135,7 @@ class GeneratedMeetingResponse(_CamelModel):
 class GeneratedSectionResponse(_CamelModel):
     """Section detail returned for a generated transient schedule."""
 
-    subject_code: str
-    course_number: int
+    course_name: str
     section_code: str
     instructor_name: str | None = None
     meetings: list[GeneratedMeetingResponse] = Field(default_factory=list)

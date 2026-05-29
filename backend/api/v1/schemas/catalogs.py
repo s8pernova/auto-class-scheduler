@@ -93,21 +93,22 @@ class CatalogSectionMeetingInput(_CamelModel):
 class CatalogSectionInput(_CamelModel):
     """One candidate section to persist in normalized catalog storage."""
 
-    subject_code: str = Field(..., min_length=1, max_length=20)
-    course_number: int = Field(..., ge=0, le=9999)
-    section_code: str | None = Field(default=None, max_length=50)
+    course_name: str = Field(..., min_length=1, max_length=200)
     crn: str | None = Field(default=None, max_length=50)
     instructor_name: str | None = Field(default=None, max_length=200)
     sort_order: int = Field(default=0, ge=0)
     source_metadata: dict[str, Any] = Field(default_factory=dict)
     meetings: list[CatalogSectionMeetingInput] = Field(..., min_length=1)
 
-    @field_validator("subject_code")
+    @field_validator("course_name")
     @classmethod
-    def normalize_subject_code(cls, value: str) -> str:
-        return value.strip().upper()
+    def normalize_course_name(cls, value: str) -> str:
+        normalized = " ".join(value.strip().split())
+        if not normalized:
+            raise ValueError("Course name is required")
+        return normalized
 
-    @field_validator("section_code", "crn", "instructor_name", mode="before")
+    @field_validator("crn", "instructor_name", mode="before")
     @classmethod
     def normalize_optional_text(cls, value: Any) -> Any:
         if not isinstance(value, str):
@@ -138,9 +139,7 @@ class CatalogSectionResponse(_CamelModel):
 
     id: UUID
     catalog_id: UUID
-    subject_code: str
-    course_number: int
-    section_code: str | None = None
+    course_name: str
     crn: str | None = None
     instructor_name: str | None = None
     sort_order: int

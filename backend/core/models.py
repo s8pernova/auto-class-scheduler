@@ -21,8 +21,7 @@ class Meeting:
 class Section:
     """One section of a course, with all its meeting blocks."""
 
-    subject: str
-    number: int
+    course_name: str
     section_code: str
     title: str
     credits: int

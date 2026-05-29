@@ -146,7 +146,7 @@ export function RequirementSectionsTable({
         () =>
             sections.map((section, index) => ({
                 ...section,
-                rowKey: `${section.subjectCode}-${section.courseNumber}-${index}`,
+                rowKey: `${section.crn || "section"}-${index}`,
             })),
         [sections],
     );

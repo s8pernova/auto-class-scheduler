@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import itertools
 import math
+from typing import Any
 
 from backend.core.models import Meeting, Section
 from backend.utils import parse_time_str
@@ -127,8 +128,7 @@ def load_sections(
             rating = float(rating_raw)
 
         sec_obj = Section(
-            subject=sub,
-            number=int(num),
+            course_name=f"{sub} {int(num)}",
             section_code=sec,
             title=first["course_title"] or "",
             credits=int(first["credits"]),
@@ -145,8 +145,8 @@ def load_sections(
 
 
 def generate_schedules(
-    sections_by_course: dict[tuple[str, int], list[Section]],
-    target_courses: list[tuple[str, int]],
+    sections_by_course: dict[Any, list[Section]],
+    target_courses: list[Any],
     *,
     allow_campus_switch: bool = False,
 ) -> list[list[Section]]:

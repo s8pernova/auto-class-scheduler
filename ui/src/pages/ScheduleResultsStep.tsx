@@ -232,12 +232,11 @@ export default function ScheduleResultsStep() {
                                 <div className="mt-4 flex flex-col gap-2">
                                     {schedule.sections.map((section) => (
                                         <div
-                                            key={`${schedule.resultId}-${section.subjectCode}-${section.courseNumber}-${section.sectionCode}`}
+                                            key={`${schedule.resultId}-${section.courseName}-${section.sectionCode}`}
                                             className="rounded-md border border-background/10 px-3 py-2 text-sm"
                                         >
                                             <div className="font-semibold text-background">
-                                                {section.subjectCode}{" "}
-                                                {section.courseNumber}-{" "}
+                                                {section.courseName}-{" "}
                                                 {section.sectionCode}
                                             </div>
                                             <div className="text-background/60">
@@ -294,12 +293,11 @@ export default function ScheduleResultsStep() {
                         <div className="flex flex-col gap-3">
                             {selectedSchedule.sections.map((section) => (
                                 <div
-                                    key={`${selectedSchedule.resultId}-detail-${section.subjectCode}-${section.courseNumber}-${section.sectionCode}`}
+                                    key={`${selectedSchedule.resultId}-detail-${section.courseName}-${section.sectionCode}`}
                                     className="border border-background/10 rounded-md p-3 text-sm"
                                 >
                                     <p className="font-semibold text-background">
-                                        {section.subjectCode}{" "}
-                                        {section.courseNumber}-{" "}
+                                        {section.courseName}-{" "}
                                         {section.sectionCode}
                                     </p>
                                     <p className="text-background/60">

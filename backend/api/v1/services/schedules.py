@@ -162,18 +162,15 @@ def _load_catalog_generation_sections(
     catalog_id: UUID,
     *,
     instructor_ratings: dict[str, float | None],
-) -> tuple[dict[tuple[str, int], list[Section]], list[tuple[str, int]]]:
+) -> tuple[dict[str, list[Section]], list[str]]:
     catalog_sections = catalog_service.list_catalog_sections(client, catalog_id)
 
-    sections_by_course: dict[tuple[str, int], list[Section]] = {}
-    target_courses: list[tuple[str, int]] = []
-    section_counts_by_course: dict[tuple[str, int], int] = {}
+    sections_by_course: dict[str, list[Section]] = {}
+    target_courses: list[str] = []
+    section_counts_by_course: dict[str, int] = {}
 
     for catalog_section in catalog_sections:
-        course_key = (
-            catalog_section.subject_code,
-            catalog_section.course_number,
-        )
+        course_key = catalog_section.course_name
         if course_key not in sections_by_course:
             sections_by_course[course_key] = []
             target_courses.append(course_key)
@@ -183,9 +180,8 @@ def _load_catalog_generation_sections(
         )
         section_index = section_counts_by_course[course_key]
         section_code = (
-            catalog_section.section_code
-            or catalog_section.crn
-            or f"{catalog_section.subject_code}-{catalog_section.course_number}-{section_index}"
+            catalog_section.crn
+            or f"{catalog_section.course_name}-{section_index}"
         )
         instructor_name = catalog_section.instructor_name or ""
         rating = instructor_ratings.get(instructor_name) if instructor_name else None
@@ -193,7 +189,7 @@ def _load_catalog_generation_sections(
         if not catalog_section.meetings:
             raise ValueError(
                 "Catalog section "
-                f"{catalog_section.subject_code} {catalog_section.course_number} "
+                f"{catalog_section.course_name} "
                 f"{section_code} has no meetings"
             )
 
@@ -210,8 +206,7 @@ def _load_catalog_generation_sections(
 
         sections_by_course[course_key].append(
             Section(
-                subject=catalog_section.subject_code,
-                number=catalog_section.course_number,
+                course_name=catalog_section.course_name,
                 section_code=section_code,
                 title="",
                 credits=0,
@@ -292,8 +287,7 @@ def _build_generated_schedule_response(
 
 def _build_generated_section_response(section: Section) -> GeneratedSectionResponse:
     return GeneratedSectionResponse(
-        subject_code=section.subject,
-        course_number=section.number,
+        course_name=section.course_name,
         section_code=section.section_code,
         instructor_name=section.instructor or None,
         meetings=[

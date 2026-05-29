@@ -11,8 +11,6 @@ import {
 // Types
 
 export interface SectionRef {
-    subjectCode: string;
-    courseNumber: number;
     days: string;
     time: string;
     crn?: string;

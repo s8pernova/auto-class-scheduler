@@ -7,7 +7,6 @@ import type {
     ScheduleDraft,
     SectionRef,
 } from "@/contexts/ScheduleDraftContext";
-import { parseCourseInput } from "@/utils/parseCourseInput";
 
 function optionalString(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
@@ -44,11 +43,6 @@ export function buildCatalogSectionsReplaceRequest(
 
     return {
         sections: draft.requirementCourses.flatMap((course) => {
-            const parsed = parseCourseInput(course.label);
-
-            if (!parsed) {
-                throw new Error(`${course.label} is not a valid course code.`);
-            }
             if (course.sections.length === 0) {
                 throw new Error(`${course.label} needs at least one section.`);
             }
@@ -60,9 +54,7 @@ export function buildCatalogSectionsReplaceRequest(
                 sortOrder += 1;
 
                 return {
-                    subjectCode: parsed.subjectCode,
-                    courseNumber: parsed.courseNumber,
-                    sectionCode: crn,
+                    courseName: course.label,
                     crn,
                     instructorName,
                     sortOrder: currentSortOrder,

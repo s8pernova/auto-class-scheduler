@@ -120,8 +120,7 @@ export interface GeneratedMeetingResponse {
 }
 
 export interface GeneratedSectionResponse {
-    subjectCode: string;
-    courseNumber: number;
+    courseName: string;
     sectionCode: string;
     instructorName?: string | null;
     meetings: GeneratedMeetingResponse[];
@@ -308,9 +307,7 @@ export interface CatalogSectionMeetingInput {
 }
 
 export interface CatalogSectionInput {
-    subjectCode: string;
-    courseNumber: number;
-    sectionCode?: string | null;
+    courseName: string;
     crn?: string | null;
     instructorName?: string | null;
     sortOrder?: number;
@@ -334,9 +331,7 @@ export interface CatalogSectionMeetingResponse {
 export interface CatalogSectionResponse {
     id: string;
     catalogId: string;
-    subjectCode: string;
-    courseNumber: number;
-    sectionCode: string | null;
+    courseName: string;
     crn: string | null;
     instructorName: string | null;
     sortOrder: number;
