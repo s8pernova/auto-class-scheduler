@@ -1,3 +1,4 @@
+import type { ScheduleGenerateResponse } from "@/api/client";
 import {
     createContext,
     useCallback,
@@ -9,17 +10,20 @@ import {
 
 // Types
 
-export interface CourseRef {
+export interface SectionRef {
     subjectCode: string;
     courseNumber: number;
+    days: string;
+    time: string;
+    crn?: string;
+    instructor?: string;
+    rating?: string;
 }
 
-export interface RequirementGroup {
+export interface RequirementCourse {
     id: string;
     label: string;
-    minCourses: number;
-    maxCourses: number;
-    courses: CourseRef[];
+    sections: SectionRef[];
 }
 
 export interface BlockedTime {
@@ -28,20 +32,14 @@ export interface BlockedTime {
     endTime: string;
 }
 
-export interface SchedulePreferences {
-    allowFullSections?: boolean;
-    allowRestrictedSections?: boolean;
-    campuses?: string[];
-    times?: string[];
-}
+export type InstructorRatings = Record<string, number | null>;
 
 export interface ScheduleDraft {
     catalogId: string;
-    requirementGroups: RequirementGroup[];
-    pinnedCrns: string[];
-    excludedCrns: string[];
+    requirementCourses: RequirementCourse[];
     blockedTimes: BlockedTime[];
-    preferences: SchedulePreferences;
+    instructorRatings: InstructorRatings;
+    generationResult: ScheduleGenerateResponse | null;
 }
 
 interface ScheduleDraftContextType {
@@ -56,14 +54,31 @@ const ScheduleDraftContext = createContext<ScheduleDraftContextType | null>(
     null,
 );
 
+const GENERATION_INPUT_KEYS = [
+    "requirementCourses",
+    "blockedTimes",
+    "instructorRatings",
+] as const;
+
+function patchChangesGenerationInputs(
+    patch: Partial<Omit<ScheduleDraft, "catalogId">>,
+): boolean {
+    if (Object.prototype.hasOwnProperty.call(patch, "generationResult")) {
+        return false;
+    }
+
+    return GENERATION_INPUT_KEYS.some((key) =>
+        Object.prototype.hasOwnProperty.call(patch, key),
+    );
+}
+
 function buildInitialDraft(catalogId: string): ScheduleDraft {
     return {
         catalogId,
-        requirementGroups: [],
-        pinnedCrns: [],
-        excludedCrns: [],
+        requirementCourses: [],
         blockedTimes: [],
-        preferences: {},
+        instructorRatings: {},
+        generationResult: null,
     };
 }
 
@@ -82,7 +97,23 @@ export function ScheduleDraftProvider({
 
     const updateDraft = useCallback(
         (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => {
-            setDraft((prev) => ({ ...prev, ...patch }));
+            setDraft((prev) => {
+                const hasGenerationResultPatch =
+                    Object.prototype.hasOwnProperty.call(
+                        patch,
+                        "generationResult",
+                    );
+
+                return {
+                    ...prev,
+                    ...patch,
+                    generationResult: patchChangesGenerationInputs(patch)
+                        ? null
+                        : hasGenerationResultPatch
+                          ? (patch.generationResult ?? null)
+                          : prev.generationResult,
+                };
+            });
         },
         [],
     );

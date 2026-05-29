@@ -4,13 +4,29 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
-from backend.api.v1.schemas.schedules import ScheduleSummaryResponse
+from backend.api.v1.schemas.schedules import (
+    ScheduleGenerateRequest,
+    ScheduleGenerateResponse,
+    ScheduleSummaryResponse,
+)
 from backend.api.v1.services import schedules as schedule_service
 from backend.dependencies import SupabaseDep
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
+
+
+@router.post("/generate", response_model=ScheduleGenerateResponse)
+async def generate_schedules(
+    payload: ScheduleGenerateRequest,
+    client: SupabaseDep,
+) -> ScheduleGenerateResponse:
+    """Generate transient schedules from saved catalog candidate sections."""
+    try:
+        return schedule_service.generate_schedules_from_request(client, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("", response_model=list[ScheduleSummaryResponse])

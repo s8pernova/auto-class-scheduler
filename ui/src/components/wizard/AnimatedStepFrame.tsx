@@ -1,12 +1,13 @@
-import {
-    useRef,
-    useState,
-    useEffect,
-    type ReactNode,
-} from "react";
+import { useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 
-const STEP_ORDER = ["build", "results"] as const;
+const STEP_ORDER = ["build", "instructors"] as const;
+
+type RouteTransition = {
+    pathname: string;
+    currentIndex: number;
+    previousIndex: number;
+};
 
 function stepIndex(pathname: string): number {
     for (let i = STEP_ORDER.length - 1; i >= 0; i--) {
@@ -22,36 +23,30 @@ export default function AnimatedStepFrame({
 }) {
     const { pathname } = useLocation();
     const currentIndex = stepIndex(pathname);
-    const prevIndexRef = useRef(currentIndex);
-    const [direction, setDirection] = useState<"none" | "forward" | "backward">(
-        "none",
-    );
-    const [animating, setAnimating] = useState(false);
+    const [transition, setTransition] = useState<RouteTransition>(() => ({
+        pathname,
+        currentIndex,
+        previousIndex: currentIndex,
+    }));
 
-    useEffect(() => {
-        const prev = prevIndexRef.current;
-        if (prev !== currentIndex) {
-            setDirection(currentIndex > prev ? "forward" : "backward");
-            setAnimating(true);
-            prevIndexRef.current = currentIndex;
-
-            // Let the enter animation play, then clear the state.
-            const id = setTimeout(() => setAnimating(false), 350);
-            return () => clearTimeout(id);
-        }
-    }, [currentIndex]);
+    if (transition.pathname !== pathname) {
+        setTransition({
+            pathname,
+            currentIndex,
+            previousIndex: transition.currentIndex,
+        });
+    }
 
     let transformClass = "";
-    if (animating) {
-        if (direction === "forward") {
-            transformClass = "wizard-slide-in-right";
-        } else if (direction === "backward") {
-            transformClass = "wizard-slide-in-left";
-        }
+    if (transition.currentIndex > transition.previousIndex) {
+        transformClass = "wizard-slide-in-right";
+    } else if (transition.currentIndex < transition.previousIndex) {
+        transformClass = "wizard-slide-in-left";
     }
 
     return (
         <div
+            key={pathname}
             className={`wizard-step-frame min-h-0 col-span-full grid grid-cols-subgrid ${transformClass}`}
         >
             {children}

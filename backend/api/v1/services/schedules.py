@@ -4,12 +4,35 @@ Schedule query service - Supabase edition.
 
 from __future__ import annotations
 
+import math
+from uuid import UUID
+
 from backend.api.v1.schemas.schedules import (
+    GeneratedMeetingResponse,
+    GeneratedScheduleResponse,
+    GeneratedSectionResponse,
     MeetingResponse,
+    ScheduleGenerateBlockedTimeInput,
+    ScheduleGenerateRequest,
+    ScheduleGenerateResponse,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
 )
+from backend.api.v1.services import catalogs as catalog_service
+from backend.core.generator import compute_schedule_summary
+from backend.core.generator import generate_schedules as generate_section_combinations
+from backend.core.models import Meeting, Section
 from supabase import Client
+
+DAY_CODE_TO_NAME = {
+    "M": "Mon",
+    "T": "Tue",
+    "W": "Wed",
+    "R": "Thu",
+    "F": "Fri",
+    "S": "Sat",
+}
+MAX_CANDIDATE_COMBINATIONS = 250_000
 
 # Public API
 
@@ -23,6 +46,65 @@ def get_schedule_exists(client: Client, schedule_id: int) -> bool:
         .execute()
     )
     return (resp.count or 0) > 0
+
+
+def generate_schedules_from_request(
+    client: Client,
+    payload: ScheduleGenerateRequest,
+) -> ScheduleGenerateResponse:
+    """Generate transient schedule options from a saved BYOC catalog."""
+    catalog_id = payload.metadata.catalog_id
+    if catalog_id is None:
+        raise ValueError("catalogId is required to generate schedules")
+
+    catalog = catalog_service.get_catalog(client, catalog_id)
+    if catalog is None:
+        raise ValueError("Catalog not found or not accessible")
+
+    sections_by_course, target_courses = _load_catalog_generation_sections(
+        client,
+        catalog_id,
+        instructor_ratings=payload.preferences.instructor_ratings,
+    )
+    if not target_courses:
+        raise ValueError("Catalog has no saved candidate sections")
+
+    candidate_count = math.prod(len(sections_by_course[key]) for key in target_courses)
+    if candidate_count > MAX_CANDIDATE_COMBINATIONS:
+        raise ValueError(
+            "Schedule request has "
+            f"{candidate_count:,} possible combinations. Reduce the number of "
+            "courses or candidate sections before generating."
+        )
+
+    generated = generate_section_combinations(
+        sections_by_course,
+        target_courses,
+    )
+    valid = [
+        schedule
+        for schedule in generated
+        if not _schedule_overlaps_blocked_times(
+            schedule,
+            payload.preferences.blocked_times,
+        )
+    ]
+    returned = valid[: payload.max_results]
+
+    schedules = [
+        _build_generated_schedule_response(
+            index=index,
+            sections=sections,
+        )
+        for index, sections in enumerate(returned, start=1)
+    ]
+
+    return ScheduleGenerateResponse(
+        candidate_count=candidate_count,
+        valid_count=len(valid),
+        returned_count=len(schedules),
+        schedules=schedules,
+    )
 
 
 def list_schedules(
@@ -73,6 +155,156 @@ def list_schedules(
 
 
 # Internal Helpers
+
+
+def _load_catalog_generation_sections(
+    client: Client,
+    catalog_id: UUID,
+    *,
+    instructor_ratings: dict[str, float | None],
+) -> tuple[dict[tuple[str, int], list[Section]], list[tuple[str, int]]]:
+    catalog_sections = catalog_service.list_catalog_sections(client, catalog_id)
+
+    sections_by_course: dict[tuple[str, int], list[Section]] = {}
+    target_courses: list[tuple[str, int]] = []
+    section_counts_by_course: dict[tuple[str, int], int] = {}
+
+    for catalog_section in catalog_sections:
+        course_key = (
+            catalog_section.subject_code,
+            catalog_section.course_number,
+        )
+        if course_key not in sections_by_course:
+            sections_by_course[course_key] = []
+            target_courses.append(course_key)
+
+        section_counts_by_course[course_key] = (
+            section_counts_by_course.get(course_key, 0) + 1
+        )
+        section_index = section_counts_by_course[course_key]
+        section_code = (
+            catalog_section.section_code
+            or catalog_section.crn
+            or f"{catalog_section.subject_code}-{catalog_section.course_number}-{section_index}"
+        )
+        instructor_name = catalog_section.instructor_name or ""
+        rating = instructor_ratings.get(instructor_name) if instructor_name else None
+
+        if not catalog_section.meetings:
+            raise ValueError(
+                "Catalog section "
+                f"{catalog_section.subject_code} {catalog_section.course_number} "
+                f"{section_code} has no meetings"
+            )
+
+        meetings = [
+            Meeting(
+                day=day,
+                start=meeting.start_time,
+                end=meeting.end_time,
+                campus="Unspecified",
+            )
+            for meeting in catalog_section.meetings
+            for day in _expand_meeting_days(meeting.days)
+        ]
+
+        sections_by_course[course_key].append(
+            Section(
+                subject=catalog_section.subject_code,
+                number=catalog_section.course_number,
+                section_code=section_code,
+                title="",
+                credits=0,
+                instructor=instructor_name,
+                rating=rating,
+                meetings=meetings,
+            )
+        )
+
+    return sections_by_course, target_courses
+
+
+def _expand_meeting_days(days: str) -> list[str]:
+    try:
+        return [DAY_CODE_TO_NAME[day] for day in days]
+    except KeyError as exc:
+        raise ValueError(
+            "Unknown meeting day code. Use M, T, W, R, F, S; use R for Thursday."
+        ) from exc
+
+
+def _schedule_overlaps_blocked_times(
+    sections: list[Section],
+    blocked_times: list[ScheduleGenerateBlockedTimeInput],
+) -> bool:
+    if not blocked_times:
+        return False
+
+    meetings = [meeting for section in sections for meeting in section.meetings]
+    blocked_meetings = [
+        Meeting(
+            day=day,
+            start=blocked_time.start_time,
+            end=blocked_time.end_time,
+            campus="Blocked",
+        )
+        for blocked_time in blocked_times
+        for day in _expand_meeting_days(blocked_time.days)
+    ]
+
+    return any(
+        _meetings_overlap(meeting, blocked)
+        for meeting in meetings
+        for blocked in blocked_meetings
+    )
+
+
+def _meetings_overlap(first: Meeting, second: Meeting) -> bool:
+    return first.day == second.day and max(first.start, second.start) < min(
+        first.end, second.end
+    )
+
+
+def _build_generated_schedule_response(
+    *,
+    index: int,
+    sections: list[Section],
+) -> GeneratedScheduleResponse:
+    summary = compute_schedule_summary(sections)
+
+    return GeneratedScheduleResponse(
+        result_id=f"generated-{index}",
+        total_instructor_score=summary["total_instructor_score"],
+        num_sections=summary["num_sections"],
+        meets_mon=summary["meets_mon"],
+        meets_tue=summary["meets_tue"],
+        meets_wed=summary["meets_wed"],
+        meets_thu=summary["meets_thu"],
+        meets_fri=summary["meets_fri"],
+        meets_sat=summary["meets_sat"],
+        earliest_start=summary["earliest_start"],
+        latest_end=summary["latest_end"],
+        sections=[
+            _build_generated_section_response(section) for section in sections
+        ],
+    )
+
+
+def _build_generated_section_response(section: Section) -> GeneratedSectionResponse:
+    return GeneratedSectionResponse(
+        subject_code=section.subject,
+        course_number=section.number,
+        section_code=section.section_code,
+        instructor_name=section.instructor or None,
+        meetings=[
+            GeneratedMeetingResponse(
+                day_of_week=meeting.day,
+                start_time=meeting.start,
+                end_time=meeting.end,
+            )
+            for meeting in section.meetings
+        ],
+    )
 
 
 # NOTE: LEGACY CODE

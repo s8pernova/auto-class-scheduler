@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 const STEPS = [
     { key: "new", label: "Catalog" },
     { key: "build", label: "Build" },
-    { key: "results", label: "Results" },
+    { key: "instructors", label: "Instructors" },
 ] as const;
 
 function resolveActiveIndex(pathname: string): number {
@@ -31,9 +31,7 @@ export default function WizardStepper() {
                         {i > 0 && (
                             <div
                                 className={`w-8 h-[2px] transition-colors duration-300 ${
-                                    isCompleted
-                                        ? "bg-accent"
-                                        : "bg-text/20"
+                                    isCompleted ? "bg-accent" : "bg-text/20"
                                 }`}
                             />
                         )}
@@ -45,7 +43,9 @@ export default function WizardStepper() {
                                     if (step.key === "new") {
                                         navigate("/catalogs/new");
                                     } else if (catalogId) {
-                                        navigate(`/catalogs/${catalogId}/${step.key}`);
+                                        navigate(
+                                            `/catalogs/${catalogId}/${step.key}`,
+                                        );
                                     }
                                 }
                             }}

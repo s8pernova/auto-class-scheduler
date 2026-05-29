@@ -8,15 +8,80 @@ import { supabase } from "@/clients/supabaseClient";
 
 const BASE_URL = "/api/v1";
 
-async function authFetch(url: string, options: RequestInit = {}) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
+function formatApiErrorDetail(detail: unknown): string | null {
+    if (typeof detail === "string") {
+        return detail;
+    }
+
+    if (!Array.isArray(detail)) {
+        return null;
+    }
+
+    const messages = detail
+        .map((item) => {
+            if (typeof item === "string") {
+                return item;
+            }
+            if (!isRecord(item) || typeof item.msg !== "string") {
+                return null;
+            }
+
+            const location = Array.isArray(item.loc)
+                ? item.loc
+                      .filter(
+                          (part) =>
+                              typeof part === "string" ||
+                              typeof part === "number",
+                      )
+                      .join(".")
+                : "";
+
+            return location ? `${location}: ${item.msg}` : item.msg;
+        })
+        .filter((message): message is string => Boolean(message));
+
+    return messages.length > 0 ? messages.join("; ") : null;
+}
+
+async function buildApiErrorMessage(
+    response: Response,
+    fallback: string,
+): Promise<string> {
+    try {
+        const body: unknown = await response.json();
+        const detail = isRecord(body)
+            ? formatApiErrorDetail(body.detail)
+            : null;
+
+        if (detail) {
+            return `${fallback}: ${detail}`;
+        }
+    } catch {
+        // Fall back to the status text below when the response is not JSON.
+    }
+
+    return `${fallback}: ${response.statusText}`;
+}
+
+async function buildAuthHeaders(): Promise<HeadersInit> {
     const {
         data: { session },
     } = await supabase.auth.getSession();
-    const headers = new Headers(options.headers || {});
-    if (session?.access_token) {
-        headers.set("Authorization", `Bearer ${session.access_token}`);
-    }
-    return fetch(url, { ...options, headers });
+
+    return session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+}
+
+async function buildJsonAuthHeaders(): Promise<HeadersInit> {
+    return {
+        "Content-Type": "application/json",
+        ...(await buildAuthHeaders()),
+    };
 }
 
 interface GetSchedulesOptions {
@@ -25,6 +90,63 @@ interface GetSchedulesOptions {
     offset?: number;
     campuses?: string[] | null;
     times?: string[] | null;
+}
+
+export interface ScheduleGenerateMetadata {
+    catalogId?: string;
+}
+
+export interface ScheduleGenerateBlockedTimeInput {
+    days: string;
+    startTime: string;
+    endTime: string;
+}
+
+export interface ScheduleGeneratePreferences {
+    blockedTimes: ScheduleGenerateBlockedTimeInput[];
+    instructorRatings: Record<string, number | null>;
+}
+
+export interface ScheduleGenerateRequest {
+    metadata: ScheduleGenerateMetadata;
+    preferences: ScheduleGeneratePreferences;
+    maxResults: number;
+}
+
+export interface GeneratedMeetingResponse {
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+}
+
+export interface GeneratedSectionResponse {
+    subjectCode: string;
+    courseNumber: number;
+    sectionCode: string;
+    instructorName?: string | null;
+    meetings: GeneratedMeetingResponse[];
+}
+
+export interface GeneratedScheduleResponse {
+    resultId: string;
+    totalInstructorScore?: number | null;
+    numSections: number;
+    meetsMon: boolean;
+    meetsTue: boolean;
+    meetsWed: boolean;
+    meetsThu: boolean;
+    meetsFri: boolean;
+    meetsSat: boolean;
+    earliestStart: string;
+    latestEnd: string;
+    sections: GeneratedSectionResponse[];
+}
+
+export interface ScheduleGenerateResponse {
+    candidateCount: number;
+    validCount: number;
+    returnedCount: number;
+    schedules: GeneratedScheduleResponse[];
 }
 
 /**
@@ -62,9 +184,28 @@ export async function getSchedules({
     }
 
     const url = `${BASE_URL}/schedules?${params.toString()}`;
-    const response = await authFetch(url);
+    const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch schedules: ${response.statusText}`);
+    }
+    return response.json();
+}
+
+/**
+ * Generate transient schedules from saved catalog candidate sections.
+ */
+export async function generateSchedules(
+    payload: ScheduleGenerateRequest,
+): Promise<ScheduleGenerateResponse> {
+    const response = await fetch(`${BASE_URL}/schedules/generate`, {
+        method: "POST",
+        headers: await buildJsonAuthHeaders(),
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to generate schedules"),
+        );
     }
     return response.json();
 }
@@ -74,7 +215,7 @@ export async function getSchedules({
  * @returns {Promise<Array<number>>} List of favorited schedule IDs
  */
 export async function getFavorites() {
-    const response = await authFetch(`${BASE_URL}/favorites`);
+    const response = await fetch(`${BASE_URL}/favorites`);
     if (!response.ok) {
         throw new Error(`Failed to fetch favorites: ${response.statusText}`);
     }
@@ -87,7 +228,7 @@ export async function getFavorites() {
  * @returns {Promise<Object>} Favorite response
  */
 export async function favoriteSchedule(scheduleId: number | string) {
-    const response = await authFetch(`${BASE_URL}/favorites/${scheduleId}`, {
+    const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
         method: "POST",
     });
 
@@ -106,7 +247,7 @@ export async function favoriteSchedule(scheduleId: number | string) {
  * @returns {Promise<Object>} Unfavorite response
  */
 export async function unfavoriteSchedule(scheduleId: number | string) {
-    const response = await authFetch(`${BASE_URL}/favorites/${scheduleId}`, {
+    const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
         method: "DELETE",
     });
 
@@ -126,7 +267,7 @@ export async function unfavoriteSchedule(scheduleId: number | string) {
  * @returns {Promise<Object>} Health status
  */
 export async function healthCheck() {
-    const response = await authFetch(`${BASE_URL}/health`);
+    const response = await fetch(`${BASE_URL}/health`);
     if (!response.ok) {
         throw new Error("Health check failed");
     }
@@ -159,19 +300,67 @@ export interface CatalogResponse {
     last_imported_at: string | null;
 }
 
+export interface CatalogSectionMeetingInput {
+    days: string;
+    startTime: string;
+    endTime: string;
+    sortOrder?: number;
+}
+
+export interface CatalogSectionInput {
+    subjectCode: string;
+    courseNumber: number;
+    sectionCode?: string | null;
+    crn?: string | null;
+    instructorName?: string | null;
+    sortOrder?: number;
+    sourceMetadata?: Record<string, unknown>;
+    meetings: CatalogSectionMeetingInput[];
+}
+
+export interface CatalogSectionsReplaceRequest {
+    sections: CatalogSectionInput[];
+}
+
+export interface CatalogSectionMeetingResponse {
+    id: string;
+    sectionId: string;
+    days: string;
+    startTime: string;
+    endTime: string;
+    sortOrder: number;
+}
+
+export interface CatalogSectionResponse {
+    id: string;
+    catalogId: string;
+    subjectCode: string;
+    courseNumber: number;
+    sectionCode: string | null;
+    crn: string | null;
+    instructorName: string | null;
+    sortOrder: number;
+    sourceMetadata: Record<string, unknown>;
+    createdAt: string;
+    updatedAt: string;
+    meetings: CatalogSectionMeetingResponse[];
+}
+
 /**
  * Create a new catalog.
  */
 export async function createCatalog(
     payload: CreateCatalogPayload,
 ): Promise<CatalogResponse> {
-    const response = await authFetch(`${BASE_URL}/catalogs`, {
+    const response = await fetch(`${BASE_URL}/catalogs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await buildJsonAuthHeaders(),
         body: JSON.stringify(payload),
     });
     if (!response.ok) {
-        throw new Error(`Failed to create catalog: ${response.statusText}`);
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to create catalog"),
+        );
     }
     return response.json();
 }
@@ -180,14 +369,60 @@ export async function createCatalog(
  * Fetch a catalog by ID.
  */
 export async function getCatalog(catalogId: string): Promise<CatalogResponse> {
-    const response = await authFetch(
+    const response = await fetch(
         `${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}`,
+        {
+            headers: await buildAuthHeaders(),
+        },
     );
     if (!response.ok) {
         if (response.status === 404) {
             throw new Error("Catalog not found");
         }
         throw new Error(`Failed to fetch catalog: ${response.statusText}`);
+    }
+    return response.json();
+}
+
+/**
+ * Fetch normalized sections for a catalog.
+ */
+export async function getCatalogSections(
+    catalogId: string,
+): Promise<CatalogSectionResponse[]> {
+    const response = await fetch(
+        `${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}/sections`,
+        {
+            headers: await buildAuthHeaders(),
+        },
+    );
+    if (!response.ok) {
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to fetch catalog sections"),
+        );
+    }
+    return response.json();
+}
+
+/**
+ * Replace a catalog's normalized candidate sections.
+ */
+export async function replaceCatalogSections(
+    catalogId: string,
+    payload: CatalogSectionsReplaceRequest,
+): Promise<CatalogSectionResponse[]> {
+    const response = await fetch(
+        `${BASE_URL}/catalogs/${encodeURIComponent(catalogId)}/sections`,
+        {
+            method: "PUT",
+            headers: await buildJsonAuthHeaders(),
+            body: JSON.stringify(payload),
+        },
+    );
+    if (!response.ok) {
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to save catalog sections"),
+        );
     }
     return response.json();
 }

@@ -1,391 +1,282 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+    type RequirementCourse,
+    type SectionRef,
     useScheduleDraft,
-    RequirementGroup,
 } from "@/contexts/ScheduleDraftContext";
+import { replaceCatalogSections } from "@/api/client";
+import { buildCatalogSectionsReplaceRequest } from "@/utils/buildScheduleGenerateRequest";
+import { parseCourseInput } from "@/utils/parseCourseInput";
+import { RequirementsSidebar } from "@/components/schedule/RequirementsSidebar";
+import { CourseDetailPanel } from "@/components/schedule/CourseDetailPanel";
 
 export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const { draft, updateDraft } = useScheduleDraft();
     const navigate = useNavigate();
 
-    // Master-detail state
-    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
+        null,
+    );
+    const [highlightedCourseId, setHighlightedCourseId] = useState<
+        string | null
+    >(null);
+    const [createdInstructors, setCreatedInstructors] = useState<string[]>([]);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
-    const selectedGroup = draft.requirementGroups.find(
-        (g) => g.id === selectedGroupId,
+    const selectedCourse = draft.requirementCourses.find(
+        (group) => group.id === selectedCourseId,
     );
 
-    function handleGenerate() {
-        // TODO: call API to generate schedule and get resultSetId
-        // For now, navigate to mock resultSetId
-        navigate(`/catalogs/${catalogId}/results/mock-result-123`);
+    // Collect unique instructor names from all sections + manually created ones
+    const instructorOptions = useMemo(() => {
+        const names = new Set<string>(createdInstructors);
+        for (const course of draft.requirementCourses) {
+            for (const section of course.sections) {
+                if (section.instructor) {
+                    names.add(section.instructor);
+                }
+            }
+        }
+        return [...names].sort((a, b) => a.localeCompare(b));
+    }, [draft.requirementCourses, createdInstructors]);
+
+    const canContinue =
+        draft.requirementCourses.length > 0 &&
+        draft.requirementCourses.every((course) => course.sections.length > 0);
+
+    async function handleContinue() {
+        if (!catalogId) return;
+
+        setSaveError(null);
+        setIsSaving(true);
+
+        try {
+            const payload = buildCatalogSectionsReplaceRequest(draft);
+            await replaceCatalogSections(catalogId, payload);
+            navigate(`/catalogs/${catalogId}/instructors`);
+        } catch (err) {
+            setSaveError(
+                err instanceof Error
+                    ? err.message
+                    : "Failed to save catalog sections.",
+            );
+            setIsSaving(false);
+        }
     }
 
-    function handleAddGroup(e: React.FormEvent<HTMLFormElement>) {
+    function handleAddCourse(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
+
         const formData = new FormData(e.currentTarget);
-        const rawInput = String(formData.get("courseInput") || "").trim();
+        const rawInput = String(formData.get("courseInput") || "");
+        const parsed = parseCourseInput(rawInput);
 
-        if (!rawInput) return;
-
-        // Parse something like "CS 2104" or "cs2104"
-        const match = rawInput.match(/^([a-zA-Z]+)\s*(\d+)$/);
-        if (!match) {
-            alert("Please enter a valid course format (e.g., CS 2104)");
+        if (!parsed) {
+            alert("Please enter a valid course format, like CS 2104.");
             return;
         }
 
-        const subjectCode = match[1].toUpperCase();
-        const courseNumber = parseInt(match[2], 10);
-        const label = `${subjectCode} ${courseNumber}`;
+        const label = `${parsed.subjectCode} ${parsed.courseNumber}`;
+        const existingGroup = draft.requirementCourses.find(
+            (group) => group.label === label,
+        );
 
-        // Idempotency
-        if (draft.requirementGroups.find((g) => g.label === label)) {
-            // TODO: highlight the existing group in red outline
+        if (existingGroup) {
+            setHighlightedCourseId(existingGroup.id);
+            setTimeout(() => {
+                setHighlightedCourseId((prev) =>
+                    prev === existingGroup.id ? null : prev,
+                );
+            }, 1000);
             return;
         }
 
-        const id = `req-${subjectCode.toLowerCase()}-${courseNumber}-${Date.now()}`;
+        const id = `req-${parsed.subjectCode.toLowerCase()}-${parsed.courseNumber}-${Date.now()}`;
 
-        const newGroup: RequirementGroup = {
+        const newGroup: RequirementCourse = {
             id,
             label,
-            minCourses: 1,
-            maxCourses: 1,
-            courses: [{ subjectCode, courseNumber }],
+            sections: [],
         };
 
         updateDraft({
-            requirementGroups: [...draft.requirementGroups, newGroup],
+            requirementCourses: [...draft.requirementCourses, newGroup],
         });
-        setSelectedGroupId(id); // Select it immediately
+        setSelectedCourseId(id);
         e.currentTarget.reset();
     }
 
-    function removeGroup(id: string, e: React.MouseEvent) {
+    function removeCourse(id: string, e: React.MouseEvent) {
         e.stopPropagation();
+
         updateDraft({
-            requirementGroups: draft.requirementGroups.filter(
-                (g) => g.id !== id,
+            requirementCourses: draft.requirementCourses.filter(
+                (group) => group.id !== id,
             ),
         });
-        if (selectedGroupId === id) {
-            setSelectedGroupId(null);
+
+        if (selectedCourseId === id) {
+            setSelectedCourseId(null);
         }
     }
 
-    function handleUpdateGroup(
+    function handleUpdateCourse(
         groupId: string,
-        patch: Partial<RequirementGroup>,
+        patch: Partial<RequirementCourse>,
     ) {
         updateDraft({
-            requirementGroups: draft.requirementGroups.map((g) =>
-                g.id === groupId ? { ...g, ...patch } : g,
+            requirementCourses: draft.requirementCourses.map((group) =>
+                group.id === groupId ? { ...group, ...patch } : group,
             ),
         });
     }
 
-    function handleAddCourseToGroup(
-        e: React.FormEvent<HTMLFormElement>,
+    function handleAddSectionToCourse(
+        sectionData: Partial<SectionRef>,
         groupId: string,
     ) {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const rawInput = String(formData.get("subCourseInput") || "").trim();
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
+        if (!group) return;
 
-        if (!rawInput) return;
-
-        const match = rawInput.match(/^([a-zA-Z]+)\s*(\d+)$/);
-        if (!match) {
-            alert("Please enter a valid course format (e.g., CS 2104)");
+        const parsedGroupCourse = parseCourseInput(group.label);
+        if (!parsedGroupCourse) {
+            // TODO: change the some other form of feedback with better UI
+            alert("Group label is not a valid course format.");
             return;
         }
 
-        const subjectCode = match[1].toUpperCase();
-        const courseNumber = parseInt(match[2], 10);
+        const newSection: SectionRef = {
+            subjectCode: parsedGroupCourse.subjectCode,
+            courseNumber: parsedGroupCourse.courseNumber,
+            days: sectionData.days || "",
+            time: sectionData.time || "",
+            crn: sectionData.crn || "",
+            instructor: sectionData.instructor || "",
+        };
 
-        const group = draft.requirementGroups.find((g) => g.id === groupId);
-        if (!group) return;
-
-        // Check for duplicates
-        if (
-            group.courses.find(
-                (c) =>
-                    c.subjectCode === subjectCode &&
-                    c.courseNumber === courseNumber,
-            )
-        ) {
-            alert("Course already in this group");
-            return;
-        }
-
-        handleUpdateGroup(groupId, {
-            courses: [...group.courses, { subjectCode, courseNumber }],
+        handleUpdateCourse(groupId, {
+            sections: [newSection, ...group.sections],
         });
-
-        e.currentTarget.reset();
     }
 
-    function handleRemoveCourseFromGroup(
+    function handleUpdateSectionAtIndex(
         groupId: string,
-        subjectCode: string,
-        courseNumber: number,
+        rowIndex: number,
+        patch: Partial<SectionRef>,
     ) {
-        const group = draft.requirementGroups.find((g) => g.id === groupId);
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
         if (!group) return;
 
-        handleUpdateGroup(groupId, {
-            courses: group.courses.filter(
-                (c) =>
-                    !(
-                        c.subjectCode === subjectCode &&
-                        c.courseNumber === courseNumber
-                    ),
-            ),
+        const nextSections = group.sections.map((section, index) =>
+            index === rowIndex ? { ...section, ...patch } : section,
+        );
+
+        handleUpdateCourse(groupId, {
+            sections: nextSections,
         });
+    }
+
+    function handleRemoveSectionAtIndex(groupId: string, rowIndex: number) {
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
+        if (!group) return;
+
+        const nextSections = group.sections.filter(
+            (_, index) => index !== rowIndex,
+        );
+
+        handleUpdateCourse(groupId, {
+            sections: nextSections,
+        });
+    }
+
+    function handleCopySectionAtIndex(groupId: string, rowIndex: number) {
+        const group = draft.requirementCourses.find(
+            (item) => item.id === groupId,
+        );
+        if (!group) return;
+
+        const source = group.sections[rowIndex];
+        if (!source) return;
+
+        const copy = { ...source };
+        const nextSections = [
+            ...group.sections.slice(0, rowIndex + 1),
+            copy,
+            ...group.sections.slice(rowIndex + 1),
+        ];
+
+        handleUpdateCourse(groupId, { sections: nextSections });
     }
 
     return (
         <>
-            <aside className="bg-surface rounded-[10px] p-4 flex flex-col gap-4">
-                <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide">
-                    Requirements
-                </h2>
-                <form onSubmit={handleAddGroup} className="flex gap-2">
-                    <input
-                        type="text"
-                        name="courseInput"
-                        placeholder="e.g. CS 2104"
-                        maxLength={15}
-                        required
-                        className="flex-1 px-3 py-2 border border-background/20 rounded-md bg-transparent focus:border-accent outline-none transition-colors uppercase"
-                    />
-                    <button
-                        type="submit"
-                        className="px-4 py-2 bg-accent text-white rounded-md font-medium hover:bg-accent/90 transition-colors"
-                    >
-                        Add
-                    </button>
-                </form>
+            <RequirementsSidebar
+                courses={draft.requirementCourses}
+                selectedCourseId={selectedCourseId}
+                highlightedCourseId={highlightedCourseId}
+                onSelectCourse={setSelectedCourseId}
+                onAddCourse={handleAddCourse}
+                onRemoveCourse={removeCourse}
+            />
 
-                <div className="flex flex-col gap-2 overflow-y-auto mt-2">
-                    {draft.requirementGroups.length === 0 ? (
-                        <p className="text-sm text-background/40 italic">
-                            No requirements added yet.
-                        </p>
-                    ) : (
-                        draft.requirementGroups.map((group) => {
-                            const isSelected = group.id === selectedGroupId;
-                            return (
-                                <div
-                                    key={group.id}
-                                    onClick={() => setSelectedGroupId(group.id)}
-                                    className={`p-3 border rounded-md flex justify-between items-center cursor-pointer transition-colors ${
-                                        isSelected
-                                            ? "border-accent bg-accent/5"
-                                            : "border-background/20 bg-background/5 hover:border-background/40"
-                                    }`}
-                                >
-                                    <div>
-                                        <h3
-                                            className={`font-semibold ${isSelected ? "text-accent" : "text-background"}`}
-                                        >
-                                            {group.label}
-                                        </h3>
-                                        <p className="text-xs text-background/60 mt-1">
-                                            {group.courses.length} course
-                                            {group.courses.length !== 1
-                                                ? "s"
-                                                : ""}{" "}
-                                            pool
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={(e) =>
-                                            removeGroup(group.id, e)
-                                        }
-                                        className="text-red-500 hover:text-red-700 font-semibold text-sm px-2 py-1"
-                                    >
-                                        Remove
-                                    </button>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </aside>
+            <CourseDetailPanel
+                selectedCourse={selectedCourse}
+                canContinue={canContinue}
+                onUpdateCourseLabel={(label) => {
+                    if (selectedCourse) {
+                        handleUpdateCourse(selectedCourse.id, { label });
+                    }
+                }}
+                onUpdateSection={(rowIndex, patch) => {
+                    if (selectedCourse) {
+                        handleUpdateSectionAtIndex(
+                            selectedCourse.id,
+                            rowIndex,
+                            patch,
+                        );
+                    }
+                }}
+                onRemoveSection={(rowIndex) => {
+                    if (selectedCourse) {
+                        handleRemoveSectionAtIndex(selectedCourse.id, rowIndex);
+                    }
+                }}
+                onCopySection={(rowIndex) => {
+                    if (selectedCourse) {
+                        handleCopySectionAtIndex(selectedCourse.id, rowIndex);
+                    }
+                }}
+                onAddSection={(sectionData) => {
+                    if (selectedCourse) {
+                        handleAddSectionToCourse(
+                            sectionData,
+                            selectedCourse.id,
+                        );
+                    }
+                }}
+                onContinue={handleContinue}
+                isContinuing={isSaving}
+                continueError={saveError}
+                fieldOptions={{
+                    instructor: {
+                        options: instructorOptions,
+                        onCreateOption: (name) =>
+                            setCreatedInstructors((prev) =>
+                                prev.includes(name) ? prev : [...prev, name],
+                            ),
+                    },
+                }}
+            />
 
-            <main className="bg-surface rounded-[10px] p-6 flex flex-col">
-                {!selectedGroup ? (
-                    <div className="flex-1 flex flex-col text-background/40">
-                        <h1 className="text-xl font-semibold mb-2 text-background/60">
-                            Build Your Schedule
-                        </h1>
-                        <p>
-                            Add a requirement on the left, or select an existing
-                            one to edit its allowed courses.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-6">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <input
-                                    type="text"
-                                    value={selectedGroup.label}
-                                    onChange={(e) =>
-                                        handleUpdateGroup(selectedGroup.id, {
-                                            label: e.target.value,
-                                        })
-                                    }
-                                    className="text-xl font-semibold text-background bg-transparent border-b border-transparent hover:border-background/20 focus:border-accent outline-none px-1 py-1 -ml-1 transition-colors"
-                                />
-                                <p className="text-background/60 text-sm mt-1">
-                                    Configure which specific courses fulfill
-                                    this requirement.
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-background/80 bg-background/5 px-3 py-2 rounded-md">
-                                <span>Choose</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={selectedGroup.courses.length || 1}
-                                    value={selectedGroup.minCourses}
-                                    onChange={(e) =>
-                                        handleUpdateGroup(selectedGroup.id, {
-                                            minCourses:
-                                                parseInt(e.target.value) || 1,
-                                            maxCourses:
-                                                parseInt(e.target.value) || 1,
-                                        })
-                                    }
-                                    className="w-12 px-2 py-1 bg-transparent border border-background/20 rounded focus:border-accent outline-none text-center"
-                                />
-                                <span>from pool</span>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2 mt-2">
-                            <form
-                                onSubmit={(e) =>
-                                    handleAddCourseToGroup(e, selectedGroup.id)
-                                }
-                                className="flex gap-2 mb-2"
-                            >
-                                <input
-                                    type="text"
-                                    name="subCourseInput"
-                                    placeholder="Add alternative course (e.g. PHIL 1304)"
-                                    maxLength={15}
-                                    required
-                                    className="flex-1 px-3 py-2 border border-background/20 rounded-md bg-transparent focus:border-accent outline-none transition-colors uppercase text-sm"
-                                />
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-text/10 text-background rounded-md text-sm font-medium hover:bg-text/20 transition-colors"
-                                >
-                                    Add Alternative
-                                </button>
-                            </form>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                {selectedGroup.courses.map((course) => (
-                                    <div
-                                        key={`${course.subjectCode}-${course.courseNumber}`}
-                                        className="p-3 border border-background/20 rounded-md flex justify-between items-center bg-background/5"
-                                    >
-                                        <span className="font-semibold text-background">
-                                            {course.subjectCode}{" "}
-                                            {course.courseNumber}
-                                        </span>
-                                        {selectedGroup.courses.length > 1 && (
-                                            <button
-                                                onClick={() =>
-                                                    handleRemoveCourseFromGroup(
-                                                        selectedGroup.id,
-                                                        course.subjectCode,
-                                                        course.courseNumber,
-                                                    )
-                                                }
-                                                className="text-background/40 hover:text-red-500 transition-colors text-sm"
-                                            >
-                                                ✕
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="mt-auto flex justify-end pt-4 border-t border-background/10">
-                    <button
-                        type="button"
-                        onClick={handleGenerate}
-                        disabled={draft.requirementGroups.length === 0}
-                        className="px-6 py-2 bg-accent text-white rounded-md font-bold disabled:opacity-50 hover:bg-accent/90 transition-colors"
-                    >
-                        Generate Schedules →
-                    </button>
-                </div>
-            </main>
-
-            <aside className="bg-surface rounded-[10px] p-4">
-                <div className="">
-                    <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide mb-3">
-                        Selected Section
-                    </h2>
-                </div>
-                <div className="">
-                    <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide mb-3">
-                        Preferences
-                    </h2>
-                    <div className="flex flex-col gap-3">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={
-                                    draft.preferences.allowFullSections || false
-                                }
-                                onChange={(e) =>
-                                    updateDraft({
-                                        preferences: {
-                                            ...draft.preferences,
-                                            allowFullSections: e.target.checked,
-                                        },
-                                    })
-                                }
-                            />
-                            <span className="text-sm">Allow full sections</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={
-                                    draft.preferences.allowRestrictedSections ||
-                                    false
-                                }
-                                onChange={(e) =>
-                                    updateDraft({
-                                        preferences: {
-                                            ...draft.preferences,
-                                            allowRestrictedSections:
-                                                e.target.checked,
-                                        },
-                                    })
-                                }
-                            />
-                            <span className="text-sm">
-                                Allow restricted sections
-                            </span>
-                        </label>
-                    </div>
-                </div>
-            </aside>
         </>
     );
 }
