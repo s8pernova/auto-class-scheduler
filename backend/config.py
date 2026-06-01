@@ -40,7 +40,7 @@ class Settings(BaseSettings):
         "http://localhost:5174",
     ]
 
-    max_candidate_combinations = 250_000
+    max_candidate_combinations: int = 250_000
 
 
 @lru_cache

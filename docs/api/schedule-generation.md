@@ -17,12 +17,14 @@ Section replacement is a full replace operation:
 {
   "sections": [
     {
-      "subjectCode": "PHYS",
-      "courseNumber": 241,
-      "sectionCode": "12345",
+      "courseName": "PHYS 241",
       "crn": "12345",
       "instructorName": "Smith",
       "sortOrder": 0,
+      "sourceMetadata": {
+        "campus": "Blacksburg",
+        "modality": "In Person"
+      },
       "meetings": [
         {
           "days": "MWF",
@@ -35,6 +37,10 @@ Section replacement is a full replace operation:
   ]
 }
 ```
+
+`courseName` is the grouping key for generation. Each distinct course name
+represents one required course or requirement bucket, and every section with the
+same course name is treated as an alternative candidate for that bucket.
 
 ```json
 {
