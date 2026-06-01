@@ -19,10 +19,13 @@ from backend.api.v1.schemas.schedules import (
     ScheduleSummaryResponse,
 )
 from backend.api.v1.services import catalogs as catalog_service
+from backend.config import get_settings
 from backend.core.generator import compute_schedule_summary
 from backend.core.generator import generate_schedules as generate_section_combinations
 from backend.core.models import Meeting, Section
 from supabase import Client
+
+settings = get_settings()
 
 DAY_CODE_TO_NAME = {
     "M": "Mon",
@@ -32,7 +35,6 @@ DAY_CODE_TO_NAME = {
     "F": "Fri",
     "S": "Sat",
 }
-MAX_CANDIDATE_COMBINATIONS = 250_000
 
 # Public API
 
@@ -70,7 +72,7 @@ def generate_schedules_from_request(
         raise ValueError("Catalog has no saved candidate sections")
 
     candidate_count = math.prod(len(sections_by_course[key]) for key in target_courses)
-    if candidate_count > MAX_CANDIDATE_COMBINATIONS:
+    if candidate_count > settings.max_candidate_combinations:
         raise ValueError(
             "Schedule request has "
             f"{candidate_count:,} possible combinations. Reduce the number of "
