@@ -11,12 +11,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.router import router as api_router
-from backend.config import Settings
+from backend.config import get_settings
 
 
 def create_app() -> FastAPI:
     """Build and return the configured FastAPI application."""
-    settings = Settings()
+    settings = get_settings()
 
     app = FastAPI(
         title=settings.app_title,
