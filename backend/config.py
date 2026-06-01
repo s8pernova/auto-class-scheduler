@@ -43,15 +43,11 @@ class Settings(BaseSettings):
     max_candidate_combinations: int = 250_000
 
 
-@lru_cache
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Get cached settings instance."""
     env_file = os.getenv("ENV_FILE")
 
-    if not env_file:
-        environment = os.getenv("ENVIRONMENT", "local").lower()
-        local_env = BACKEND_DIR / ".env"
-        if environment in {"local", "dev", "development"} and local_env.exists():
-            env_file = str(local_env)
-
-    return Settings(_env_file=env_file or None)
+    if env_file:
+        return Settings(_env_file=env_file)
+    return Settings()

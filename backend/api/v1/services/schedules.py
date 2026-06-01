@@ -25,8 +25,6 @@ from backend.core.generator import generate_schedules as generate_section_combin
 from backend.core.models import Meeting, Section
 from supabase import Client
 
-settings = get_settings()
-
 DAY_CODE_TO_NAME = {
     "M": "Mon",
     "T": "Tue",
@@ -72,7 +70,7 @@ def generate_schedules_from_request(
         raise ValueError("Catalog has no saved candidate sections")
 
     candidate_count = math.prod(len(sections_by_course[key]) for key in target_courses)
-    if candidate_count > settings.max_candidate_combinations:
+    if candidate_count > get_settings().max_candidate_combinations:
         raise ValueError(
             "Schedule request has "
             f"{candidate_count:,} possible combinations. Reduce the number of "

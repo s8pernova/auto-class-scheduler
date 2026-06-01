@@ -4,22 +4,16 @@ FastAPI dependency injection.
 
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from backend.config import Settings
+from backend.config import get_settings
 from supabase import Client, ClientOptions, create_client
 
 security = HTTPBearer(auto_error=False)
-
-
-@lru_cache(maxsize=1)
-def get_settings() -> Settings:
-    return Settings()
 
 
 def get_supabase(

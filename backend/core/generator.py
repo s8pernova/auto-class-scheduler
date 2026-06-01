@@ -73,6 +73,8 @@ def load_sections(
         exclude_honors: Drop honors sections.
         seats_available_only: Only include sections with open seats.
     """
+    # NOTE: LEGACY CODE
+    # possible_classes is no longer used
     query = (
         client.table("possible_classes")
         .select(
