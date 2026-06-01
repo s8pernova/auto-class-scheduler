@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import time
 from typing import Optional
+from uuid import UUID
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +22,7 @@ class Meeting:
 class Section:
     """One section of a course, with all its meeting blocks."""
 
+    catalog_section_id: UUID
     course_name: str
     section_code: str
     title: str

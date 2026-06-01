@@ -24,6 +24,7 @@ Section replacement is a full replace operation:
 {
   "sections": [
     {
+      "catalogSectionId": "uuid",
       "courseName": "PHYS 241",
       "crn": "12345",
       "instructorName": "Smith",
