@@ -7,6 +7,13 @@ Candidate sections are persisted first through
 `PUT /api/v1/catalogs/{catalogId}/sections`. Generation then loads those
 normalized catalog rows instead of accepting the full BYOC table inline.
 
+Generated schedules are not persisted automatically. The database stores the
+catalog configuration and candidate sections, but generation results remain
+transient. When a user favorites a generated result, the client sends the
+selected catalog section IDs back to the API. The backend validates and
+persists only that selected schedule into `saved_schedules` and
+`saved_schedule_sections`, then creates the `user_favorites` row.
+
 The MVP endpoint rejects catalogs above 250,000 possible section combinations.
 This keeps transient generation responsive until the engine grows pruning
 support for larger catalogs.
