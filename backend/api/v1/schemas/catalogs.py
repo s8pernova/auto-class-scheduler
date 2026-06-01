@@ -6,20 +6,9 @@ from datetime import datetime, time
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-def _to_camel(field_name: str) -> str:
-    parts = field_name.split("_")
-    return parts[0] + "".join(part.capitalize() for part in parts[1:])
-
-
-class _CamelModel(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=_to_camel,
-        populate_by_name=True,
-        extra="forbid",
-    )
+from backend.api.v1.schemas.base import CamelModel
 
 
 def _normalize_days(value: str) -> str:
@@ -70,7 +59,7 @@ class CatalogResponse(BaseModel):
     last_imported_at: Optional[datetime] = None
 
 
-class CatalogSectionMeetingInput(_CamelModel):
+class CatalogSectionMeetingInput(CamelModel):
     """One meeting block for a saved catalog section."""
 
     days: str = Field(..., min_length=1)
@@ -90,7 +79,7 @@ class CatalogSectionMeetingInput(_CamelModel):
         return self
 
 
-class CatalogSectionInput(_CamelModel):
+class CatalogSectionInput(CamelModel):
     """One candidate section to persist in normalized catalog storage."""
 
     course_name: str = Field(..., min_length=1, max_length=200)
@@ -117,13 +106,13 @@ class CatalogSectionInput(_CamelModel):
         return stripped or None
 
 
-class CatalogSectionsReplaceRequest(_CamelModel):
+class CatalogSectionsReplaceRequest(CamelModel):
     """Full replacement payload for a catalog's candidate sections."""
 
     sections: list[CatalogSectionInput] = Field(default_factory=list)
 
 
-class CatalogSectionMeetingResponse(_CamelModel):
+class CatalogSectionMeetingResponse(CamelModel):
     """Persisted meeting block for a catalog section."""
 
     id: UUID
@@ -134,7 +123,7 @@ class CatalogSectionMeetingResponse(_CamelModel):
     sort_order: int
 
 
-class CatalogSectionResponse(_CamelModel):
+class CatalogSectionResponse(CamelModel):
     """Persisted catalog section with nested meeting blocks."""
 
     id: UUID

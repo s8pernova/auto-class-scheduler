@@ -6,26 +6,9 @@ from datetime import datetime, time
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-def _to_camel(field_name: str) -> str:
-    parts = field_name.split("_")
-    return parts[0] + "".join(part.capitalize() for part in parts[1:])
-
-
-class _CamelModel(BaseModel):
-    """Base model for new JSON request/response bodies.
-
-    Python code uses snake_case fields, while the external JSON contract can use
-    camelCase names such as ``courseName`` and ``startTime``.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=_to_camel,
-        populate_by_name=True,
-        extra="forbid",
-    )
+from backend.api.v1.schemas.base import CamelModel
 
 
 def _parse_time_input(value: Any) -> time:
@@ -62,13 +45,13 @@ def _normalize_days(value: str) -> str:
     return "".join(day for day in "MTWRFS" if day in normalized)
 
 
-class ScheduleGenerateMetadata(_CamelModel):
+class ScheduleGenerateMetadata(CamelModel):
     """Saved catalog identity for a generation request."""
 
     catalog_id: UUID | None = None
 
 
-class ScheduleGenerateBlockedTimeInput(_CamelModel):
+class ScheduleGenerateBlockedTimeInput(CamelModel):
     """A time range the generated schedule should avoid."""
 
     days: str = Field(..., min_length=1, examples=["F"])
@@ -92,7 +75,7 @@ class ScheduleGenerateBlockedTimeInput(_CamelModel):
         return self
 
 
-class ScheduleGeneratePreferences(_CamelModel):
+class ScheduleGeneratePreferences(CamelModel):
     """Preferences and hard filters supplied with a generation request."""
 
     blocked_times: list[ScheduleGenerateBlockedTimeInput] = Field(
@@ -112,7 +95,7 @@ class ScheduleGeneratePreferences(_CamelModel):
         return value
 
 
-class ScheduleGenerateRequest(_CamelModel):
+class ScheduleGenerateRequest(CamelModel):
     """Request body for generating schedules from saved catalog sections."""
 
     metadata: ScheduleGenerateMetadata = Field(
@@ -124,7 +107,7 @@ class ScheduleGenerateRequest(_CamelModel):
     max_results: int = Field(default=100, ge=1, le=500)
 
 
-class GeneratedMeetingResponse(_CamelModel):
+class GeneratedMeetingResponse(CamelModel):
     """Meeting detail returned for a generated transient schedule."""
 
     day_of_week: str
@@ -132,7 +115,7 @@ class GeneratedMeetingResponse(_CamelModel):
     end_time: time
 
 
-class GeneratedSectionResponse(_CamelModel):
+class GeneratedSectionResponse(CamelModel):
     """Section detail returned for a generated transient schedule."""
 
     catalog_section_id: UUID
@@ -142,7 +125,7 @@ class GeneratedSectionResponse(_CamelModel):
     meetings: list[GeneratedMeetingResponse] = Field(default_factory=list)
 
 
-class GeneratedScheduleResponse(_CamelModel):
+class GeneratedScheduleResponse(CamelModel):
     """One generated, unsaved schedule option."""
 
     result_id: str
@@ -159,7 +142,7 @@ class GeneratedScheduleResponse(_CamelModel):
     sections: list[GeneratedSectionResponse] = Field(default_factory=list)
 
 
-class ScheduleGenerateResponse(_CamelModel):
+class ScheduleGenerateResponse(CamelModel):
     """Transient generation results for a BYOC schedule request."""
 
     candidate_count: int
