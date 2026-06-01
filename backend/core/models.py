@@ -22,7 +22,6 @@ class Meeting:
 class Section:
     """One section of a course, with all its meeting blocks."""
 
-    catalog_section_id: UUID
     course_name: str
     section_code: str
     title: str
@@ -30,3 +29,4 @@ class Section:
     instructor: str
     meetings: list[Meeting] = field(default_factory=list)
     rating: Optional[float] = None
+    catalog_section_id: UUID | None = None

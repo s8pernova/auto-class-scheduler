@@ -24,7 +24,6 @@ Section replacement is a full replace operation:
 {
   "sections": [
     {
-      "catalogSectionId": "uuid",
       "courseName": "PHYS 241",
       "crn": "12345",
       "instructorName": "Smith",
@@ -62,6 +61,31 @@ same course name is treated as an alternative candidate for that bucket.
     }
   },
   "maxResults": 100
+}
+```
+
+Generated schedule responses include stable `catalogSectionId` values for each
+selected section:
+
+```json
+{
+  "resultId": "generated-1",
+  "sections": [
+    {
+      "catalogSectionId": "00000000-0000-0000-0000-000000000000",
+      "courseName": "PHYS 241",
+      "sectionCode": "12345"
+    }
+  ]
+}
+```
+
+To favorite one generated result, `POST /api/v1/favorites` with only the selected catalog section IDs:
+
+```json
+{
+  "catalogId": "00000000-0000-0000-0000-000000000000",
+  "catalogSectionIds": ["00000000-0000-0000-0000-000000000000"]
 }
 ```
 

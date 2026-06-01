@@ -135,6 +135,7 @@ class GeneratedMeetingResponse(_CamelModel):
 class GeneratedSectionResponse(_CamelModel):
     """Section detail returned for a generated transient schedule."""
 
+    catalog_section_id: UUID
     course_name: str
     section_code: str
     instructor_name: str | None = None
@@ -182,25 +183,29 @@ class MeetingResponse(BaseModel):
 class ScheduleSectionDetailResponse(BaseModel):
     """Section information including instructor and meeting details."""
 
-    subject_code: str
-    course_number: int
-    section_code: str
-    course_title: str
-    credits: int
+    catalog_section_id: UUID | None = None
+    course_name: str | None = None
+    subject_code: str | None = None
+    course_number: int | None = None
+    section_code: str | None = None
+    course_title: str | None = None
+    credits: int = 0
     modality: str | None = None
     instructor_name: str | None = None
     instructor_rating: float | None = None
-    meetings: list[MeetingResponse] = []
+    meetings: list[MeetingResponse] = Field(default_factory=list)
 
 
 class ScheduleSectionResponse(BaseModel):
     """Minimal section info (without meetings)."""
 
-    subject_code: str
-    course_number: int
-    section_code: str
-    course_title: str
-    credits: int
+    catalog_section_id: UUID | None = None
+    course_name: str | None = None
+    subject_code: str | None = None
+    course_number: int | None = None
+    section_code: str | None = None
+    course_title: str | None = None
+    credits: int = 0
 
 
 # Top-Level Schedule Responses
@@ -228,10 +233,10 @@ class _ScheduleBase(BaseModel):
 class ScheduleSummaryResponse(_ScheduleBase):
     """Schedule summary with full section + meeting details."""
 
-    sections: list[ScheduleSectionDetailResponse] = []
+    sections: list[ScheduleSectionDetailResponse] = Field(default_factory=list)
 
 
 class ScheduleDetailResponse(_ScheduleBase):
     """Schedule with minimal section info (no meetings)."""
 
-    sections: list[ScheduleSectionResponse] = []
+    sections: list[ScheduleSectionResponse] = Field(default_factory=list)

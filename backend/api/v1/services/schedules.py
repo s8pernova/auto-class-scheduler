@@ -147,7 +147,7 @@ def list_schedules(
     if not schedules_data:
         return []
 
-    # 2. Fetch possible_classes for meeting / instructor data
+    # 2. Fetch catalog section meeting / instructor data
     classes_lookup = _build_classes_lookup(client, schedules_data)
 
     # 3. Assemble response objects
@@ -205,6 +205,7 @@ def _load_catalog_generation_sections(
 
         sections_by_course[course_key].append(
             Section(
+                catalog_section_id=catalog_section.id,
                 course_name=catalog_section.course_name,
                 section_code=section_code,
                 title="",
@@ -283,7 +284,11 @@ def _build_generated_schedule_response(
 
 
 def _build_generated_section_response(section: Section) -> GeneratedSectionResponse:
+    if section.catalog_section_id is None:
+        raise ValueError("Generated catalog sections must include catalogSectionId")
+
     return GeneratedSectionResponse(
+        catalog_section_id=section.catalog_section_id,
         course_name=section.course_name,
         section_code=section.section_code,
         instructor_name=section.instructor or None,
@@ -345,7 +350,7 @@ def _build_classes_lookup(
     # Fetch catalog sections details
     sections_resp = (
         client.table("catalog_sections")
-        .select("id, instructor_name, source_metadata")
+        .select("id, course_name, crn, instructor_name, source_metadata")
         .in_("id", list(section_ids))
         .execute()
     )
@@ -370,6 +375,8 @@ def _build_classes_lookup(
             instructor_rating = metadata.get("rating")
 
         lookup[sect_id] = {
+            "course_name": sect_data.get("course_name"),
+            "section_code": sect_data.get("crn") or sect_id,
             "modality": modality,
             "instructor_name": sect_data.get("instructor_name")
             or metadata.get("instructor_name"),
@@ -431,13 +438,23 @@ def _assemble_responses(
                 instructor_rating = None
                 meetings = []
 
+            course_name = sec.get("course_name") or (extra or {}).get("course_name")
+            section_code = (
+                sec.get("section_code")
+                or sec.get("crn")
+                or (extra or {}).get("section_code")
+            )
+            course_title = sec.get("course_title") or course_name
+
             sections.append(
                 ScheduleSectionDetailResponse(
-                    subject_code=sec["subject_code"],
-                    course_number=sec["course_number"],
-                    section_code=sec["section_code"],
-                    course_title=sec["course_title"],
-                    credits=sec["credits"],
+                    catalog_section_id=sect_id,
+                    course_name=course_name,
+                    subject_code=sec.get("subject_code"),
+                    course_number=sec.get("course_number"),
+                    section_code=section_code,
+                    course_title=course_title,
+                    credits=sec.get("credits") or 0,
                     modality=modality,
                     instructor_name=instructor_name,
                     instructor_rating=instructor_rating,
