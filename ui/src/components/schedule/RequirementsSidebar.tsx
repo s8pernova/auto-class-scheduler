@@ -31,7 +31,7 @@ export function RequirementsSidebar({
                     placeholder="e.g. CS 2104"
                     maxLength={15}
                     required
-                    className="flex-1 px-3 py-2 border border-background/20 rounded-md bg-transparent focus:border-accent outline-none transition-colors uppercase"
+                    className="flex-1 px-3 py-2 border border-background/20 rounded-md bg-transparent focus:border-accent outline-none transition-colors"
                 />
                 <button
                     type="submit"

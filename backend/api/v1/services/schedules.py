@@ -40,7 +40,7 @@ MAX_CANDIDATE_COMBINATIONS = 250_000
 def get_schedule_exists(client: Client, schedule_id: int) -> bool:
     """Return ``True`` if *schedule_id* exists in the database."""
     resp = (
-        client.table("schedules")
+        client.table("saved_schedules")
         .select("id", count="exact")
         .eq("id", schedule_id)
         .execute()
@@ -121,12 +121,12 @@ def list_schedules(
     # 1. Query schedules (with embedded sections)
     if favorites_only:
         # !inner turns the LEFT JOIN into an INNER JOIN - only
-        # schedules that appear in `favorites` are returned.
-        query = client.table("schedules").select(
-            "*, favorites!inner(favorited_at), schedule_sections(*)"
+        # schedules that appear in `user_favorites` are returned.
+        query = client.table("saved_schedules").select(
+            "*, user_favorites!inner(favorited_at), saved_schedule_sections(*)"
         )
     else:
-        query = client.table("schedules").select("*, schedule_sections(*)")
+        query = client.table("saved_schedules").select("*, saved_schedule_sections(*)")
 
     # Campus filter
     campus_patterns = _resolve_campus_patterns(campuses)
@@ -180,8 +180,7 @@ def _load_catalog_generation_sections(
         )
         section_index = section_counts_by_course[course_key]
         section_code = (
-            catalog_section.crn
-            or f"{catalog_section.course_name}-{section_index}"
+            catalog_section.crn or f"{catalog_section.course_name}-{section_index}"
         )
         instructor_name = catalog_section.instructor_name or ""
         rating = instructor_ratings.get(instructor_name) if instructor_name else None
@@ -279,9 +278,7 @@ def _build_generated_schedule_response(
         meets_sat=summary["meets_sat"],
         earliest_start=summary["earliest_start"],
         latest_end=summary["latest_end"],
-        sections=[
-            _build_generated_section_response(section) for section in sections
-        ],
+        sections=[_build_generated_section_response(section) for section in sections],
     )
 
 
@@ -330,82 +327,110 @@ def _build_time_filter(times: list[str] | None) -> str | None:
     return ",".join(clauses) if clauses else None
 
 
-SectionKey = tuple[str, int, str]  # (subject_code, course_number, section_code)
-
-
 def _build_classes_lookup(
     client: Client,
     schedules_data: list[dict],
-) -> dict[SectionKey, dict]:
-    """Fetch possible_classes rows and index by section key."""
-    # Collect the unique section keys we need.
-    section_keys: set[SectionKey] = set()
+) -> dict[str, dict]:
+    """Fetch catalog_sections and meetings to index by catalog_section_id."""
+    section_ids: set[str] = set()
     for sched in schedules_data:
-        for sec in sched.get("schedule_sections", []):
-            section_keys.add(
-                (sec["subject_code"], sec["course_number"], sec["section_code"])
-            )
+        for sec in sched.get("saved_schedule_sections", []):
+            sect_id = sec.get("catalog_section_id")
+            if sect_id:
+                section_ids.add(str(sect_id))
 
-    if not section_keys:
+    if not section_ids:
         return {}
 
-    # Narrow the query to only the subject_codes we care about.
-    subjects = list({k[0] for k in section_keys})
-    resp = (
-        client.table("possible_classes")
-        .select(
-            "subject_code, course_number, section_code, "
-            "modality, instructor_name, instructor_rating, "
-            "day_of_week, start_time, end_time, campus"
-        )
-        .in_("subject_code", subjects)
+    # Fetch catalog sections details
+    sections_resp = (
+        client.table("catalog_sections")
+        .select("id, instructor_name, source_metadata")
+        .in_("id", list(section_ids))
+        .execute()
+    )
+    sections_by_id = {row["id"]: row for row in sections_resp.data or []}
+
+    # Fetch meetings details
+    meetings_resp = (
+        client.table("catalog_section_meetings")
+        .select("section_id, days, start_time, end_time")
+        .in_("section_id", list(section_ids))
         .execute()
     )
 
-    lookup: dict[SectionKey, dict] = {}
-    for row in resp.data:
-        key: SectionKey = (
-            row["subject_code"],
-            row["course_number"],
-            row["section_code"],
-        )
-        if key not in section_keys:
+    lookup: dict[str, dict] = {}
+    for sect_id in section_ids:
+        sect_data = sections_by_id.get(sect_id, {})
+        metadata = sect_data.get("source_metadata") or {}
+
+        modality = metadata.get("modality")
+        instructor_rating = metadata.get("instructor_rating")
+        if instructor_rating is None:
+            instructor_rating = metadata.get("rating")
+
+        lookup[sect_id] = {
+            "modality": modality,
+            "instructor_name": sect_data.get("instructor_name")
+            or metadata.get("instructor_name"),
+            "instructor_rating": instructor_rating,
+            "meetings": [],
+            "source_metadata": metadata,
+        }
+
+    for row in meetings_resp.data or []:
+        sect_id = str(row["section_id"])
+        if sect_id not in lookup:
             continue
-        if key not in lookup:
-            lookup[key] = {
-                "modality": row["modality"],
-                "instructor_name": row["instructor_name"],
-                "instructor_rating": row["instructor_rating"],
-                "meetings": [],
-            }
-        if row["day_of_week"] is not None:
-            lookup[key]["meetings"].append(
-                MeetingResponse(
-                    day_of_week=row["day_of_week"],
-                    start_time=row["start_time"],
-                    end_time=row["end_time"],
-                    campus=row["campus"],
+
+        days = row["days"] or ""
+        start = row["start_time"]
+        end = row["end_time"]
+
+        for day_code in days:
+            day_name = DAY_CODE_TO_NAME.get(day_code)
+            if day_name:
+                lookup[sect_id]["meetings"].append(
+                    MeetingResponse(
+                        day_of_week=day_name,
+                        start_time=start,
+                        end_time=end,
+                        campus=lookup[sect_id]["source_metadata"].get(
+                            "campus", "Unspecified"
+                        ),
+                    )
                 )
-            )
 
     return lookup
 
 
 def _assemble_responses(
     schedules_data: list[dict],
-    classes_lookup: dict[SectionKey, dict],
+    classes_lookup: dict[str, dict],
 ) -> list[ScheduleSummaryResponse]:
     results: list[ScheduleSummaryResponse] = []
 
     for sched in schedules_data:
         sections: list[ScheduleSectionDetailResponse] = []
-        for sec in sched.get("schedule_sections", []):
-            key: SectionKey = (
-                sec["subject_code"],
-                sec["course_number"],
-                sec["section_code"],
+        for sec in sched.get("saved_schedule_sections", []):
+            sect_id = (
+                str(sec["catalog_section_id"])
+                if sec.get("catalog_section_id")
+                else None
             )
-            extra = classes_lookup.get(key, {})
+            extra = classes_lookup.get(sect_id) if sect_id else None
+
+            if extra:
+                modality = extra.get("modality")
+                instructor_name = extra.get("instructor_name")
+                instructor_rating = extra.get("instructor_rating")
+                meetings = extra.get("meetings", [])
+            else:
+                modality = None
+                instructor_name = None
+                instructor_rating = None
+                meetings = []
+
             sections.append(
                 ScheduleSectionDetailResponse(
                     subject_code=sec["subject_code"],
@@ -413,10 +438,10 @@ def _assemble_responses(
                     section_code=sec["section_code"],
                     course_title=sec["course_title"],
                     credits=sec["credits"],
-                    modality=extra.get("modality"),
-                    instructor_name=extra.get("instructor_name"),
-                    instructor_rating=extra.get("instructor_rating"),
-                    meetings=extra.get("meetings", []),
+                    modality=modality,
+                    instructor_name=instructor_name,
+                    instructor_rating=instructor_rating,
+                    meetings=meetings,
                 )
             )
 

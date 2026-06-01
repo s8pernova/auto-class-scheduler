@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { FaStar } from "react-icons/fa";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
-import type { GeneratedScheduleResponse } from "@/api/client";
 import { useScheduleDraft } from "@/contexts/ScheduleDraftContext";
+import { favoriteSchedule } from "@/api/client";
+import type { GeneratedScheduleResponse } from "@/api/client";
 
 type SortKey = "earliestStart" | "latestEnd" | "instructorScore";
 type DayFilter =
@@ -131,6 +133,16 @@ export default function ScheduleResultsStep() {
         navigate(`/catalogs/${catalogId}/instructors`);
     }
 
+    async function handleFavorite(e: React.MouseEvent, scheduleId: string) {
+        e.stopPropagation();
+        try {
+            await favoriteSchedule(scheduleId);
+            // TODO change the star to yellow or something
+        } catch (error) {
+            // TODO
+        }
+    }
+
     return (
         <>
             <aside className="bg-surface rounded-[10px] p-4">
@@ -227,6 +239,16 @@ export default function ScheduleResultsStep() {
                                             </p>
                                         ) : null}
                                     </div>
+
+                                    {/* Favorites Button */}
+                                    <button
+                                        className=""
+                                        onClick={(e) =>
+                                            handleFavorite(e, schedule.resultId)
+                                        }
+                                    >
+                                        <FaStar />
+                                    </button>
                                 </div>
 
                                 <div className="mt-4 flex flex-col gap-2">
@@ -289,7 +311,6 @@ export default function ScheduleResultsStep() {
                                 </p>
                             ) : null}
                         </div>
-
                         <div className="flex flex-col gap-3">
                             {selectedSchedule.sections.map((section) => (
                                 <div

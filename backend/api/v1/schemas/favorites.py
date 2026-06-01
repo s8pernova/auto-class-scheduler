@@ -10,6 +10,6 @@ from pydantic import BaseModel
 class FavoriteResponse(BaseModel):
     """Response returned when favoriting a schedule."""
 
-    schedule_id: int
+    schedule_id: str
     favorited_at: datetime
     message: str = "Schedule favorited successfully"
