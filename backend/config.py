@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # App
     app_title: str = "Schedule Planner API"
     app_description: str = "Tools for querying and managing possible class schedules."
-    app_version: str = "2.0.0"
+    app_version: str = "1.0.0"
 
     cors_origins: list[str] = [
         "http://localhost:5173",
