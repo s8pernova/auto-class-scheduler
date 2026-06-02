@@ -45,6 +45,28 @@ def _normalize_days(value: str) -> str:
     return "".join(day for day in "MTWRFS" if day in normalized)
 
 
+class Meeting(CamelModel):
+    """A single meeting time-block."""
+
+    day: str
+    start: time
+    end: time
+    campus: str
+
+
+class Section(CamelModel):
+    """One generated schedule section candidate."""
+
+    course_name: str
+    section_code: str
+    title: str
+    credits: int
+    instructor: str
+    meetings: list[Meeting]
+    rating: float | None = None
+    catalog_section_id: UUID | None = None
+
+
 class ScheduleGenerateMetadata(CamelModel):
     """Saved catalog identity for a generation request."""
 

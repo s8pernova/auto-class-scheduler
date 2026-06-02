@@ -12,6 +12,7 @@ from backend.api.v1.schemas.schedules import (
     GeneratedMeetingResponse,
     GeneratedScheduleResponse,
     GeneratedSectionResponse,
+    Meeting,
     MeetingResponse,
     ScheduleGenerateBlockedTimeInput,
     ScheduleGenerateRequest,
@@ -19,11 +20,10 @@ from backend.api.v1.schemas.schedules import (
     ScheduleRequirementGroup,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
+    Section,
 )
 from backend.api.v1.services import catalogs as catalog_service
 from backend.config import get_settings
-from backend.core.generator import compute_schedule_summary
-from backend.core.models import Meeting, Section
 from supabase import Client
 
 DAY_CODE_TO_NAME = {
@@ -167,6 +167,41 @@ def list_schedules(
 
 
 # Internal Helpers
+
+
+def compute_schedule_summary(sections: list[Section]) -> dict:
+    """Derive aggregate stats for a single schedule combination."""
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    meetings = [meeting for section in sections for meeting in section.meetings]
+
+    credits = sum(section.credits for section in sections)
+    ratings = [section.rating for section in sections if section.rating is not None]
+    avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
+
+    days_hit = {day: any(meeting.day == day for meeting in meetings) for day in days}
+
+    campuses = {meeting.campus for meeting in meetings if meeting.campus}
+    if not campuses:
+        campus_pattern = "Unspecified"
+    elif len(campuses) == 1:
+        campus_pattern = f"{next(iter(campuses))}-only"
+    else:
+        campus_pattern = "Mixed"
+
+    return {
+        "total_credits": credits,
+        "total_instructor_score": avg_rating,
+        "num_sections": len(sections),
+        "meets_mon": days_hit["Mon"],
+        "meets_tue": days_hit["Tue"],
+        "meets_wed": days_hit["Wed"],
+        "meets_thu": days_hit["Thu"],
+        "meets_fri": days_hit["Fri"],
+        "meets_sat": days_hit["Sat"],
+        "earliest_start": min(meeting.start for meeting in meetings).isoformat(),
+        "latest_end": max(meeting.end for meeting in meetings).isoformat(),
+        "campus_pattern": campus_pattern,
+    }
 
 
 def _validate_generation_request_limits(payload: ScheduleGenerateRequest) -> None:
@@ -342,8 +377,7 @@ def _build_group_section_options(
     options: list[list[Section]] = []
     for course_names in itertools.combinations(group.course_names, group.choose):
         section_pools = [
-            sections_by_course[course_name]
-            for course_name in course_names
+            sections_by_course[course_name] for course_name in course_names
         ]
         options.extend([list(combo) for combo in itertools.product(*section_pools)])
     return options

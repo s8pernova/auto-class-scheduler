@@ -7,11 +7,13 @@ from backend.api.v1.schemas.catalogs import (
 from backend.api.v1.schemas.favorites import FavoriteResponse
 from backend.api.v1.schemas.health import HealthResponse
 from backend.api.v1.schemas.schedules import (
+    Meeting,
     MeetingResponse,
     ScheduleDetailResponse,
     ScheduleSectionDetailResponse,
     ScheduleSectionResponse,
     ScheduleSummaryResponse,
+    Section,
 )
 
 __all__ = [
@@ -21,9 +23,11 @@ __all__ = [
     "CatalogSectionsReplaceRequest",
     "FavoriteResponse",
     "HealthResponse",
+    "Meeting",
     "MeetingResponse",
     "ScheduleDetailResponse",
     "ScheduleSectionDetailResponse",
     "ScheduleSectionResponse",
     "ScheduleSummaryResponse",
+    "Section",
 ]

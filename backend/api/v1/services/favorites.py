@@ -10,10 +10,10 @@ from backend.api.v1.schemas.favorites import (
     FavoriteGeneratedScheduleRequest,
     FavoriteResponse,
 )
+from backend.api.v1.schemas.schedules import Meeting, Section
 from backend.api.v1.services import catalogs as catalog_service
+from backend.api.v1.services.schedules import compute_schedule_summary
 from backend.config import get_settings
-from backend.core.generator import compute_schedule_summary
-from backend.core.models import Meeting, Section
 from supabase import Client
 
 DAY_CODE_TO_NAME = {
@@ -57,16 +57,13 @@ def save_and_favorite_generated_schedule(
     all_sections = catalog_service.list_catalog_sections(client, payload.catalog_id)
     sections_by_id = {str(section.id): section for section in all_sections}
     missing_ids = [
-        section_id
-        for section_id in requested_ids
-        if section_id not in sections_by_id
+        section_id for section_id in requested_ids if section_id not in sections_by_id
     ]
     if missing_ids:
         raise ValueError("One or more selected catalog sections were not found")
 
     selected_catalog_sections = [
-        sections_by_id[section_id]
-        for section_id in requested_ids
+        sections_by_id[section_id] for section_id in requested_ids
     ]
     _validate_one_section_per_course(selected_catalog_sections)
 
@@ -148,8 +145,7 @@ def _validate_saved_schedule_size(section_count: int) -> None:
     max_courses = get_settings().max_catalog_courses
     if section_count > max_courses:
         raise ValueError(
-            "A saved schedule cannot include more than "
-            f"{max_courses} course buckets"
+            f"A saved schedule cannot include more than {max_courses} course buckets"
         )
 
 

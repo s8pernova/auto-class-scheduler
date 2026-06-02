@@ -4,13 +4,12 @@ import unittest
 from datetime import time
 from uuid import uuid4
 
-from backend.api.v1.schemas.schedules import ScheduleRequirementGroup
+from backend.api.v1.schemas.schedules import Meeting, ScheduleRequirementGroup, Section
 from backend.api.v1.services.schedules import (
     _count_requirement_candidates,
     _generate_requirement_group_schedules,
     _resolve_requirement_groups,
 )
-from backend.core.models import Meeting, Section
 
 
 def _section(course_name: str, section_code: str, start_hour: int) -> Section:
