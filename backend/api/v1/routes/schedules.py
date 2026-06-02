@@ -35,7 +35,7 @@ async def get_schedules(
     favorites_only: bool = False,
     limit: int = 50,
     offset: int = 0,
-    campuses: Optional[list[str]] = Query(None),
+    campus_patterns: Optional[list[str]] = Query(None, alias="campusPatterns"),
     times: Optional[list[str]] = Query(None),
 ) -> list[ScheduleSummaryResponse]:
     """Return a paginated list of schedules with full section details.
@@ -43,7 +43,7 @@ async def get_schedules(
     Query params:
         favorites_only: Only return favorited schedules.
         limit / offset: Pagination.
-        campuses: Filter by campus (``Annandale``, ``Alexandria``, ``Online``).
+        campus_patterns: Filter by saved campus pattern.
         times: Filter by time-of-day (``Morning``, ``Afternoon``, ``Evening``).
     """
     return schedule_service.list_schedules(
@@ -51,6 +51,6 @@ async def get_schedules(
         favorites_only=favorites_only,
         limit=limit,
         offset=offset,
-        campuses=campuses,
+        campus_patterns=campus_patterns,
         times=times,
     )

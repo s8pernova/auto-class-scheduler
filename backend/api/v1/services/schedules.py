@@ -127,7 +127,7 @@ def list_schedules(
     favorites_only: bool = False,
     limit: int = 50,
     offset: int = 0,
-    campuses: list[str] | None = None,
+    campus_patterns: list[str] | None = None,
     times: list[str] | None = None,
 ) -> list[ScheduleSummaryResponse]:
     """Paginated schedule listing with optional filters."""
@@ -142,8 +142,6 @@ def list_schedules(
     else:
         query = client.table("saved_schedules").select("*, saved_schedule_sections(*)")
 
-    # Campus filter
-    campus_patterns = _resolve_campus_patterns(campuses)
     if campus_patterns:
         query = query.in_("campus_pattern", campus_patterns)
 
@@ -455,22 +453,6 @@ def _build_generated_section_response(section: Section) -> GeneratedSectionRespo
             for meeting in section.meetings
         ],
     )
-
-
-# NOTE: LEGACY CODE
-def _resolve_campus_patterns(campuses: list[str] | None) -> list[str] | None:
-    if not campuses:
-        return None
-    patterns: set[str] = set()
-    if "Annandale" in campuses:
-        patterns.add("Annandale-only")
-    if "Alexandria" in campuses:
-        patterns.add("Alexandria-only")
-    if "Online" in campuses:
-        patterns.add("Online-only")
-    if "Annandale" in campuses and "Alexandria" in campuses:
-        patterns.add("Mixed")
-    return list(patterns) if patterns else None
 
 
 def _build_time_filter(times: list[str] | None) -> str | None:
