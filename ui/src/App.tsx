@@ -7,7 +7,6 @@ import {
     CatalogFlowShell,
     CatalogWizardShell,
     ScheduleRequestStep,
-    InstructorRatings,
     ScheduleResultsStep,
     WizardLayout,
 } from "@/routes/appRoutes";
@@ -45,7 +44,7 @@ function App() {
                             />
                             <Route
                                 path="instructors"
-                                element={<InstructorRatings />}
+                                element={<Navigate to="../build" replace />}
                             />
                         </Route>
                         <Route

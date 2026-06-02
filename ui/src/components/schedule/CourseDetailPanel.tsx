@@ -17,6 +17,8 @@ type CourseDetailPanelProps = {
     onAddSection: (sectionData: Partial<SectionRef>) => void;
     onContinue: () => void;
     isContinuing?: boolean;
+    continueLabel?: string;
+    continuingLabel?: string;
     continueError?: string | null;
     fieldOptions?: Partial<Record<string, ComboboxFieldOptions>>;
 };
@@ -31,6 +33,8 @@ export default function CourseDetailPanel({
     onAddSection,
     onContinue,
     isContinuing = false,
+    continueLabel = "Continue",
+    continuingLabel = "Saving...",
     continueError = null,
     fieldOptions,
 }: CourseDetailPanelProps) {
@@ -92,7 +96,7 @@ export default function CourseDetailPanel({
                         disabled={!canContinue || isContinuing}
                         className="px-6 py-2 bg-accent text-white rounded-md font-bold disabled:opacity-50 hover:bg-accent/90 transition-colors"
                     >
-                        {isContinuing ? "Saving..." : "Continue"}
+                        {isContinuing ? continuingLabel : continueLabel}
                     </button>
                 </div>
             </div>

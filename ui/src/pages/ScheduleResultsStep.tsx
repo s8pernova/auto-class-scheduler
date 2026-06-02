@@ -126,11 +126,11 @@ export default function ScheduleResultsStep() {
     }
 
     if (!generationResult) {
-        return <Navigate to={`/catalogs/${catalogId}/instructors`} replace />;
+        return <Navigate to={`/catalogs/${catalogId}/build`} replace />;
     }
 
     function handleBack() {
-        navigate(`/catalogs/${catalogId}/instructors`);
+        navigate(`/catalogs/${catalogId}/build`);
     }
 
     async function handleFavorite(e: React.MouseEvent, scheduleId: string) {
@@ -138,7 +138,7 @@ export default function ScheduleResultsStep() {
         try {
             await favoriteSchedule(scheduleId);
             // TODO change the star to yellow or something
-        } catch (error) {
+        } catch {
             // TODO
         }
     }
@@ -348,7 +348,7 @@ export default function ScheduleResultsStep() {
                         onClick={handleBack}
                         className="w-full px-4 py-2 border border-background/20 text-background rounded-md font-semibold hover:bg-background/5 transition-colors"
                     >
-                        Back to Instructors
+                        Back to Builder
                     </button>
                 </div>
             </aside>

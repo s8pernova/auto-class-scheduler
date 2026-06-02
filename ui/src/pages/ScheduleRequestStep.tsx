@@ -2,11 +2,15 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     type RequirementCourse,
+    type InstructorRatings as InstructorRatingsMap,
     type SectionRef,
     useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
-import { replaceCatalogSections } from "@/api/client";
-import { buildCatalogSectionsReplaceRequest } from "@/utils/buildScheduleGenerateRequest";
+import { generateSchedules, replaceCatalogSections } from "@/api/client";
+import {
+    buildCatalogSectionsReplaceRequest,
+    buildScheduleGenerateRequest,
+} from "@/utils/buildScheduleGenerateRequest";
 import { parseCourseInput } from "@/utils/parseCourseInput";
 import RequirementsSidebar from "@/components/schedule/RequirementsSidebar";
 import CourseDetailPanel from "@/components/schedule/CourseDetailPanel";
@@ -24,6 +28,9 @@ export default function ScheduleRequestStep() {
         string | null
     >(null);
     const [createdInstructors, setCreatedInstructors] = useState<string[]>([]);
+    const [ignoredInstructorNames, setIgnoredInstructorNames] = useState<
+        string[]
+    >([]);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -31,18 +38,30 @@ export default function ScheduleRequestStep() {
         (group) => group.id === selectedCourseId,
     );
 
-    // Collect unique instructor names from all sections + manually created ones
-    const instructorOptions = useMemo(() => {
-        const names = new Set<string>(createdInstructors);
+    const committedInstructorNames = useMemo(() => {
+        const names = new Set<string>();
         for (const course of draft.requirementCourses) {
             for (const section of course.sections) {
-                if (section.instructor) {
-                    names.add(section.instructor);
+                const instructor = section.instructor?.trim();
+                if (instructor) {
+                    names.add(instructor);
                 }
             }
         }
+
         return [...names].sort((a, b) => a.localeCompare(b));
-    }, [draft.requirementCourses, createdInstructors]);
+    }, [draft.requirementCourses]);
+
+    // Created names feed the combobox, but the preferences panel only uses
+    // names that have been committed into section rows.
+    const instructorOptions = useMemo(() => {
+        const names = new Set<string>([
+            ...createdInstructors,
+            ...committedInstructorNames,
+        ]);
+
+        return [...names].sort((a, b) => a.localeCompare(b));
+    }, [committedInstructorNames, createdInstructors]);
 
     const canContinue =
         draft.requirementCourses.length > 0 &&
@@ -57,12 +76,16 @@ export default function ScheduleRequestStep() {
         try {
             const payload = buildCatalogSectionsReplaceRequest(draft);
             await replaceCatalogSections(catalogId, payload);
-            navigate(`/catalogs/${catalogId}/instructors`);
+            const generationPayload = buildScheduleGenerateRequest(draft);
+            const generationResult = await generateSchedules(generationPayload);
+
+            updateDraft({ generationResult });
+            navigate(`/catalogs/${catalogId}/results`);
         } catch (err) {
             setSaveError(
                 err instanceof Error
                     ? err.message
-                    : "Failed to save catalog sections.",
+                    : "Failed to generate schedules.",
             );
             setIsSaving(false);
         }
@@ -213,6 +236,48 @@ export default function ScheduleRequestStep() {
         handleUpdateCourse(groupId, { sections: nextSections });
     }
 
+    function handleInstructorRatingChange(
+        instructorName: string,
+        rating: number | null,
+    ) {
+        updateDraft({
+            instructorRatings: {
+                ...draft.instructorRatings,
+                [instructorName]: rating,
+            },
+        });
+        setIgnoredInstructorNames((prev) =>
+            prev.filter((name) => name !== instructorName),
+        );
+    }
+
+    function omitInstructorRating(
+        ratings: InstructorRatingsMap,
+        instructorName: string,
+    ): InstructorRatingsMap {
+        return Object.fromEntries(
+            Object.entries(ratings).filter(([name]) => name !== instructorName),
+        );
+    }
+
+    function handleIgnoreInstructor(instructorName: string) {
+        updateDraft({
+            instructorRatings: omitInstructorRating(
+                draft.instructorRatings,
+                instructorName,
+            ),
+        });
+        setIgnoredInstructorNames((prev) =>
+            prev.includes(instructorName) ? prev : [...prev, instructorName],
+        );
+    }
+
+    function handleRestoreInstructor(instructorName: string) {
+        setIgnoredInstructorNames((prev) =>
+            prev.filter((name) => name !== instructorName),
+        );
+    }
+
     return (
         <>
             <RequirementsSidebar
@@ -261,6 +326,8 @@ export default function ScheduleRequestStep() {
                 }}
                 onContinue={handleContinue}
                 isContinuing={isSaving}
+                continueLabel="Generate Schedules"
+                continuingLabel="Generating..."
                 continueError={saveError}
                 fieldOptions={{
                     instructor: {
@@ -273,7 +340,14 @@ export default function ScheduleRequestStep() {
                 }}
             />
 
-            <InstructorRatings />
+            <InstructorRatings
+                instructorNames={committedInstructorNames}
+                ignoredInstructorNames={ignoredInstructorNames}
+                ratings={draft.instructorRatings}
+                onSetRating={handleInstructorRatingChange}
+                onIgnoreInstructor={handleIgnoreInstructor}
+                onRestoreInstructor={handleRestoreInstructor}
+            />
         </>
     );
 }

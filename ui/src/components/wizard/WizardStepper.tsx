@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 const STEPS = [
     { key: "new", label: "Catalog" },
     { key: "build", label: "Build" },
-    { key: "instructors", label: "Instructors" },
 ] as const;
 
 function resolveActiveIndex(pathname: string): number {

@@ -5,9 +5,7 @@ import WizardStepper from "@/components/wizard/WizardStepper";
 export default function WizardLayout() {
     const isCatalogCreateRoute = useMatch("/catalogs/new");
     const isBuildRoute = useMatch("/catalogs/:catalogId/build");
-    const isInstructorRoute = useMatch("/catalogs/:catalogId/instructors");
-    const isWizardRoute =
-        isCatalogCreateRoute || isBuildRoute || isInstructorRoute;
+    const isWizardRoute = isCatalogCreateRoute || isBuildRoute;
 
     return (
         // TODO: these values should be in the css as vars

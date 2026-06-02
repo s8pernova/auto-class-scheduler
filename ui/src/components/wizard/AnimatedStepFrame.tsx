@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 
-const STEP_ORDER = ["build", "instructors"] as const;
+const STEP_ORDER = ["build"] as const;
 
 type RouteTransition = {
     pathname: string;
