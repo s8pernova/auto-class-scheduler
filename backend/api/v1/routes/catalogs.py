@@ -82,4 +82,7 @@ async def replace_catalog_sections(
             detail="Demo catalogs cannot be modified",
         )
 
-    return catalog_service.replace_catalog_sections(client, catalog_id, payload)
+    try:
+        return catalog_service.replace_catalog_sections(client, catalog_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

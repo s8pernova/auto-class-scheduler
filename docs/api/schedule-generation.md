@@ -18,6 +18,18 @@ The MVP endpoint rejects catalogs above 250,000 possible section combinations.
 This keeps transient generation responsive until the engine grows pruning
 support for larger catalogs.
 
+The backend also enforces bounded BYOC input sizes. Defaults are:
+
+- 12 course buckets per catalog or generated/saved schedule.
+- 150 catalog sections total.
+- 20 sections per course bucket.
+- 5 meetings per section.
+- 500 meetings per catalog.
+- 20 blocked-time filters per generation request.
+- 200 instructor ratings per generation request.
+- 2,048 bytes of `sourceMetadata` per catalog section.
+- 500 generated results per request.
+
 Section replacement is a full replace operation:
 
 ```json

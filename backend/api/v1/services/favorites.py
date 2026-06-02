@@ -11,6 +11,7 @@ from backend.api.v1.schemas.favorites import (
     FavoriteResponse,
 )
 from backend.api.v1.services import catalogs as catalog_service
+from backend.config import get_settings
 from backend.core.generator import compute_schedule_summary
 from backend.core.models import Meeting, Section
 from supabase import Client
@@ -49,16 +50,24 @@ def save_and_favorite_generated_schedule(
         raise ValueError("Catalog not found or not accessible")
 
     requested_ids = [str(section_id) for section_id in payload.catalog_section_ids]
+    _validate_saved_schedule_size(len(requested_ids))
     if len(set(requested_ids)) != len(requested_ids):
         raise ValueError("Duplicate catalogSectionIds are not allowed")
 
     all_sections = catalog_service.list_catalog_sections(client, payload.catalog_id)
     sections_by_id = {str(section.id): section for section in all_sections}
-    missing_ids = [section_id for section_id in requested_ids if section_id not in sections_by_id]
+    missing_ids = [
+        section_id
+        for section_id in requested_ids
+        if section_id not in sections_by_id
+    ]
     if missing_ids:
         raise ValueError("One or more selected catalog sections were not found")
 
-    selected_catalog_sections = [sections_by_id[section_id] for section_id in requested_ids]
+    selected_catalog_sections = [
+        sections_by_id[section_id]
+        for section_id in requested_ids
+    ]
     _validate_one_section_per_course(selected_catalog_sections)
 
     sections = [_to_domain_section(section) for section in selected_catalog_sections]
@@ -130,8 +139,18 @@ def _validate_one_section_per_course(
     catalog_sections: list[CatalogSectionResponse],
 ) -> None:
     course_names = [section.course_name for section in catalog_sections]
+    _validate_saved_schedule_size(len(course_names))
     if len(set(course_names)) != len(course_names):
         raise ValueError("A saved schedule can include only one section per courseName")
+
+
+def _validate_saved_schedule_size(section_count: int) -> None:
+    max_courses = get_settings().max_catalog_courses
+    if section_count > max_courses:
+        raise ValueError(
+            "A saved schedule cannot include more than "
+            f"{max_courses} course buckets"
+        )
 
 
 def _to_domain_section(catalog_section: CatalogSectionResponse) -> Section:
@@ -149,7 +168,9 @@ def _to_domain_section(catalog_section: CatalogSectionResponse) -> Section:
         for day in _expand_meeting_days(meeting.days)
     ]
     if not meetings:
-        raise ValueError(f"Catalog section {catalog_section.course_name} has no meetings")
+        raise ValueError(
+            f"Catalog section {catalog_section.course_name} has no meetings"
+        )
 
     return Section(
         catalog_section_id=catalog_section.id,
@@ -242,7 +263,12 @@ def _replace_saved_schedule_sections(
     catalog_sections: list[CatalogSectionResponse],
     sections: list[Section],
 ) -> None:
-    client.table("saved_schedule_sections").delete().eq("schedule_id", schedule_id).execute()
+    (
+        client.table("saved_schedule_sections")
+        .delete()
+        .eq("schedule_id", schedule_id)
+        .execute()
+    )
 
     rows = []
     for sort_order, (catalog_section, section) in enumerate(

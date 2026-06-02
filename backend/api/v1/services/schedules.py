@@ -173,6 +173,8 @@ def list_schedules(
 
 def _validate_generation_request_limits(payload: ScheduleGenerateRequest) -> None:
     settings = get_settings()
+    if payload.max_results > settings.max_results:
+        raise ValueError(f"maxResults cannot be greater than {settings.max_results}")
     if len(payload.preferences.blocked_times) > settings.max_blocked_times:
         raise ValueError(
             f"blockedTimes cannot include more than {settings.max_blocked_times} items"

@@ -4,6 +4,8 @@ Catalog service - Supabase edition.
 
 from __future__ import annotations
 
+import json
+from collections import Counter
 from uuid import UUID
 
 from backend.api.v1.schemas.catalogs import (
@@ -13,6 +15,7 @@ from backend.api.v1.schemas.catalogs import (
     CatalogSectionResponse,
     CatalogSectionsReplaceRequest,
 )
+from backend.config import get_settings
 from supabase import Client
 
 
@@ -92,6 +95,8 @@ def replace_catalog_sections(
     payload: CatalogSectionsReplaceRequest,
 ) -> list[CatalogSectionResponse]:
     """Atomically replace all saved candidate sections for a catalog."""
+    validate_catalog_sections_payload(payload)
+
     section_rows = [
         section.model_dump(mode="json")
         for section in payload.sections
@@ -105,3 +110,64 @@ def replace_catalog_sections(
     ).execute()
 
     return list_catalog_sections(client, catalog_id)
+
+
+def validate_catalog_sections_payload(payload: CatalogSectionsReplaceRequest) -> None:
+    """Enforce configured BYOC catalog size limits before hitting Supabase."""
+    settings = get_settings()
+    sections = payload.sections
+
+    if len(sections) > settings.max_catalog_sections:
+        raise ValueError(
+            "Catalogs cannot include more than "
+            f"{settings.max_catalog_sections} sections"
+        )
+
+    course_names = [section.course_name for section in sections]
+    if len(set(course_names)) > settings.max_catalog_courses:
+        raise ValueError(
+            f"Catalogs cannot include more than {settings.max_catalog_courses} "
+            "course buckets"
+        )
+
+    section_counts = Counter(course_names)
+    overloaded_courses = [
+        course_name
+        for course_name, count in section_counts.items()
+        if count > settings.max_sections_per_course
+    ]
+    if overloaded_courses:
+        raise ValueError(
+            "A course bucket cannot include more than "
+            f"{settings.max_sections_per_course} sections: "
+            + ", ".join(overloaded_courses)
+        )
+
+    total_meetings = 0
+    for section in sections:
+        meeting_count = len(section.meetings)
+        total_meetings += meeting_count
+        if meeting_count > settings.max_meetings_per_section:
+            raise ValueError(
+                "A catalog section cannot include more than "
+                f"{settings.max_meetings_per_section} meetings"
+            )
+
+        metadata_bytes = len(
+            json.dumps(
+                section.source_metadata,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        )
+        if metadata_bytes > settings.max_source_metadata_bytes_per_section:
+            raise ValueError(
+                "sourceMetadata cannot exceed "
+                f"{settings.max_source_metadata_bytes_per_section} bytes per section"
+            )
+
+    if total_meetings > settings.max_catalog_meetings:
+        raise ValueError(
+            f"Catalogs cannot include more than {settings.max_catalog_meetings} "
+            "meetings"
+        )
