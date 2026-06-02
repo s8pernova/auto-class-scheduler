@@ -40,16 +40,21 @@ class Settings(BaseSettings):
         "http://localhost:5174",
     ]
 
+    # Solver limits
     max_candidate_combinations: int = 250_000
+    max_results: int = 500
+
+    # Catalog input limits
     max_catalog_courses: int = 12
     max_catalog_sections: int = 150
     max_sections_per_course: int = 20
     max_meetings_per_section: int = 5
     max_catalog_meetings: int = 500
+    max_source_metadata_bytes_per_section: int = 2048
+
+    # User input limits
     max_blocked_times: int = 20
     max_instructor_ratings: int = 200
-    max_source_metadata_bytes_per_section: int = 2048
-    max_results: int = 500
 
 
 @lru_cache(maxsize=1)
