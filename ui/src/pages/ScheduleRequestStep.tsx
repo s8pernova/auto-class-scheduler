@@ -8,8 +8,9 @@ import {
 import { replaceCatalogSections } from "@/api/client";
 import { buildCatalogSectionsReplaceRequest } from "@/utils/buildScheduleGenerateRequest";
 import { parseCourseInput } from "@/utils/parseCourseInput";
-import { RequirementsSidebar } from "@/components/schedule/RequirementsSidebar";
-import { CourseDetailPanel } from "@/components/schedule/CourseDetailPanel";
+import RequirementsSidebar from "@/components/schedule/RequirementsSidebar";
+import CourseDetailPanel from "@/components/schedule/CourseDetailPanel";
+import InstructorRatings from "@/components/schedule/InstructorRatings";
 
 export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
@@ -272,6 +273,7 @@ export default function ScheduleRequestStep() {
                 }}
             />
 
+            <InstructorRatings />
         </>
     );
 }

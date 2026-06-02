@@ -10,7 +10,7 @@ type RequirementsSidebarProps = {
     onRemoveCourse: (id: string, e: React.MouseEvent) => void;
 };
 
-export function RequirementsSidebar({
+export default function RequirementsSidebar({
     courses,
     selectedCourseId,
     highlightedCourseId,
