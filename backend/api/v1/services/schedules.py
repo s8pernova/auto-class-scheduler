@@ -4,6 +4,7 @@ Schedule query service - Supabase edition.
 
 from __future__ import annotations
 
+import itertools
 import math
 from uuid import UUID
 
@@ -15,13 +16,13 @@ from backend.api.v1.schemas.schedules import (
     ScheduleGenerateBlockedTimeInput,
     ScheduleGenerateRequest,
     ScheduleGenerateResponse,
+    ScheduleRequirementGroup,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
 )
 from backend.api.v1.services import catalogs as catalog_service
 from backend.config import get_settings
 from backend.core.generator import compute_schedule_summary
-from backend.core.generator import generate_schedules as generate_section_combinations
 from backend.core.models import Meeting, Section
 from supabase import Client
 
@@ -53,6 +54,9 @@ def generate_schedules_from_request(
     payload: ScheduleGenerateRequest,
 ) -> ScheduleGenerateResponse:
     """Generate transient schedule options from a saved BYOC catalog."""
+    settings = get_settings()
+    _validate_generation_request_limits(payload)
+
     catalog_id = payload.metadata.catalog_id
     if catalog_id is None:
         raise ValueError("catalogId is required to generate schedules")
@@ -69,17 +73,27 @@ def generate_schedules_from_request(
     if not target_courses:
         raise ValueError("Catalog has no saved candidate sections")
 
-    candidate_count = math.prod(len(sections_by_course[key]) for key in target_courses)
-    if candidate_count > get_settings().max_candidate_combinations:
+    requirement_groups = _resolve_requirement_groups(
+        payload.requirements.groups,
+        catalog_courses=target_courses,
+        sections_by_course=sections_by_course,
+    )
+    _validate_requirement_group_limits(requirement_groups)
+
+    candidate_count = _count_requirement_candidates(
+        requirement_groups,
+        sections_by_course,
+    )
+    if candidate_count > settings.max_candidate_combinations:
         raise ValueError(
             "Schedule request has "
             f"{candidate_count:,} possible combinations. Reduce the number of "
             "courses or candidate sections before generating."
         )
 
-    generated = generate_section_combinations(
+    generated = _generate_requirement_group_schedules(
+        requirement_groups,
         sections_by_course,
-        target_courses,
     )
     valid = [
         schedule
@@ -157,6 +171,31 @@ def list_schedules(
 # Internal Helpers
 
 
+def _validate_generation_request_limits(payload: ScheduleGenerateRequest) -> None:
+    settings = get_settings()
+    if len(payload.preferences.blocked_times) > settings.max_blocked_times:
+        raise ValueError(
+            f"blockedTimes cannot include more than {settings.max_blocked_times} items"
+        )
+    if len(payload.preferences.instructor_ratings) > settings.max_instructor_ratings:
+        raise ValueError(
+            "instructorRatings cannot include more than "
+            f"{settings.max_instructor_ratings} entries"
+        )
+
+
+def _validate_requirement_group_limits(
+    requirement_groups: list[ScheduleRequirementGroup],
+) -> None:
+    settings = get_settings()
+    selected_course_count = sum(group.choose for group in requirement_groups)
+    if selected_course_count > settings.max_catalog_courses:
+        raise ValueError(
+            f"Schedule requests cannot select more than {settings.max_catalog_courses} "
+            "course buckets"
+        )
+
+
 def _load_catalog_generation_sections(
     client: Client,
     catalog_id: UUID,
@@ -217,6 +256,119 @@ def _load_catalog_generation_sections(
         )
 
     return sections_by_course, target_courses
+
+
+def _resolve_requirement_groups(
+    request_groups: list[ScheduleRequirementGroup],
+    *,
+    catalog_courses: list[str],
+    sections_by_course: dict[str, list[Section]],
+) -> list[ScheduleRequirementGroup]:
+    """Return explicit CNF groups, or the legacy all-courses-required groups."""
+    if not request_groups:
+        return [
+            ScheduleRequirementGroup(course_names=[course_name])
+            for course_name in catalog_courses
+        ]
+
+    catalog_course_names = set(sections_by_course)
+    resolved_groups: list[ScheduleRequirementGroup] = []
+    for group in request_groups:
+        missing = [
+            course_name
+            for course_name in group.course_names
+            if course_name not in catalog_course_names
+        ]
+        if missing:
+            raise ValueError(
+                "Requirement group references unknown courseName(s): "
+                + ", ".join(missing)
+            )
+        resolved_groups.append(group)
+
+    return resolved_groups
+
+
+def _count_requirement_candidates(
+    requirement_groups: list[ScheduleRequirementGroup],
+    sections_by_course: dict[str, list[Section]],
+) -> int:
+    group_counts = [
+        _count_group_candidates(group, sections_by_course)
+        for group in requirement_groups
+    ]
+    return math.prod(group_counts)
+
+
+def _count_group_candidates(
+    group: ScheduleRequirementGroup,
+    sections_by_course: dict[str, list[Section]],
+) -> int:
+    return sum(
+        math.prod(len(sections_by_course[course_name]) for course_name in course_names)
+        for course_names in itertools.combinations(group.course_names, group.choose)
+    )
+
+
+def _generate_requirement_group_schedules(
+    requirement_groups: list[ScheduleRequirementGroup],
+    sections_by_course: dict[str, list[Section]],
+) -> list[list[Section]]:
+    group_options = [
+        _build_group_section_options(group, sections_by_course)
+        for group in requirement_groups
+    ]
+
+    schedules: list[list[Section]] = []
+    for group_choice in itertools.product(*group_options):
+        sections = [
+            section
+            for selected_group_sections in group_choice
+            for section in selected_group_sections
+        ]
+        if _has_duplicate_courses_or_sections(sections):
+            continue
+        if _has_time_conflict(sections):
+            continue
+        schedules.append(sections)
+
+    return schedules
+
+
+def _build_group_section_options(
+    group: ScheduleRequirementGroup,
+    sections_by_course: dict[str, list[Section]],
+) -> list[list[Section]]:
+    options: list[list[Section]] = []
+    for course_names in itertools.combinations(group.course_names, group.choose):
+        section_pools = [
+            sections_by_course[course_name]
+            for course_name in course_names
+        ]
+        options.extend([list(combo) for combo in itertools.product(*section_pools)])
+    return options
+
+
+def _has_duplicate_courses_or_sections(sections: list[Section]) -> bool:
+    course_names = [section.course_name for section in sections]
+    if len(set(course_names)) != len(course_names):
+        return True
+
+    catalog_section_ids = [
+        section.catalog_section_id
+        for section in sections
+        if section.catalog_section_id is not None
+    ]
+    return len(set(catalog_section_ids)) != len(catalog_section_ids)
+
+
+def _has_time_conflict(sections: list[Section]) -> bool:
+    meetings = [meeting for section in sections for meeting in section.meetings]
+    for index, first in enumerate(meetings):
+        for second in meetings[index + 1 :]:
+            if _meetings_overlap(first, second):
+                return True
+    return False
 
 
 def _expand_meeting_days(days: str) -> list[str]:

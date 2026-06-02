@@ -95,6 +95,36 @@ class ScheduleGeneratePreferences(CamelModel):
         return value
 
 
+class ScheduleRequirementGroup(CamelModel):
+    """One requirement clause: choose N course buckets from a set of options."""
+
+    name: str | None = Field(default=None, max_length=120)
+    course_names: list[str] = Field(..., min_length=1)
+    choose: int = Field(default=1, ge=1)
+
+    @field_validator("course_names")
+    @classmethod
+    def normalize_course_names(cls, value: list[str]) -> list[str]:
+        normalized = [" ".join(course_name.strip().split()) for course_name in value]
+        if any(not course_name for course_name in normalized):
+            raise ValueError("courseNames cannot include blank values")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("courseNames cannot include duplicates")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_choose_count(self) -> "ScheduleRequirementGroup":
+        if self.choose > len(self.course_names):
+            raise ValueError("choose cannot be greater than the number of courseNames")
+        return self
+
+
+class ScheduleGenerateRequirements(CamelModel):
+    """Optional CNF-style requirements for generation."""
+
+    groups: list[ScheduleRequirementGroup] = Field(default_factory=list)
+
+
 class ScheduleGenerateRequest(CamelModel):
     """Request body for generating schedules from saved catalog sections."""
 
@@ -103,6 +133,9 @@ class ScheduleGenerateRequest(CamelModel):
     )
     preferences: ScheduleGeneratePreferences = Field(
         default_factory=ScheduleGeneratePreferences,
+    )
+    requirements: ScheduleGenerateRequirements = Field(
+        default_factory=ScheduleGenerateRequirements,
     )
     max_results: int = Field(default=100, ge=1, le=500)
 

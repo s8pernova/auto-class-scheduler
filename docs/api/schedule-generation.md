@@ -49,6 +49,11 @@ Section replacement is a full replace operation:
 represents one required course or requirement bucket, and every section with the
 same course name is treated as an alternative candidate for that bucket.
 
+By default, generation treats every distinct `courseName` in the catalog as
+required. For unknown-elective cases, callers can provide CNF-style requirement
+groups: every group is required, and each group can choose one or more course
+buckets from its `courseNames` alternatives.
+
 ```json
 {
   "metadata": {
@@ -63,6 +68,38 @@ same course name is treated as an alternative candidate for that bucket.
   "maxResults": 100
 }
 ```
+
+For example, this asks for CS 2505, MATH 2114, and one humanities elective:
+
+```json
+{
+  "metadata": {
+    "catalogId": "00000000-0000-0000-0000-000000000000"
+  },
+  "requirements": {
+    "groups": [
+      {
+        "courseNames": ["CS 2505"]
+      },
+      {
+        "courseNames": ["MATH 2114"]
+      },
+      {
+        "name": "Humanities elective",
+        "courseNames": ["PHIL 1304", "STS 1504", "ENGL 3764"],
+        "choose": 1
+      }
+    ]
+  },
+  "preferences": {
+    "blockedTimes": []
+  },
+  "maxResults": 100
+}
+```
+
+`choose` defaults to `1`. A group with `"choose": 2` means choose two distinct
+course buckets from that group's `courseNames`.
 
 Generated schedule responses include stable `catalogSectionId` values for each
 selected section:
