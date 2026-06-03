@@ -2,9 +2,11 @@ import type {
     CatalogSectionsReplaceRequest,
     ScheduleGenerateMetadata,
     ScheduleGenerateRequest,
+    ScheduleGenerateRequirements,
 } from "@/api/client";
 import type {
     ScheduleDraft,
+    RequirementGroup,
     SectionRef,
 } from "@/contexts/ScheduleDraftContext";
 
@@ -33,6 +35,48 @@ function buildMeeting(section: SectionRef) {
     return {
         days: section.days.trim(),
         ...splitTimeRange(section.time),
+    };
+}
+
+function buildDefaultRequirementGroups(
+    draft: ScheduleDraft,
+): RequirementGroup[] {
+    return draft.requirementCourses.map((course) => ({
+        id: `group-${course.id}`,
+        courseIds: [course.id],
+        choose: 1,
+    }));
+}
+
+function buildScheduleRequirements(
+    draft: ScheduleDraft,
+): ScheduleGenerateRequirements {
+    const courseNamesById = new Map(
+        draft.requirementCourses.map((course) => [course.id, course.label]),
+    );
+    const groups =
+        draft.requirementGroups.length > 0
+            ? draft.requirementGroups
+            : buildDefaultRequirementGroups(draft);
+
+    return {
+        groups: groups.map((group) => {
+            const courseNames = group.courseIds
+                .map((courseId) => courseNamesById.get(courseId)?.trim())
+                .filter((courseName): courseName is string =>
+                    Boolean(courseName),
+                );
+
+            if (courseNames.length === 0) {
+                throw new Error("Each requirement group needs a course.");
+            }
+
+            return {
+                name: group.name,
+                courseNames,
+                choose: group.choose,
+            };
+        }),
     };
 }
 
@@ -82,6 +126,7 @@ export function buildScheduleGenerateRequest(
             })),
             instructorRatings: draft.instructorRatings,
         },
+        requirements: buildScheduleRequirements(draft),
         maxResults: 100,
     };
 }

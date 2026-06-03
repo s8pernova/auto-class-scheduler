@@ -24,6 +24,13 @@ export interface RequirementCourse {
     sections: SectionRef[];
 }
 
+export interface RequirementGroup {
+    id: string;
+    name?: string;
+    courseIds: string[];
+    choose: number;
+}
+
 export interface BlockedTime {
     dayOfWeek: string;
     startTime: string;
@@ -35,6 +42,7 @@ export type InstructorRatings = Record<string, number | null>;
 export interface ScheduleDraft {
     catalogId: string;
     requirementCourses: RequirementCourse[];
+    requirementGroups: RequirementGroup[];
     blockedTimes: BlockedTime[];
     instructorRatings: InstructorRatings;
     generationResult: ScheduleGenerateResponse | null;
@@ -54,6 +62,7 @@ const ScheduleDraftContext = createContext<ScheduleDraftContextType | null>(
 
 const GENERATION_INPUT_KEYS = [
     "requirementCourses",
+    "requirementGroups",
     "blockedTimes",
     "instructorRatings",
 ] as const;
@@ -74,6 +83,7 @@ function buildInitialDraft(catalogId: string): ScheduleDraft {
     return {
         catalogId,
         requirementCourses: [],
+        requirementGroups: [],
         blockedTimes: [],
         instructorRatings: {},
         generationResult: null,

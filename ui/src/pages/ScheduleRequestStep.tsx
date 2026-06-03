@@ -132,6 +132,14 @@ export default function ScheduleRequestStep() {
 
         updateDraft({
             requirementCourses: [...draft.requirementCourses, newGroup],
+            requirementGroups: [
+                ...draft.requirementGroups,
+                {
+                    id: `group-${id}`,
+                    courseIds: [id],
+                    choose: 1,
+                },
+            ],
         });
         setSelectedCourseId(id);
         e.currentTarget.reset();
@@ -140,10 +148,27 @@ export default function ScheduleRequestStep() {
     function removeCourse(id: string, e: React.MouseEvent) {
         e.stopPropagation();
 
+        const requirementGroups = draft.requirementGroups
+            .map((group) => {
+                const courseIds = group.courseIds.filter(
+                    (courseId) => courseId !== id,
+                );
+
+                return {
+                    ...group,
+                    courseIds,
+                    choose: Math.min(group.choose, courseIds.length),
+                };
+            })
+            .filter(
+                (group) => group.courseIds.length > 0 && group.choose > 0,
+            );
+
         updateDraft({
             requirementCourses: draft.requirementCourses.filter(
                 (group) => group.id !== id,
             ),
+            requirementGroups,
         });
 
         if (selectedCourseId === id) {

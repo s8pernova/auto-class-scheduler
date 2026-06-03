@@ -2,7 +2,7 @@ import { FaStar } from "react-icons/fa";
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
 import { useScheduleDraft } from "@/contexts/ScheduleDraftContext";
-import { favoriteSchedule } from "@/api/client";
+import { favoriteGeneratedSchedule } from "@/api/client";
 import type { GeneratedScheduleResponse } from "@/api/client";
 
 type SortKey = "earliestStart" | "latestEnd" | "instructorScore";
@@ -139,7 +139,7 @@ export default function ScheduleResultsStep() {
     ) {
         e.stopPropagation();
         try {
-            await favoriteSchedule({
+            await favoriteGeneratedSchedule({
                 catalogId: draft.catalogId,
                 catalogSectionIds: schedule.sections.map(
                     (section) => section.catalogSectionId,

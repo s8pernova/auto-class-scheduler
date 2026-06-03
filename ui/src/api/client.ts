@@ -88,7 +88,7 @@ interface GetSchedulesOptions {
     favoritesOnly?: boolean;
     limit?: number;
     offset?: number;
-    campuses?: string[] | null;
+    campusPatterns?: string[] | null;
     times?: string[] | null;
 }
 
@@ -107,9 +107,20 @@ export interface ScheduleGeneratePreferences {
     instructorRatings: Record<string, number | null>;
 }
 
+export interface ScheduleRequirementGroup {
+    name?: string | null;
+    courseNames: string[];
+    choose?: number;
+}
+
+export interface ScheduleGenerateRequirements {
+    groups: ScheduleRequirementGroup[];
+}
+
 export interface ScheduleGenerateRequest {
     metadata: ScheduleGenerateMetadata;
     preferences: ScheduleGeneratePreferences;
+    requirements: ScheduleGenerateRequirements;
     maxResults: number;
 }
 
@@ -149,13 +160,25 @@ export interface ScheduleGenerateResponse {
     schedules: GeneratedScheduleResponse[];
 }
 
+export interface FavoriteResponse {
+    scheduleId: number;
+    favoritedAt: string;
+    catalogId?: string | null;
+    message: string;
+}
+
+export interface FavoriteGeneratedSchedulePayload {
+    catalogId: string;
+    catalogSectionIds: string[];
+}
+
 /**
  * Fetch all schedules
  * @param {Object} options - Query options
  * @param {boolean} options.favoritesOnly - If true, only return favorited schedules
  * @param {number} options.limit - Maximum number of schedules to return
  * @param {number} options.offset - Number of schedules to skip
- * @param {Array<string>} options.campuses - Campus filters ('Annandale', 'Alexandria', 'Online')
+ * @param {Array<string>} options.campusPatterns - Campus pattern filters ('Annandale-only', 'Mixed')
  * @param {Array<string>} options.times - Time filters ('Morning', 'Afternoon', 'Evening')
  * @returns {Promise<Array>} List of schedule summaries
  */
@@ -163,7 +186,7 @@ export async function getSchedules({
     favoritesOnly = false,
     limit = 50,
     offset = 0,
-    campuses = null,
+    campusPatterns = null,
     times = null,
 }: GetSchedulesOptions = {}) {
     const params = new URLSearchParams();
@@ -173,9 +196,10 @@ export async function getSchedules({
     params.append("limit", limit.toString());
     params.append("offset", offset.toString());
 
-    // Add campus filters
-    if (campuses && campuses.length > 0) {
-        campuses.forEach((campus) => params.append("campuses", campus));
+    if (campusPatterns && campusPatterns.length > 0) {
+        campusPatterns.forEach((pattern) =>
+            params.append("campusPatterns", pattern),
+        );
     }
 
     // Add time filters
@@ -218,22 +242,23 @@ export async function generateSchedules(
  * @returns {Promise<Array<number>>} List of favorited schedule IDs
  */
 export async function getFavorites() {
-    const response = await fetch(`${BASE_URL}/favorites`);
+    const response = await fetch(`${BASE_URL}/favorites`, {
+        headers: await buildAuthHeaders(),
+    });
     if (!response.ok) {
-        throw new Error(`Failed to fetch favorites: ${response.statusText}`);
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to fetch favorites"),
+        );
     }
     return response.json();
 }
 
 /**
- * Favorite a schedule
- * @param {number} scheduleId - The ID of the schedule to favorite
- * @returns {Promise<Object>} Favorite response
+ * Persist and favorite a generated schedule.
  */
-export async function favoriteSchedule(payload: {
-    catalogId: string;
-    catalogSectionIds: string[];
-}) {
+export async function favoriteGeneratedSchedule(
+    payload: FavoriteGeneratedSchedulePayload,
+): Promise<FavoriteResponse> {
     const response = await fetch(`${BASE_URL}/favorites`, {
         method: "POST",
         headers: await buildJsonAuthHeaders(),
@@ -241,10 +266,9 @@ export async function favoriteSchedule(payload: {
     });
 
     if (!response.ok) {
-        if (response.status === 404) {
-            throw new Error(`Schedule ${payload.catalogId} not found`);
-        }
-        throw new Error(`Failed to favorite schedule: ${response.statusText}`);
+        throw new Error(
+            await buildApiErrorMessage(response, "Failed to favorite schedule"),
+        );
     }
     return response.json();
 }
@@ -257,14 +281,15 @@ export async function favoriteSchedule(payload: {
 export async function unfavoriteSchedule(scheduleId: number | string) {
     const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
         method: "DELETE",
+        headers: await buildAuthHeaders(),
     });
 
     if (!response.ok) {
-        if (response.status === 404) {
-            throw new Error(`Schedule ${scheduleId} is not favorited`);
-        }
         throw new Error(
-            `Failed to unfavorite schedule: ${response.statusText}`,
+            await buildApiErrorMessage(
+                response,
+                `Failed to unfavorite schedule ${scheduleId}`,
+            ),
         );
     }
     return response.json();
