@@ -120,6 +120,7 @@ export interface GeneratedMeetingResponse {
 }
 
 export interface GeneratedSectionResponse {
+    catalogSectionId: string;
     courseName: string;
     sectionCode: string;
     instructorName?: string | null;
@@ -203,7 +204,10 @@ export async function generateSchedules(
     });
     if (!response.ok) {
         throw new Error(
-            await buildApiErrorMessage(response, "Failed to generate schedules"),
+            await buildApiErrorMessage(
+                response,
+                "Failed to generate schedules",
+            ),
         );
     }
     return response.json();
@@ -226,14 +230,19 @@ export async function getFavorites() {
  * @param {number} scheduleId - The ID of the schedule to favorite
  * @returns {Promise<Object>} Favorite response
  */
-export async function favoriteSchedule(scheduleId: number | string) {
-    const response = await fetch(`${BASE_URL}/favorites/${scheduleId}`, {
+export async function favoriteSchedule(payload: {
+    catalogId: string;
+    catalogSectionIds: string[];
+}) {
+    const response = await fetch(`${BASE_URL}/favorites`, {
         method: "POST",
+        headers: await buildJsonAuthHeaders(),
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
         if (response.status === 404) {
-            throw new Error(`Schedule ${scheduleId} not found`);
+            throw new Error(`Schedule ${payload.catalogId} not found`);
         }
         throw new Error(`Failed to favorite schedule: ${response.statusText}`);
     }
@@ -393,7 +402,10 @@ export async function getCatalogSections(
     );
     if (!response.ok) {
         throw new Error(
-            await buildApiErrorMessage(response, "Failed to fetch catalog sections"),
+            await buildApiErrorMessage(
+                response,
+                "Failed to fetch catalog sections",
+            ),
         );
     }
     return response.json();
@@ -416,7 +428,10 @@ export async function replaceCatalogSections(
     );
     if (!response.ok) {
         throw new Error(
-            await buildApiErrorMessage(response, "Failed to save catalog sections"),
+            await buildApiErrorMessage(
+                response,
+                "Failed to save catalog sections",
+            ),
         );
     }
     return response.json();

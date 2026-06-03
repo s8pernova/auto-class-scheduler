@@ -133,10 +133,18 @@ export default function ScheduleResultsStep() {
         navigate(`/catalogs/${catalogId}/build`);
     }
 
-    async function handleFavorite(e: React.MouseEvent, scheduleId: string) {
+    async function handleFavorite(
+        e: React.MouseEvent,
+        schedule: GeneratedScheduleResponse,
+    ) {
         e.stopPropagation();
         try {
-            await favoriteSchedule(scheduleId);
+            await favoriteSchedule({
+                catalogId: draft.catalogId,
+                catalogSectionIds: schedule.sections.map(
+                    (section) => section.catalogSectionId,
+                ),
+            });
             // TODO change the star to yellow or something
         } catch {
             // TODO
@@ -244,7 +252,7 @@ export default function ScheduleResultsStep() {
                                     <button
                                         className=""
                                         onClick={(e) =>
-                                            handleFavorite(e, schedule.resultId)
+                                            handleFavorite(e, schedule)
                                         }
                                     >
                                         <FaStar />

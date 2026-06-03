@@ -454,7 +454,7 @@ def _build_generated_schedule_response(
     summary = compute_schedule_summary(sections)
 
     return GeneratedScheduleResponse(
-        result_id=f"generated-{index}",
+        result_id=f"generated-{index}",  # TODO: this should not be happening
         total_instructor_score=summary["total_instructor_score"],
         num_sections=summary["num_sections"],
         meets_mon=summary["meets_mon"],
