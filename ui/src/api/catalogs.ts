@@ -1,110 +1,81 @@
-import { apiFetch } from "@/api/http";
+import {
+    createCatalogApiV1CatalogsPost,
+    getCatalogApiV1CatalogsCatalogIdGet,
+    listCatalogSectionsApiV1CatalogsCatalogIdSectionsGet,
+    replaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPut,
+} from "@/api/generated";
+import type {
+    CatalogCreate,
+    CatalogResponse,
+    CatalogSectionInput,
+    CatalogSectionMeetingInput,
+    CatalogSectionMeetingResponse,
+    CatalogSectionResponse,
+    CatalogSectionsReplaceRequest,
+    CreateCatalogApiV1CatalogsPostResponse,
+    GetCatalogApiV1CatalogsCatalogIdGetResponse,
+    ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetResponse,
+    ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutResponse,
+} from "@/api/generated";
+import { getAccessToken, unwrapApiResult } from "@/api/http";
 
-interface CreateCatalogPayload {
-    name: string;
-    description?: string | null;
-    source_type?: string;
-    school_name?: string | null;
-    term_name?: string | null;
-}
+export type CreateCatalogPayload = CatalogCreate;
 
-export interface CatalogResponse {
-    id: string;
-    name: string;
-    description: string | null;
-    source_type: string;
-    school_name: string | null;
-    term_name: string | null;
-    status: string;
-    row_count: number;
-    source_metadata: Record<string, unknown>;
-    created_by: string | null;
-    created_at: string;
-    updated_at: string;
-    last_imported_at: string | null;
-}
-
-export interface CatalogSectionMeetingInput {
-    days: string;
-    startTime: string;
-    endTime: string;
-    sortOrder?: number;
-}
-
-export interface CatalogSectionInput {
-    courseName: string;
-    crn?: string | null;
-    instructorName?: string | null;
-    sortOrder?: number;
-    sourceMetadata?: Record<string, unknown>;
-    meetings: CatalogSectionMeetingInput[];
-}
-
-export interface CatalogSectionsReplaceRequest {
-    sections: CatalogSectionInput[];
-}
-
-export interface CatalogSectionMeetingResponse {
-    id: string;
-    sectionId: string;
-    days: string;
-    startTime: string;
-    endTime: string;
-    sortOrder: number;
-}
-
-export interface CatalogSectionResponse {
-    id: string;
-    catalogId: string;
-    courseName: string;
-    crn: string | null;
-    instructorName: string | null;
-    sortOrder: number;
-    sourceMetadata: Record<string, unknown>;
-    createdAt: string;
-    updatedAt: string;
-    meetings: CatalogSectionMeetingResponse[];
-}
+export type {
+    CatalogResponse,
+    CatalogSectionInput,
+    CatalogSectionMeetingInput,
+    CatalogSectionMeetingResponse,
+    CatalogSectionResponse,
+    CatalogSectionsReplaceRequest,
+};
 
 export async function createCatalog(
-    payload: CreateCatalogPayload,
-): Promise<CatalogResponse> {
-    return apiFetch("/catalogs", "Failed to create catalog", {
-        method: "POST",
-        auth: true,
-        json: payload,
-    });
+    payload: CatalogCreate,
+): Promise<CreateCatalogApiV1CatalogsPostResponse> {
+    return unwrapApiResult(
+        await createCatalogApiV1CatalogsPost({
+            auth: getAccessToken,
+            body: payload,
+        }),
+        "Failed to create catalog",
+    );
 }
 
-export async function getCatalog(catalogId: string): Promise<CatalogResponse> {
-    return apiFetch(
-        `/catalogs/${encodeURIComponent(catalogId)}`,
+export async function getCatalog(
+    catalogId: string,
+): Promise<GetCatalogApiV1CatalogsCatalogIdGetResponse> {
+    return unwrapApiResult(
+        await getCatalogApiV1CatalogsCatalogIdGet({
+            auth: getAccessToken,
+            path: { catalog_id: catalogId },
+        }),
         "Failed to fetch catalog",
-        { auth: true },
     );
 }
 
 export async function getCatalogSections(
     catalogId: string,
-): Promise<CatalogSectionResponse[]> {
-    return apiFetch(
-        `/catalogs/${encodeURIComponent(catalogId)}/sections`,
+): Promise<ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetResponse> {
+    return unwrapApiResult(
+        await listCatalogSectionsApiV1CatalogsCatalogIdSectionsGet({
+            auth: getAccessToken,
+            path: { catalog_id: catalogId },
+        }),
         "Failed to fetch catalog sections",
-        { auth: true },
     );
 }
 
 export async function replaceCatalogSections(
     catalogId: string,
     payload: CatalogSectionsReplaceRequest,
-): Promise<CatalogSectionResponse[]> {
-    return apiFetch(
-        `/catalogs/${encodeURIComponent(catalogId)}/sections`,
+): Promise<ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutResponse> {
+    return unwrapApiResult(
+        await replaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPut({
+            auth: getAccessToken,
+            body: payload,
+            path: { catalog_id: catalogId },
+        }),
         "Failed to save catalog sections",
-        {
-            method: "PUT",
-            auth: true,
-            json: payload,
-        },
     );
 }

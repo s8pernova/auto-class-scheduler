@@ -1,4 +1,25 @@
-import { apiFetch } from "@/api/http";
+import {
+    generateSchedulesApiV1SchedulesGeneratePost,
+    getScheduleLimitsApiV1SchedulesLimitsGet,
+    getSchedulesApiV1SchedulesGet,
+} from "@/api/generated";
+import type {
+    GenerateSchedulesApiV1SchedulesGeneratePostResponse,
+    GetScheduleLimitsApiV1SchedulesLimitsGetResponse,
+    GetSchedulesApiV1SchedulesGetResponse,
+    GeneratedMeetingResponse as ApiGeneratedMeetingResponse,
+    GeneratedScheduleResponse as ApiGeneratedScheduleResponse,
+    GeneratedSectionResponse as ApiGeneratedSectionResponse,
+    ScheduleGenerateResponse as ApiScheduleGenerateResponse,
+    ScheduleGenerateBlockedTimeInput,
+    ScheduleGenerateMetadata,
+    ScheduleGeneratePreferences,
+    ScheduleGenerateRequest,
+    ScheduleGenerateRequirements,
+    ScheduleLimitsResponse,
+    ScheduleRequirementGroup,
+} from "@/api/generated";
+import { getAccessToken, unwrapApiResult } from "@/api/http";
 
 interface GetSchedulesOptions {
     favoritesOnly?: boolean;
@@ -8,85 +29,64 @@ interface GetSchedulesOptions {
     times?: string[] | null;
 }
 
-export interface ScheduleGenerateMetadata {
-    catalogId?: string;
-}
+export type {
+    ScheduleGenerateBlockedTimeInput,
+    ScheduleGenerateMetadata,
+    ScheduleGeneratePreferences,
+    ScheduleGenerateRequest,
+    ScheduleGenerateRequirements,
+    ScheduleLimitsResponse,
+    ScheduleRequirementGroup,
+};
 
-export interface ScheduleGenerateBlockedTimeInput {
-    days: string;
-    startTime: string;
-    endTime: string;
-}
+export type GeneratedMeetingResponse = ApiGeneratedMeetingResponse;
 
-export interface ScheduleGeneratePreferences {
-    blockedTimes: ScheduleGenerateBlockedTimeInput[];
-    instructorRatings: Record<string, number | null>;
-}
-
-export interface ScheduleRequirementGroup {
-    name?: string | null;
-    courseNames: string[];
-    choose?: number;
-}
-
-export interface ScheduleGenerateRequirements {
-    groups: ScheduleRequirementGroup[];
-}
-
-export interface ScheduleGenerateRequest {
-    metadata: ScheduleGenerateMetadata;
-    preferences: ScheduleGeneratePreferences;
-    requirements: ScheduleGenerateRequirements;
-    maxResults: number;
-}
-
-export interface GeneratedMeetingResponse {
-    dayOfWeek: string;
-    startTime: string;
-    endTime: string;
-}
-
-export interface GeneratedSectionResponse {
-    catalogSectionId: string;
-    courseName: string;
-    sectionCode: string;
-    instructorName?: string | null;
+export type GeneratedSectionResponse = Omit<
+    ApiGeneratedSectionResponse,
+    "meetings"
+> & {
     meetings: GeneratedMeetingResponse[];
-}
+};
 
-export interface GeneratedScheduleResponse {
-    resultId: string;
-    totalInstructorScore?: number | null;
-    numSections: number;
-    meetsMon: boolean;
-    meetsTue: boolean;
-    meetsWed: boolean;
-    meetsThu: boolean;
-    meetsFri: boolean;
-    meetsSat: boolean;
-    earliestStart: string;
-    latestEnd: string;
+export type GeneratedScheduleResponse = Omit<
+    ApiGeneratedScheduleResponse,
+    "sections"
+> & {
     sections: GeneratedSectionResponse[];
-}
+};
 
-export interface ScheduleGenerateResponse {
-    candidateCount: number;
-    validCount: number;
-    returnedCount: number;
+export type ScheduleGenerateResponse = Omit<
+    ApiScheduleGenerateResponse,
+    "schedules"
+> & {
     schedules: GeneratedScheduleResponse[];
+};
+
+function normalizeGeneratedSection(
+    section: ApiGeneratedSectionResponse,
+): GeneratedSectionResponse {
+    return {
+        ...section,
+        meetings: section.meetings ?? [],
+    };
 }
 
-export interface ScheduleLimitsResponse {
-    maxCandidateCombinations: number;
-    maxResults: number;
-    maxCatalogCourses: number;
-    maxCatalogSections: number;
-    maxSectionsPerCourse: number;
-    maxMeetingsPerSection: number;
-    maxCatalogMeetings: number;
-    maxSourceMetadataBytesPerSection: number;
-    maxBlockedTimes: number;
-    maxInstructorRatings: number;
+function normalizeGeneratedSchedule(
+    schedule: ApiGeneratedScheduleResponse,
+): GeneratedScheduleResponse {
+    return {
+        ...schedule,
+        sections: (schedule.sections ?? []).map(normalizeGeneratedSection),
+    };
+}
+
+function normalizeScheduleGenerateResponse(
+    response: GenerateSchedulesApiV1SchedulesGeneratePostResponse,
+): ScheduleGenerateResponse {
+    return {
+        ...response,
+        schedules: (response.schedules ?? []).map(normalizeGeneratedSchedule),
+    };
 }
 
 export async function getSchedules({
@@ -95,26 +95,18 @@ export async function getSchedules({
     offset = 0,
     campusPatterns = null,
     times = null,
-}: GetSchedulesOptions = {}) {
-    const params = new URLSearchParams();
-    if (favoritesOnly) {
-        params.append("favorites_only", "true");
-    }
-    params.append("limit", limit.toString());
-    params.append("offset", offset.toString());
-
-    if (campusPatterns && campusPatterns.length > 0) {
-        campusPatterns.forEach((pattern) =>
-            params.append("campusPatterns", pattern),
-        );
-    }
-
-    if (times && times.length > 0) {
-        times.forEach((time) => params.append("times", time));
-    }
-
-    return apiFetch(
-        `/schedules?${params.toString()}`,
+}: GetSchedulesOptions = {}): Promise<GetSchedulesApiV1SchedulesGetResponse> {
+    return unwrapApiResult(
+        await getSchedulesApiV1SchedulesGet({
+            auth: getAccessToken,
+            query: {
+                campusPatterns,
+                favorites_only: favoritesOnly,
+                limit,
+                offset,
+                times,
+            },
+        }),
         "Failed to fetch schedules",
     );
 }
@@ -122,13 +114,19 @@ export async function getSchedules({
 export async function generateSchedules(
     payload: ScheduleGenerateRequest,
 ): Promise<ScheduleGenerateResponse> {
-    return apiFetch("/schedules/generate", "Failed to generate schedules", {
-        method: "POST",
-        auth: true,
-        json: payload,
-    });
+    const response = await unwrapApiResult(
+        await generateSchedulesApiV1SchedulesGeneratePost({
+            auth: getAccessToken,
+            body: payload,
+        }),
+        "Failed to generate schedules",
+    );
+    return normalizeScheduleGenerateResponse(response);
 }
 
-export async function getScheduleLimits(): Promise<ScheduleLimitsResponse> {
-    return apiFetch("/schedules/limits", "Failed to fetch schedule limits");
+export async function getScheduleLimits(): Promise<GetScheduleLimitsApiV1SchedulesLimitsGetResponse> {
+    return unwrapApiResult(
+        await getScheduleLimitsApiV1SchedulesLimitsGet(),
+        "Failed to fetch schedule limits",
+    );
 }

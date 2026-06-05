@@ -1,13 +1,16 @@
 import { supabase } from "@/clients/supabaseClient";
 
-export const BASE_URL = "/api/v1";
-
-type ApiRequestOptions = Omit<RequestInit, "body" | "headers"> & {
-    auth?: boolean;
-    body?: BodyInit | null;
-    headers?: HeadersInit;
-    json?: unknown;
-};
+type ApiResult<T> =
+    | {
+          data: T;
+          error: undefined;
+          response: Response;
+      }
+    | {
+          data: undefined;
+          error: unknown;
+          response?: Response;
+      };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
@@ -49,62 +52,48 @@ function formatApiErrorDetail(detail: unknown): string | null {
 }
 
 export async function buildApiErrorMessage(
-    response: Response,
+    response: Response | undefined,
     fallback: string,
+    body?: unknown,
 ): Promise<string> {
-    try {
-        const body: unknown = await response.json();
-        const detail = isRecord(body)
-            ? formatApiErrorDetail(body.detail)
-            : null;
+    const detail = isRecord(body) ? formatApiErrorDetail(body.detail) : null;
 
-        if (detail) {
-            return `${fallback}: ${detail}`;
-        }
-    } catch {
-        // Fall back to the status text below when the response is not JSON.
+    if (detail) {
+        return `${fallback}: ${detail}`;
     }
 
-    return `${fallback}: ${response.statusText}`;
+    if (typeof body === "string" && body.trim()) {
+        return `${fallback}: ${body}`;
+    }
+
+    if (body instanceof Error && body.message) {
+        return `${fallback}: ${body.message}`;
+    }
+
+    if (isRecord(body) && typeof body.message === "string") {
+        return `${fallback}: ${body.message}`;
+    }
+
+    return response?.statusText ? `${fallback}: ${response.statusText}` : fallback;
 }
 
-export async function buildAuthHeaders(): Promise<HeadersInit> {
+export async function getAccessToken(): Promise<string | undefined> {
     const {
         data: { session },
     } = await supabase.auth.getSession();
 
-    return session?.access_token
-        ? { Authorization: `Bearer ${session.access_token}` }
-        : {};
+    return session?.access_token;
 }
 
-export async function apiFetch<T>(
-    path: string,
+export async function unwrapApiResult<T>(
+    result: ApiResult<T>,
     fallback: string,
-    options: ApiRequestOptions = {},
 ): Promise<T> {
-    const { auth = false, body, headers, json, ...init } = options;
-    const requestHeaders = new Headers(headers);
-    const requestBody = json === undefined ? body : JSON.stringify(json);
-
-    if (json !== undefined) {
-        requestHeaders.set("Content-Type", "application/json");
+    if (result.error === undefined) {
+        return result.data as T;
     }
 
-    if (auth) {
-        const authHeaders = new Headers(await buildAuthHeaders());
-        authHeaders.forEach((value, key) => requestHeaders.set(key, value));
-    }
-
-    const response = await fetch(`${BASE_URL}${path}`, {
-        ...init,
-        body: requestBody,
-        headers: requestHeaders,
-    });
-
-    if (!response.ok) {
-        throw new Error(await buildApiErrorMessage(response, fallback));
-    }
-
-    return response.json();
+    throw new Error(
+        await buildApiErrorMessage(result.response, fallback, result.error),
+    );
 }

@@ -1,42 +1,48 @@
-import { apiFetch } from "@/api/http";
+import {
+    favoriteGeneratedScheduleApiV1FavoritesPost,
+    getFavoritesApiV1FavoritesGet,
+    unfavoriteScheduleApiV1FavoritesScheduleIdDelete,
+} from "@/api/generated";
+import type {
+    FavoriteGeneratedScheduleApiV1FavoritesPostResponse,
+    FavoriteGeneratedScheduleRequest,
+    FavoriteResponse,
+    GetFavoritesApiV1FavoritesGetResponse,
+    UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponse,
+} from "@/api/generated";
+import { getAccessToken, unwrapApiResult } from "@/api/http";
 
-export interface FavoriteResponse {
-    scheduleId: number;
-    favoritedAt: string;
-    catalogId?: string | null;
-    message: string;
-}
+export type FavoriteGeneratedSchedulePayload = FavoriteGeneratedScheduleRequest;
 
-export interface FavoriteGeneratedSchedulePayload {
-    catalogId: string;
-    catalogSectionIds: string[];
-}
+export type { FavoriteGeneratedScheduleRequest, FavoriteResponse };
 
-export async function getFavorites(): Promise<number[]> {
-    return apiFetch("/favorites", "Failed to fetch favorites", {
-        auth: true,
-    });
+export async function getFavorites(): Promise<GetFavoritesApiV1FavoritesGetResponse> {
+    return unwrapApiResult(
+        await getFavoritesApiV1FavoritesGet({ auth: getAccessToken }),
+        "Failed to fetch favorites",
+    );
 }
 
 export async function favoriteGeneratedSchedule(
     payload: FavoriteGeneratedSchedulePayload,
-): Promise<FavoriteResponse> {
-    return apiFetch("/favorites", "Failed to favorite schedule", {
-        method: "POST",
-        auth: true,
-        json: payload,
-    });
+): Promise<FavoriteGeneratedScheduleApiV1FavoritesPostResponse> {
+    return unwrapApiResult(
+        await favoriteGeneratedScheduleApiV1FavoritesPost({
+            auth: getAccessToken,
+            body: payload,
+        }),
+        "Failed to favorite schedule",
+    );
 }
 
 export async function unfavoriteSchedule(
-    scheduleId: number | string,
-): Promise<{ schedule_id: number | string; message: string }> {
-    return apiFetch(
-        `/favorites/${scheduleId}`,
+    scheduleId: number,
+): Promise<UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponse> {
+    return unwrapApiResult(
+        await unfavoriteScheduleApiV1FavoritesScheduleIdDelete({
+            auth: getAccessToken,
+            path: { schedule_id: scheduleId },
+        }),
         `Failed to unfavorite schedule ${scheduleId}`,
-        {
-            method: "DELETE",
-            auth: true,
-        },
     );
 }

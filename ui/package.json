@@ -4,8 +4,12 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
+        "api:generate": "npm run api:schema && npm run api:codegen",
+        "api:schema": "cd .. && .venv/bin/python scripts/export_openapi.py ui/.openapi/schema.json",
+        "api:codegen": "openapi-ts -f openapi-ts.config.ts",
         "dev": "vite",
-        "build": "vite build",
+        "typecheck": "tsc -b",
+        "build": "tsc -b && vite build",
         "lint": "eslint .",
         "preview": "vite preview"
     },
@@ -23,6 +27,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^9.39.1",
+        "@hey-api/openapi-ts": "0.95.0",
         "@types/node": "^25.9.0",
         "@types/react": "^19.2.5",
         "@types/react-dom": "^19.2.3",

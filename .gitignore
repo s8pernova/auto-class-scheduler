@@ -211,3 +211,4 @@ node_modules/
 TODO.md
 .env.local
 .codex
+ui/.openapi/
