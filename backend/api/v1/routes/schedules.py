@@ -9,9 +9,11 @@ from fastapi import APIRouter, HTTPException, Query
 from backend.api.v1.schemas.schedules import (
     ScheduleGenerateRequest,
     ScheduleGenerateResponse,
+    ScheduleLimitsResponse,
     ScheduleSummaryResponse,
 )
 from backend.api.v1.services import schedules as schedule_service
+from backend.config import get_settings
 from backend.dependencies import SupabaseDep
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
@@ -27,6 +29,24 @@ async def generate_schedules(
         return schedule_service.generate_schedules_from_request(client, payload)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/limits", response_model=ScheduleLimitsResponse)
+async def get_schedule_limits() -> ScheduleLimitsResponse:
+    """Return public scheduler limits for frontend validation."""
+    settings = get_settings()
+    return ScheduleLimitsResponse(
+        max_candidate_combinations=settings.max_candidate_combinations,
+        max_results=settings.max_results,
+        max_catalog_courses=settings.max_catalog_courses,
+        max_catalog_sections=settings.max_catalog_sections,
+        max_sections_per_course=settings.max_sections_per_course,
+        max_meetings_per_section=settings.max_meetings_per_section,
+        max_catalog_meetings=settings.max_catalog_meetings,
+        max_source_metadata_bytes_per_section=settings.max_source_metadata_bytes_per_section,
+        max_blocked_times=settings.max_blocked_times,
+        max_instructor_ratings=settings.max_instructor_ratings,
+    )
 
 
 @router.get("", response_model=list[ScheduleSummaryResponse])

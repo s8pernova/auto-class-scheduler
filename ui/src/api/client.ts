@@ -61,7 +61,7 @@ async function buildApiErrorMessage(
             return `${fallback}: ${detail}`;
         }
     } catch {
-        // Fall back to the status text below when the response is not JSON.
+        // TODO: Fall back to the status text below when the response is not JSON.
     }
 
     return `${fallback}: ${response.statusText}`;
@@ -231,6 +231,24 @@ export async function generateSchedules(
             await buildApiErrorMessage(
                 response,
                 "Failed to generate schedules",
+            ),
+        );
+    }
+    return response.json();
+}
+
+/**
+ * Get schedule limits from the backend
+ * @returns {Promise<Object>} Object containing maxSchedules, maxCatalogSections, etc.
+ */
+export async function getScheduleLimits() {
+    const response = await fetch(`${BASE_URL}/schedules/limits`);
+
+    if (!response.ok) {
+        throw new Error(
+            await buildApiErrorMessage(
+                response,
+                "Failed to fetch schedule limits",
             ),
         );
     }

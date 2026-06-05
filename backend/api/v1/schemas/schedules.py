@@ -54,6 +54,21 @@ class Meeting(CamelModel):
     campus: str
 
 
+class ScheduleLimitsResponse(CamelModel):
+    """Public scheduler and BYOC input limits used by clients."""
+
+    max_candidate_combinations: int
+    max_results: int
+    max_catalog_courses: int
+    max_catalog_sections: int
+    max_sections_per_course: int
+    max_meetings_per_section: int
+    max_catalog_meetings: int
+    max_source_metadata_bytes_per_section: int
+    max_blocked_times: int
+    max_instructor_ratings: int
+
+
 class Section(CamelModel):
     """One generated schedule section candidate."""
 
