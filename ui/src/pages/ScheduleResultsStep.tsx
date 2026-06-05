@@ -2,8 +2,8 @@ import { FaStar } from "react-icons/fa";
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
 import { useScheduleDraft } from "@/contexts/ScheduleDraftContext";
-import { favoriteGeneratedSchedule } from "@/api/client";
-import type { GeneratedScheduleResponse } from "@/api/client";
+import { favoriteGeneratedSchedule } from "@/api";
+import type { GeneratedScheduleResponse } from "@/api";
 
 type SortKey = "earliestStart" | "latestEnd" | "instructorScore";
 type DayFilter =

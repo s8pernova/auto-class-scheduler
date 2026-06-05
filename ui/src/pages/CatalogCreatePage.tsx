@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createCatalog } from "@/api/client";
+import { createCatalog } from "@/api";
 
 export default function CatalogCreatePage() {
     const navigate = useNavigate();

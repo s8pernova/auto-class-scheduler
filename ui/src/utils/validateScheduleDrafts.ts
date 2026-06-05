@@ -1,5 +1,5 @@
 import type { ScheduleDraft } from "@/contexts/ScheduleDraftContext";
-import { getScheduleLimits } from "@/api/client";
+import { getScheduleLimits } from "@/api";
 
 export async function validateScheduleDrafts(
     draft: ScheduleDraft,

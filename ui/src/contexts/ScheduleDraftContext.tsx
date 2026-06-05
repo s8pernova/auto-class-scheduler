@@ -1,4 +1,4 @@
-import type { ScheduleGenerateResponse } from "@/api/client";
+import type { ScheduleGenerateResponse } from "@/api";
 import {
     createContext,
     useCallback,

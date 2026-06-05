@@ -3,7 +3,7 @@ import type {
     ScheduleGenerateMetadata,
     ScheduleGenerateRequest,
     ScheduleGenerateRequirements,
-} from "@/api/client";
+} from "@/api";
 import type {
     ScheduleDraft,
     RequirementGroup,

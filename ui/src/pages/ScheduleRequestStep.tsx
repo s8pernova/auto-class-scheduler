@@ -6,7 +6,7 @@ import {
     type SectionRef,
     useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
-import { generateSchedules, replaceCatalogSections } from "@/api/client";
+import { generateSchedules, replaceCatalogSections } from "@/api";
 import {
     buildCatalogSectionsReplaceRequest,
     buildScheduleGenerateRequest,
@@ -160,9 +160,7 @@ export default function ScheduleRequestStep() {
                     choose: Math.min(group.choose, courseIds.length),
                 };
             })
-            .filter(
-                (group) => group.courseIds.length > 0 && group.choose > 0,
-            );
+            .filter((group) => group.courseIds.length > 0 && group.choose > 0);
 
         updateDraft({
             requirementCourses: draft.requirementCourses.filter(
