@@ -240,6 +240,8 @@ export async function generateSchedules(
 /**
  * Get schedule limits from the backend
  * @returns {Promise<Object>} Object containing maxSchedules, maxCatalogSections, etc.
+ *
+ * TODO: consider putting this in something similar to lru_cache
  */
 export async function getScheduleLimits() {
     const response = await fetch(`${BASE_URL}/schedules/limits`);
