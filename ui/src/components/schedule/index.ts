@@ -4,3 +4,6 @@ export type { RequirementSectionsTableProps, ComboboxFieldOptions } from "./Requ
 export { default as RequirementsSidebar } from "./RequirementsSidebar";
 export { default as CourseDetailPanel } from "./CourseDetailPanel";
 export { DaysInput } from "./DaysInput";
+export { default as ResultsDetailsPanel } from "./ResultsDetailsPanel";
+export { default as ResultsFiltersSidebar } from "./ResultsFiltersSidebar";
+export { default as ResultsGrid } from "./ResultsGrid";
