@@ -1,8 +1,8 @@
 # Course Scheduler
 
-Course Scheduler is a bring-your-own-catalog type of class schedule generator.
+Course Scheduler is a bring-your-own-catalog class schedule generator built around reusable, shareable course catalogs.
 
-It helps students build a course catalog, select required courses and elective choices, generate schedule permutations, and save favorite schedules.
+It helps students draft a catalog, publish a stable catalog link, share that link with classmates, select required courses and elective choices, generate schedule permutations, and save favorite schedules for that specific catalog.
 
 ## Why this exists
 
@@ -12,6 +12,7 @@ Most class schedule tools:
 - Require the school to pay for an institutional product.
 - Let students draw a schedule manually, but do not generate all valid combinations.
 - Can generate schedules, but building the catalog is painful.
+- Make every student rebuild the same catalog data on their own.
 - Ignore professor quality, seat data, restrictions, or student preferences.
 
 Course Scheduler is meant to solve a different problem:
@@ -19,9 +20,12 @@ Course Scheduler is meant to solve a different problem:
 ```text
 Bring any catalog.
 Clean it up.
+Publish a stable catalog link.
+Let other students fork it for their own needs.
 Choose the courses you need.
 Add elective pools like "choose 1 of these".
 Generate possible schedules.
+Save only your favorite schedules for that catalog.
 ```
 
 In a free, super intuitive way.
@@ -44,12 +48,27 @@ The scheduler treats that as a requirement-group problem, then searches for vali
 
 ## Differentiators
 
-### Bring your own catalog
+### Bring or reuse a catalog
 
-This makes the app not limited to one school. A catalog can come from:
+This makes the app not limited to one school, and it means students in the same program do not all have to recreate the same setup. A catalog can come from:
 
 - Pasted rows from a course schedule page
 - Manual entry
+- A shared catalog link from another student
+
+### Drafts, published catalogs, and forks
+
+Draft catalogs are editable workspaces. They are where a student can clean up pasted rows, add manual courses, and make mistakes without creating a public artifact.
+
+Published catalogs are stable snapshots. A catalog can only be shared after it is no longer a draft, so saved schedules and share links do not break when someone changes the underlying course sections.
+
+If a student wants to change a published or shared catalog, they fork it into a new draft. That draft can be edited freely and published as a new catalog link.
+
+### Shareable catalogs, personal schedules
+
+Catalogs are reusable setup data. A student should be able to build a catalog once, publish it, share it with a friend, and let that friend choose their own requirements, blocked times, instructor preferences, and schedule results.
+
+Sharing a catalog does not mean sharing an account or exposing saved schedules. Generated schedules stay transient by default, and only the schedules a user favorites are saved. Favorites are scoped to the catalog snapshot that produced them, not treated as one global cross-semester feed.
 
 ### Actual schedule generation
 
@@ -83,7 +102,7 @@ The app supports user-entered instructor preference scores. The core app works w
 
 ### Saved favorites
 
-Users can save schedules under their own account without needing a full social/profile system.
+Users can save schedules without needing a full social/profile system. Favorites exist to help someone quickly recover the good schedules they found for the current catalog. They stay personal even when the catalog came from a shared link.
 
 ## Production
 
