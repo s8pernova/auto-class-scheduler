@@ -1,7 +1,15 @@
 import { FaStar } from "react-icons/fa";
-import React, { useMemo, useState } from "react";
-import { useNavigate, useParams, Navigate } from "react-router-dom";
-import { useScheduleDraft } from "@/contexts/ScheduleDraftContext";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+    useNavigate,
+    useParams,
+    Navigate,
+    useSearchParams,
+} from "react-router-dom";
+import {
+    type ScheduleDraft,
+    useScheduleDraft,
+} from "@/contexts/ScheduleDraftContext";
 import { favoriteGeneratedSchedule } from "@/api";
 import type { GeneratedScheduleResponse } from "@/api";
 
@@ -31,6 +39,7 @@ const DAY_FILTERS: { value: DayFilter; label: string }[] = [
     { value: "meetsSat", label: "Saturday" },
 ];
 const EMPTY_SCHEDULES: GeneratedScheduleResponse[] = [];
+const DEV_RESULTS_FIXTURE_PARAM = "fixture";
 
 function formatTime(value: string): string {
     const [hoursText = "0", minutes = "00"] = value.split(":");
@@ -97,12 +106,62 @@ export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const { draft } = useScheduleDraft();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [sortKey, setSortKey] = useState<SortKey>("earliestStart");
     const [dayFilter, setDayFilter] = useState<DayFilter>("all");
     const [selectedResultId, setSelectedResultId] = useState<string | null>(
         null,
     );
-    const generationResult = draft.generationResult;
+    const [devFixtureDraft, setDevFixtureDraft] =
+        useState<ScheduleDraft | null>(null);
+    const [isLoadingDevFixture, setIsLoadingDevFixture] = useState(false);
+    const [didFailDevFixture, setDidFailDevFixture] = useState(false);
+    const fixtureName = searchParams.get(DEV_RESULTS_FIXTURE_PARAM);
+    const shouldLoadDevFixture = import.meta.env.DEV && fixtureName !== null;
+
+    useEffect(() => {
+        if (!shouldLoadDevFixture) {
+            setDevFixtureDraft(null);
+            setIsLoadingDevFixture(false);
+            setDidFailDevFixture(false);
+            return;
+        }
+
+        let isCurrent = true;
+        setIsLoadingDevFixture(true);
+        setDidFailDevFixture(false);
+
+        import("@/dev/scheduleResultsFixtures")
+            .then(({ getScheduleResultsDevFixture }) => {
+                if (isCurrent) {
+                    setDevFixtureDraft(
+                        getScheduleResultsDevFixture(
+                            fixtureName,
+                            catalogId ?? draft.catalogId,
+                        ),
+                    );
+                }
+            })
+            .catch((err) => {
+                console.error("Failed to load schedule results fixture", err);
+                if (isCurrent) {
+                    setDevFixtureDraft(null);
+                    setDidFailDevFixture(true);
+                }
+            })
+            .finally(() => {
+                if (isCurrent) {
+                    setIsLoadingDevFixture(false);
+                }
+            });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [catalogId, draft.catalogId, fixtureName, shouldLoadDevFixture]);
+
+    const activeDraft = devFixtureDraft ?? draft;
+    const generationResult = activeDraft.generationResult;
     const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
     const visibleSchedules = useMemo(() => {
         const filtered = allSchedules.filter((schedule) => {
@@ -121,7 +180,19 @@ export default function ScheduleResultsStep() {
         visibleSchedules[0] ??
         null;
 
-    if (draft.requirementCourses.length === 0) {
+    if (
+        shouldLoadDevFixture &&
+        !didFailDevFixture &&
+        (isLoadingDevFixture || !devFixtureDraft)
+    ) {
+        return (
+            <div className="h-full flex items-center justify-center text-background/50 text-sm">
+                Loading results fixture.
+            </div>
+        );
+    }
+
+    if (activeDraft.requirementCourses.length === 0) {
         return <Navigate to={`/catalogs/${catalogId}/build`} replace />;
     }
 
@@ -140,7 +211,7 @@ export default function ScheduleResultsStep() {
         e.stopPropagation();
         try {
             await favoriteGeneratedSchedule({
-                catalogId: draft.catalogId,
+                catalogId: activeDraft.catalogId,
                 catalogSectionIds: schedule.sections.map(
                     (section) => section.catalogSectionId,
                 ),

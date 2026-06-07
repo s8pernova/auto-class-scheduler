@@ -105,3 +105,7 @@ uvicorn backend.app:app --reload --port 8020
 # Run the frontend
 cd ui && npm install && npm run dev
 ```
+
+> [!NOTE]
+> When developing the results step, use the route `/catalogs/dev-catalog/results?fixture=generated-results`.
+> That should stop it from automatically going back to step 2 in the wizard.
