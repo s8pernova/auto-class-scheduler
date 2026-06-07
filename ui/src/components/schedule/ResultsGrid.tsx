@@ -33,8 +33,7 @@ export default function ResultsGrid({
                             key={schedule.resultId}
                             onClick={() => onSelectSchedule(schedule.resultId)}
                             className={`text-left border rounded-[10px] p-4 transition-colors ${
-                                selectedSchedule?.resultId ===
-                                schedule.resultId
+                                selectedSchedule?.resultId === schedule.resultId
                                     ? "border-accent bg-accent/10"
                                     : "border-background/10 bg-background/5 hover:border-background/30"
                             }`}
@@ -45,7 +44,8 @@ export default function ResultsGrid({
                                         Schedule {schedule.resultId}
                                     </h3>
                                     <p className="text-xs text-background/60 mt-1">
-                                        {scheduleDayCount(schedule)} meeting days
+                                        {scheduleDayCount(schedule)} meeting
+                                        days
                                     </p>
                                 </div>
                                 <div className="text-right text-sm text-background/70">
@@ -69,36 +69,6 @@ export default function ResultsGrid({
                                 >
                                     <FaStar />
                                 </button>
-                            </div>
-
-                            <div className="mt-4 flex flex-col gap-2">
-                                {schedule.sections.map((section) => (
-                                    <div
-                                        key={`${schedule.resultId}-${section.courseName}-${section.sectionCode}`}
-                                        className="rounded-md border border-background/10 px-3 py-2 text-sm"
-                                    >
-                                        <div className="font-semibold text-background">
-                                            {section.courseName}-{" "}
-                                            {section.sectionCode}
-                                        </div>
-                                        <div className="text-background/60">
-                                            {section.instructorName ||
-                                                "Instructor TBD"}
-                                        </div>
-                                        <div className="text-xs text-background/50 mt-1">
-                                            {section.meetings
-                                                .map(
-                                                    (meeting) =>
-                                                        `${meeting.dayOfWeek} ${formatTime(
-                                                            meeting.startTime,
-                                                        )}-${formatTime(
-                                                            meeting.endTime,
-                                                        )}`,
-                                                )
-                                                .join(", ")}
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
                         </button>
                     ))}
