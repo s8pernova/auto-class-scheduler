@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     type RequirementCourse,
@@ -6,7 +6,12 @@ import {
     type SectionRef,
     useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
-import { generateSchedules, replaceCatalogSections } from "@/api";
+import {
+    generateSchedules,
+    getScheduleLimits,
+    replaceCatalogSections,
+    type ScheduleLimitsResponse,
+} from "@/api";
 import {
     buildCatalogSectionsReplaceRequest,
     buildScheduleGenerateRequest,
@@ -33,6 +38,7 @@ export default function ScheduleRequestStep() {
     >([]);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [limits, setLimits] = useState<ScheduleLimitsResponse | null>(null);
 
     const selectedCourse = draft.requirementCourses.find(
         (group) => group.id === selectedCourseId,
@@ -66,6 +72,32 @@ export default function ScheduleRequestStep() {
     const canContinue =
         draft.requirementCourses.length > 0 &&
         draft.requirementCourses.every((course) => course.sections.length > 0);
+    const isCourseLimitReached =
+        limits !== null &&
+        draft.requirementCourses.length >= limits.maxCatalogCourses;
+    const isAddCourseDisabled = limits === null || isCourseLimitReached;
+
+    useEffect(() => {
+        let isCurrent = true;
+
+        getScheduleLimits()
+            .then((result) => {
+                if (isCurrent) {
+                    setLimits(result);
+                }
+            })
+            .catch((err) => {
+                setSaveError(
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to fetch schedule limits.",
+                );
+            });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, []);
 
     async function handleContinue() {
         if (!catalogId) return;
@@ -104,6 +136,19 @@ export default function ScheduleRequestStep() {
         }
 
         const label = parsed;
+
+        if (limits === null) {
+            alert("Course limits are still loading.");
+            return;
+        }
+
+        if (isCourseLimitReached) {
+            alert(
+                `You can add up to ${limits.maxCatalogCourses} course requirements.`,
+            );
+            return;
+        }
+
         const existingGroup = draft.requirementCourses.find(
             (group) => group.label === label,
         );
@@ -307,6 +352,7 @@ export default function ScheduleRequestStep() {
                 courses={draft.requirementCourses}
                 selectedCourseId={selectedCourseId}
                 highlightedCourseId={highlightedCourseId}
+                isAddCourseDisabled={isAddCourseDisabled}
                 onSelectCourse={setSelectedCourseId}
                 onAddCourse={handleAddCourse}
                 onRemoveCourse={removeCourse}

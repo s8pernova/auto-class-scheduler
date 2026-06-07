@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     max_results: int = 500
 
     # Catalog input limits
-    max_catalog_courses: int = 12
+    max_catalog_courses: int = 8
     max_catalog_sections: int = 150
     max_sections_per_course: int = 20
     max_meetings_per_section: int = 5

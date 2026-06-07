@@ -5,6 +5,7 @@ type RequirementsSidebarProps = {
     courses: RequirementCourse[];
     selectedCourseId: string | null;
     highlightedCourseId: string | null;
+    isAddCourseDisabled: boolean;
     onSelectCourse: (id: string) => void;
     onAddCourse: (e: React.FormEvent<HTMLFormElement>) => void;
     onRemoveCourse: (id: string, e: React.MouseEvent) => void;
@@ -14,6 +15,7 @@ export default function RequirementsSidebar({
     courses,
     selectedCourseId,
     highlightedCourseId,
+    isAddCourseDisabled,
     onSelectCourse,
     onAddCourse,
     onRemoveCourse,
@@ -31,11 +33,18 @@ export default function RequirementsSidebar({
                     placeholder="e.g. CS 2104"
                     maxLength={15}
                     required
+                    disabled={isAddCourseDisabled}
                     className="flex-1 px-3 py-2 border border-background/20 rounded-md bg-transparent focus:border-accent outline-none transition-colors"
                 />
                 <button
                     type="submit"
-                    className="px-4 py-2 bg-accent text-white rounded-md font-medium hover:bg-accent/90 transition-colors"
+                    disabled={isAddCourseDisabled}
+                    title={
+                        isAddCourseDisabled
+                            ? "Cannot add course requirement"
+                            : "Add course requirement"
+                    }
+                    className="px-4 py-2 bg-accent text-white rounded-md font-medium hover:bg-accent/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <FaPlus />
                 </button>
