@@ -25,7 +25,9 @@ export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const {
         draft,
-        updateDraft,
+        updateCatalogDraft,
+        updateScheduleRequest,
+        setGenerationResult,
         isDraftLoading,
         draftError,
         isCatalogDraftDirty,
@@ -166,7 +168,7 @@ export default function ScheduleRequestStep() {
                 return;
             }
 
-            updateDraft({ generationResult });
+            setGenerationResult(generationResult);
             navigate(`/catalogs/${targetCatalogId}/results`);
         } catch (err) {
             setSaveError(
@@ -230,8 +232,10 @@ export default function ScheduleRequestStep() {
             sections: [],
         };
 
-        updateDraft({
+        updateCatalogDraft({
             requirementCourses: [...draft.requirementCourses, newGroup],
+        });
+        updateScheduleRequest({
             requirementGroups: [
                 ...draft.requirementGroups,
                 {
@@ -262,10 +266,12 @@ export default function ScheduleRequestStep() {
             })
             .filter((group) => group.courseIds.length > 0 && group.choose > 0);
 
-        updateDraft({
+        updateCatalogDraft({
             requirementCourses: draft.requirementCourses.filter(
                 (group) => group.id !== id,
             ),
+        });
+        updateScheduleRequest({
             requirementGroups,
         });
 
@@ -278,7 +284,7 @@ export default function ScheduleRequestStep() {
         groupId: string,
         patch: Partial<RequirementCourse>,
     ) {
-        updateDraft({
+        updateCatalogDraft({
             requirementCourses: draft.requirementCourses.map((group) =>
                 group.id === groupId ? { ...group, ...patch } : group,
             ),
@@ -363,7 +369,7 @@ export default function ScheduleRequestStep() {
         instructorName: string,
         rating: number | null,
     ) {
-        updateDraft({
+        updateScheduleRequest({
             instructorRatings: {
                 ...draft.instructorRatings,
                 [instructorName]: rating,
@@ -384,7 +390,7 @@ export default function ScheduleRequestStep() {
     }
 
     function handleIgnoreInstructor(instructorName: string) {
-        updateDraft({
+        updateScheduleRequest({
             instructorRatings: omitInstructorRating(
                 draft.instructorRatings,
                 instructorName,

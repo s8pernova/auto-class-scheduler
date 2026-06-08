@@ -57,6 +57,14 @@ export interface ScheduleDraft {
     generationResult: ScheduleGenerateResponse | null;
 }
 
+type CatalogDraftPatch = Partial<Pick<ScheduleDraft, "requirementCourses">>;
+type ScheduleRequestPatch = Partial<
+    Pick<
+        ScheduleDraft,
+        "requirementGroups" | "blockedTimes" | "instructorRatings"
+    >
+>;
+
 interface ScheduleDraftContextType {
     draft: ScheduleDraft;
     catalog: CatalogResponse | null;
@@ -72,7 +80,9 @@ interface ScheduleDraftContextType {
     isCatalogDraftDirty: boolean;
     isForkingCatalog: boolean;
     forkError: string | null;
-    updateDraft: (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => void;
+    updateCatalogDraft: (patch: CatalogDraftPatch) => void;
+    updateScheduleRequest: (patch: ScheduleRequestPatch) => void;
+    setGenerationResult: (result: ScheduleGenerateResponse | null) => void;
     resetDraft: () => void;
     refreshCatalog: () => Promise<void>;
     refreshDraft: () => Promise<void>;
@@ -86,31 +96,24 @@ const ScheduleDraftContext = createContext<ScheduleDraftContextType | null>(
     null,
 );
 
-const GENERATION_INPUT_KEYS = [
-    "requirementCourses",
+const SCHEDULE_REQUEST_KEYS = [
     "requirementGroups",
     "blockedTimes",
     "instructorRatings",
 ] as const;
 
-const CATALOG_DRAFT_KEYS = ["requirementCourses"] as const;
-
-function patchChangesGenerationInputs(
-    patch: Partial<Omit<ScheduleDraft, "catalogId">>,
+function patchHasKey<T extends object, K extends keyof T>(
+    patch: Partial<T>,
+    key: K,
 ): boolean {
-    if (Object.prototype.hasOwnProperty.call(patch, "generationResult")) {
-        return false;
-    }
-
-    return GENERATION_INPUT_KEYS.some((key) =>
-        Object.prototype.hasOwnProperty.call(patch, key),
-    );
+    return Object.prototype.hasOwnProperty.call(patch, key);
 }
 
-function patchChangesCatalogDraft(
-    patch: Partial<Omit<ScheduleDraft, "catalogId">>,
+function patchHasAnyKey<T extends object, K extends keyof T>(
+    patch: Partial<T>,
+    keys: readonly K[],
 ): boolean {
-    return CATALOG_DRAFT_KEYS.some((key) =>
+    return keys.some((key) =>
         Object.prototype.hasOwnProperty.call(patch, key),
     );
 }
@@ -370,29 +373,46 @@ export function ScheduleDraftProvider({
         };
     }, [catalogId, entryCatalog, entryDraft]);
 
-    const updateDraft = useCallback(
-        (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => {
-            setDraft((prev) => {
-                const hasGenerationResultPatch =
-                    Object.prototype.hasOwnProperty.call(
-                        patch,
-                        "generationResult",
-                    );
+    const updateCatalogDraft = useCallback(
+        (patch: CatalogDraftPatch) => {
+            if (!patchHasKey(patch, "requirementCourses")) {
+                return;
+            }
 
+            setDraft((prev) => {
                 return {
                     ...prev,
                     ...patch,
-                    generationResult: patchChangesGenerationInputs(patch)
-                        ? null
-                        : hasGenerationResultPatch
-                          ? (patch.generationResult ?? null)
-                          : prev.generationResult,
+                    generationResult: null,
                 };
             });
+            setIsCatalogDraftDirty(true);
+        },
+        [],
+    );
 
-            if (patchChangesCatalogDraft(patch)) {
-                setIsCatalogDraftDirty(true);
-            }
+    const updateScheduleRequest = useCallback(
+        (patch: ScheduleRequestPatch) => {
+            setDraft((prev) => ({
+                ...prev,
+                ...patch,
+                generationResult: patchHasAnyKey(
+                    patch,
+                    SCHEDULE_REQUEST_KEYS,
+                )
+                    ? null
+                    : prev.generationResult,
+            }));
+        },
+        [],
+    );
+
+    const setGenerationResult = useCallback(
+        (result: ScheduleGenerateResponse | null) => {
+            setDraft((prev) => ({
+                ...prev,
+                generationResult: result,
+            }));
         },
         [],
     );
@@ -455,7 +475,9 @@ export function ScheduleDraftProvider({
             isCatalogDraftDirty,
             isForkingCatalog,
             forkError,
-            updateDraft,
+            updateCatalogDraft,
+            updateScheduleRequest,
+            setGenerationResult,
             resetDraft,
             refreshCatalog,
             refreshDraft,
@@ -477,7 +499,9 @@ export function ScheduleDraftProvider({
             isCatalogDraftDirty,
             isForkingCatalog,
             forkError,
-            updateDraft,
+            updateCatalogDraft,
+            updateScheduleRequest,
+            setGenerationResult,
             resetDraft,
             refreshCatalog,
             refreshDraft,
