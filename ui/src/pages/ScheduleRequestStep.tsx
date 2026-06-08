@@ -23,7 +23,8 @@ import InstructorRatings from "@/components/schedule/InstructorRatings";
 
 export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
-    const { draft, updateDraft } = useScheduleDraft();
+    const { draft, updateDraft, isDraftLoading, draftError } =
+        useScheduleDraft();
     const navigate = useNavigate();
 
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
@@ -98,6 +99,22 @@ export default function ScheduleRequestStep() {
             isCurrent = false;
         };
     }, []);
+
+    if (isDraftLoading) {
+        return (
+            <div className="h-full col-span-full flex items-center justify-center text-background/50 text-sm">
+                Loading catalog sections.
+            </div>
+        );
+    }
+
+    if (draftError) {
+        return (
+            <div className="h-full col-span-full flex items-center justify-center text-background/60 text-sm">
+                {draftError}
+            </div>
+        );
+    }
 
     async function handleContinue() {
         if (!catalogId) return;

@@ -1,5 +1,7 @@
 import {
     getCatalog,
+    getCatalogSections,
+    type CatalogSectionResponse,
     type CatalogResponse,
     type ScheduleGenerateResponse,
 } from "@/api";
@@ -64,9 +66,12 @@ interface ScheduleDraftContextType {
     forkedFromCatalogId: string | null;
     isCatalogLoading: boolean;
     catalogError: string | null;
+    isDraftLoading: boolean;
+    draftError: string | null;
     updateDraft: (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => void;
     resetDraft: () => void;
     refreshCatalog: () => Promise<void>;
+    refreshDraft: () => Promise<void>;
 }
 
 // Context
@@ -105,6 +110,85 @@ function buildInitialDraft(catalogId: string): ScheduleDraft {
     };
 }
 
+function slugifyCourseId(value: string): string {
+    return (
+        value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "") || "course"
+    );
+}
+
+function formatMeetingTime(value: string): string {
+    const [hours, minutes] = value.trim().split(":");
+
+    if (!hours || !minutes) {
+        return value.trim();
+    }
+
+    return `${hours.padStart(2, "0")}:${minutes}`;
+}
+
+function getFirstMeeting(section: CatalogSectionResponse) {
+    return [...(section.meetings ?? [])].sort(
+        (left, right) => left.sortOrder - right.sortOrder,
+    )[0];
+}
+
+function buildDraftFromCatalogSections(
+    catalogId: string,
+    sections: CatalogSectionResponse[],
+): ScheduleDraft {
+    const coursesByName = new Map<string, RequirementCourse>();
+
+    const sortedSections = [...sections].sort(
+        (left, right) => left.sortOrder - right.sortOrder,
+    );
+
+    for (const section of sortedSections) {
+        const label = section.courseName.trim();
+        let course = coursesByName.get(label);
+
+        if (!course) {
+            const id = `course-${slugifyCourseId(label)}-${coursesByName.size}`;
+            course = {
+                id,
+                label,
+                sections: [],
+            };
+            coursesByName.set(label, course);
+        }
+
+        const meeting = getFirstMeeting(section);
+
+        course.sections.push({
+            days: meeting?.days ?? "",
+            time: meeting
+                ? `${formatMeetingTime(meeting.startTime)}-${formatMeetingTime(
+                      meeting.endTime,
+                  )}`
+                : "",
+            crn: section.crn ?? "",
+            instructor: section.instructorName ?? "",
+        });
+    }
+
+    const requirementCourses = [...coursesByName.values()];
+
+    return {
+        catalogId,
+        requirementCourses,
+        requirementGroups: requirementCourses.map((course) => ({
+            id: `group-${course.id}`,
+            courseIds: [course.id],
+            choose: 1,
+        })),
+        blockedTimes: [],
+        instructorRatings: {},
+        generationResult: null,
+    };
+}
+
 // Provider
 
 interface ScheduleDraftProviderProps {
@@ -124,6 +208,12 @@ function isMatchingEntryCatalog(
 
 function getCatalogErrorMessage(err: unknown): string {
     return err instanceof Error ? err.message : "Failed to fetch catalog.";
+}
+
+function getDraftErrorMessage(err: unknown): string {
+    return err instanceof Error
+        ? err.message
+        : "Failed to fetch catalog sections.";
 }
 
 export function ScheduleDraftProvider({
@@ -146,6 +236,8 @@ export function ScheduleDraftProvider({
         initialCatalog === null,
     );
     const [catalogError, setCatalogError] = useState<string | null>(null);
+    const [isDraftLoading, setIsDraftLoading] = useState(true);
+    const [draftError, setDraftError] = useState<string | null>(null);
 
     const refreshCatalog = useCallback(async () => {
         setIsCatalogLoading(true);
@@ -161,6 +253,20 @@ export function ScheduleDraftProvider({
         }
     }, [catalogId]);
 
+    const refreshDraft = useCallback(async () => {
+        setIsDraftLoading(true);
+        setDraftError(null);
+
+        try {
+            const sections = await getCatalogSections(catalogId);
+            setDraft(buildDraftFromCatalogSections(catalogId, sections));
+        } catch (err) {
+            setDraftError(getDraftErrorMessage(err));
+        } finally {
+            setIsDraftLoading(false);
+        }
+    }, [catalogId]);
+
     useEffect(() => {
         let isCurrent = true;
         const seededCatalog = isMatchingEntryCatalog(catalogId, entryCatalog)
@@ -170,6 +276,22 @@ export function ScheduleDraftProvider({
         setDraft(buildInitialDraft(catalogId));
         setCatalog(seededCatalog);
         setCatalogError(null);
+        setDraftError(null);
+
+        setIsDraftLoading(true);
+        getCatalogSections(catalogId)
+            .then((sections) => {
+                if (!isCurrent) return;
+                setDraft(buildDraftFromCatalogSections(catalogId, sections));
+            })
+            .catch((err) => {
+                if (!isCurrent) return;
+                setDraftError(getDraftErrorMessage(err));
+            })
+            .finally(() => {
+                if (!isCurrent) return;
+                setIsDraftLoading(false);
+            });
 
         if (seededCatalog) {
             setIsCatalogLoading(false);
@@ -242,9 +364,12 @@ export function ScheduleDraftProvider({
             forkedFromCatalogId,
             isCatalogLoading,
             catalogError,
+            isDraftLoading,
+            draftError,
             updateDraft,
             resetDraft,
             refreshCatalog,
+            refreshDraft,
         }),
         [
             draft,
@@ -256,9 +381,12 @@ export function ScheduleDraftProvider({
             forkedFromCatalogId,
             isCatalogLoading,
             catalogError,
+            isDraftLoading,
+            draftError,
             updateDraft,
             resetDraft,
             refreshCatalog,
+            refreshDraft,
         ],
     );
 
