@@ -125,6 +125,37 @@ export default function ScheduleRequestStep() {
         );
     }
 
+    async function saveCatalogDraftIfNeeded(): Promise<{
+        targetCatalogId: string;
+        targetCatalog: Awaited<ReturnType<typeof ensureEditableCatalog>> | null;
+        targetDraft: typeof draft;
+    }> {
+        if (!catalogId || !isCatalogDraftDirty) {
+            return {
+                targetCatalogId: catalogId ?? draft.catalogId,
+                targetCatalog: null,
+                targetDraft: draft,
+            };
+        }
+
+        const targetCatalog = await ensureEditableCatalog();
+        const targetCatalogId = targetCatalog.id;
+        const targetDraft = {
+            ...draft,
+            catalogId: targetCatalogId,
+        };
+
+        const payload = buildCatalogSectionsReplaceRequest(targetDraft);
+        await replaceCatalogSections(targetCatalogId, payload);
+        markCatalogDraftClean();
+
+        return {
+            targetCatalogId,
+            targetCatalog,
+            targetDraft,
+        };
+    }
+
     async function handleContinue() {
         if (!catalogId) return;
 
@@ -132,22 +163,8 @@ export default function ScheduleRequestStep() {
         setIsSaving(true);
 
         try {
-            let targetCatalogId = catalogId;
-            let targetCatalog = null;
-            let targetDraft = draft;
-
-            if (isCatalogDraftDirty) {
-                targetCatalog = await ensureEditableCatalog();
-                targetCatalogId = targetCatalog.id;
-                targetDraft = {
-                    ...draft,
-                    catalogId: targetCatalogId,
-                };
-
-                const payload = buildCatalogSectionsReplaceRequest(targetDraft);
-                await replaceCatalogSections(targetCatalogId, payload);
-                markCatalogDraftClean();
-            }
+            const { targetCatalogId, targetCatalog, targetDraft } =
+                await saveCatalogDraftIfNeeded();
 
             const generationPayload = buildScheduleGenerateRequest(targetDraft);
             const generationResult = await generateSchedules(generationPayload);

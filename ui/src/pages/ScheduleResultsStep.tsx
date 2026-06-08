@@ -25,7 +25,7 @@ const DEV_RESULTS_FIXTURE_PARAM = "fixture";
 
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
-    const { draft } = useScheduleDraft();
+    const { draft, isDraftLoading, draftError } = useScheduleDraft();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [sortKey, setSortKey] = useState<SortKey>("earliestStart");
@@ -82,6 +82,7 @@ export default function ScheduleResultsStep() {
     }, [catalogId, draft.catalogId, fixtureName, shouldLoadDevFixture]);
 
     const activeDraft = devFixtureDraft ?? draft;
+    const isUsingDevFixture = devFixtureDraft !== null;
     const generationResult = activeDraft.generationResult;
     const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
     const visibleSchedules = useMemo(() => {
@@ -109,6 +110,22 @@ export default function ScheduleResultsStep() {
         return (
             <div className="h-full flex items-center justify-center text-background/50 text-sm">
                 Loading results fixture.
+            </div>
+        );
+    }
+
+    if (!isUsingDevFixture && isDraftLoading) {
+        return (
+            <div className="h-full flex items-center justify-center text-background/50 text-sm">
+                Loading catalog sections.
+            </div>
+        );
+    }
+
+    if (!isUsingDevFixture && draftError) {
+        return (
+            <div className="h-full flex items-center justify-center text-background/60 text-sm">
+                {draftError}
             </div>
         );
     }
