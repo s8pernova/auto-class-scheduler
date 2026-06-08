@@ -43,9 +43,11 @@ Assumptions:
 ## Decision
 
 Course Scheduler will treat published catalogs as immutable, shareable snapshots.
-Draft catalogs remain editable and private. Editing a published or shared
-catalog creates a new draft fork with a new catalog URL. Favorites are personal
-and scoped to the catalog snapshot that produced them.
+Draft catalogs remain editable and private. Using a shared catalog for schedule
+generation does not create a fork. Attempting to edit catalog contents from a
+published or shared catalog creates a new draft fork before the first edit is
+saved. Favorites are personal and scoped to the catalog snapshot that produced
+them.
 
 Decision details:
 
@@ -54,8 +56,9 @@ Decision details:
   shareable.
 - Schedule generation and favorite persistence operate against stable published
   catalog section IDs.
-- Editing a published catalog, or modifying a catalog received from a shared
-  link, creates a forked draft instead of mutating the published snapshot.
+- Opening or generating schedules from a shared catalog does not fork it.
+- Attempting to edit a published/shared catalog prompts the user to create an
+  editable draft copy, then saves edits only to that forked draft.
 - Favorites are shown in the context of the current catalog, not as a global
   cross-semester feed.
 - The default identity path should be lightweight, preferably Supabase anonymous
@@ -83,8 +86,10 @@ someone edits the underlying course sections. A favorite can safely reference
 catalog section IDs because the published catalog snapshot does not change.
 
 Fork-on-edit also matches user expectations for shared data. A student can use a
-friend's catalog as a starting point, make their own changes, and publish a new
-link without damaging the original catalog.
+friend's catalog as-is without creating extra data. When they try to customize
+the catalog itself, the app makes the transition explicit, creates their own
+draft copy, and lets them publish a new link without damaging the original
+catalog.
 
 Keeping favorites catalog-scoped fits the product better than a global account
 dashboard. Favorites exist to help a student recover good schedules found while
@@ -116,7 +121,9 @@ controls.
 - Publishing a catalog validates and freezes the candidate section set, then
   returns or exposes the shareable catalog URL.
 - Loading a shared catalog opens the published snapshot for generation.
-- Editing a published/shared catalog creates a new draft fork.
+- Loading a shared catalog does not fork it by itself.
+- Starting a catalog edit from a published/shared catalog creates a new draft
+  fork before the edit is saved.
 - Favorite endpoints should require a user identity, but that identity can be an
   anonymous Supabase user.
 
