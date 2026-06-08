@@ -1,5 +1,7 @@
 import { supabase } from "@/clients/supabaseClient";
 
+let anonymousSignInPromise: Promise<string> | null = null;
+
 type ApiResult<T> =
     | {
           data: T;
@@ -74,7 +76,9 @@ export async function buildApiErrorMessage(
         return `${fallback}: ${body.message}`;
     }
 
-    return response?.statusText ? `${fallback}: ${response.statusText}` : fallback;
+    return response?.statusText
+        ? `${fallback}: ${response.statusText}`
+        : fallback;
 }
 
 export async function getAccessToken(): Promise<string | undefined> {
@@ -83,6 +87,36 @@ export async function getAccessToken(): Promise<string | undefined> {
     } = await supabase.auth.getSession();
 
     return session?.access_token;
+}
+
+async function signInAnonymously(): Promise<string> {
+    const { data, error } = await supabase.auth.signInAnonymously();
+
+    if (error) {
+        throw new Error(`Failed to start anonymous session: ${error.message}`);
+    }
+
+    const accessToken = data.session?.access_token;
+
+    if (!accessToken) {
+        throw new Error("Failed to start anonymous session.");
+    }
+
+    return accessToken;
+}
+
+export async function getRequiredAccessToken(): Promise<string> {
+    const existingToken = await getAccessToken();
+
+    if (existingToken) {
+        return existingToken;
+    }
+
+    anonymousSignInPromise ??= signInAnonymously().finally(() => {
+        anonymousSignInPromise = null;
+    });
+
+    return anonymousSignInPromise;
 }
 
 export async function unwrapApiResult<T>(

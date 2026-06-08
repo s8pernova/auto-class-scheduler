@@ -24,7 +24,11 @@ import type {
     GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponse,
     PublishCatalogApiV1CatalogsCatalogIdPublishPostResponse,
 } from "@/api/generated";
-import { getAccessToken, unwrapApiResult } from "@/api/http";
+import {
+    getAccessToken,
+    getRequiredAccessToken,
+    unwrapApiResult,
+} from "@/api/http";
 
 export type CreateCatalogPayload = CatalogCreate;
 
@@ -42,7 +46,7 @@ export async function createCatalog(
 ): Promise<CreateCatalogApiV1CatalogsPostResponse> {
     return unwrapApiResult(
         await createCatalogApiV1CatalogsPost({
-            auth: getAccessToken,
+            auth: getRequiredAccessToken,
             body: payload,
         }),
         "Failed to create catalog",
@@ -79,7 +83,7 @@ export async function replaceCatalogSections(
 ): Promise<ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutResponse> {
     return unwrapApiResult(
         await replaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPut({
-            auth: getAccessToken,
+            auth: getRequiredAccessToken,
             body: payload,
             path: { catalog_id: catalogId },
         }),
@@ -103,7 +107,7 @@ export async function publishCatalog(
 ): Promise<PublishCatalogApiV1CatalogsCatalogIdPublishPostResponse> {
     return unwrapApiResult(
         await publishCatalogApiV1CatalogsCatalogIdPublishPost({
-            auth: getAccessToken,
+            auth: getRequiredAccessToken,
             path: { catalog_id: catalogId },
         }),
         "Failed to publish catalog",
@@ -116,7 +120,7 @@ export async function forkCatalog(
 ): Promise<ForkCatalogApiV1CatalogsCatalogIdForkPostResponse> {
     return unwrapApiResult(
         await forkCatalogApiV1CatalogsCatalogIdForkPost({
-            auth: getAccessToken,
+            auth: getRequiredAccessToken,
             path: { catalog_id: catalogId },
             body: payload,
         }),
