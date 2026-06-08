@@ -23,8 +23,15 @@ import InstructorRatings from "@/components/schedule/InstructorRatings";
 
 export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
-    const { draft, updateDraft, isDraftLoading, draftError } =
-        useScheduleDraft();
+    const {
+        draft,
+        updateDraft,
+        isDraftLoading,
+        draftError,
+        isCatalogDraftDirty,
+        ensureEditableCatalog,
+        markCatalogDraftClean,
+    } = useScheduleDraft();
     const navigate = useNavigate();
 
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
@@ -123,13 +130,44 @@ export default function ScheduleRequestStep() {
         setIsSaving(true);
 
         try {
-            const payload = buildCatalogSectionsReplaceRequest(draft);
-            await replaceCatalogSections(catalogId, payload);
-            const generationPayload = buildScheduleGenerateRequest(draft);
+            let targetCatalogId = catalogId;
+            let targetCatalog = null;
+            let targetDraft = draft;
+
+            if (isCatalogDraftDirty) {
+                targetCatalog = await ensureEditableCatalog();
+                targetCatalogId = targetCatalog.id;
+                targetDraft = {
+                    ...draft,
+                    catalogId: targetCatalogId,
+                };
+
+                const payload = buildCatalogSectionsReplaceRequest(targetDraft);
+                await replaceCatalogSections(targetCatalogId, payload);
+                markCatalogDraftClean();
+            }
+
+            const generationPayload = buildScheduleGenerateRequest(targetDraft);
             const generationResult = await generateSchedules(generationPayload);
+            const draftWithResults = {
+                ...targetDraft,
+                generationResult,
+            };
+
+            if (targetCatalogId !== catalogId) {
+                navigate(`/catalogs/${targetCatalogId}/results`, {
+                    replace: true,
+                    state: {
+                        source: "forked_catalog",
+                        catalog: targetCatalog,
+                        draft: draftWithResults,
+                    },
+                });
+                return;
+            }
 
             updateDraft({ generationResult });
-            navigate(`/catalogs/${catalogId}/results`);
+            navigate(`/catalogs/${targetCatalogId}/results`);
         } catch (err) {
             setSaveError(
                 err instanceof Error

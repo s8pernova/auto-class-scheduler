@@ -1,4 +1,5 @@
 import {
+    forkCatalog,
     getCatalog,
     getCatalogSections,
     type CatalogSectionResponse,
@@ -68,10 +69,15 @@ interface ScheduleDraftContextType {
     catalogError: string | null;
     isDraftLoading: boolean;
     draftError: string | null;
+    isCatalogDraftDirty: boolean;
+    isForkingCatalog: boolean;
+    forkError: string | null;
     updateDraft: (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => void;
     resetDraft: () => void;
     refreshCatalog: () => Promise<void>;
     refreshDraft: () => Promise<void>;
+    markCatalogDraftClean: () => void;
+    ensureEditableCatalog: () => Promise<CatalogResponse>;
 }
 
 // Context
@@ -87,6 +93,8 @@ const GENERATION_INPUT_KEYS = [
     "instructorRatings",
 ] as const;
 
+const CATALOG_DRAFT_KEYS = ["requirementCourses"] as const;
+
 function patchChangesGenerationInputs(
     patch: Partial<Omit<ScheduleDraft, "catalogId">>,
 ): boolean {
@@ -95,6 +103,14 @@ function patchChangesGenerationInputs(
     }
 
     return GENERATION_INPUT_KEYS.some((key) =>
+        Object.prototype.hasOwnProperty.call(patch, key),
+    );
+}
+
+function patchChangesCatalogDraft(
+    patch: Partial<Omit<ScheduleDraft, "catalogId">>,
+): boolean {
+    return CATALOG_DRAFT_KEYS.some((key) =>
         Object.prototype.hasOwnProperty.call(patch, key),
     );
 }
@@ -195,6 +211,7 @@ interface ScheduleDraftProviderProps {
     catalogId: string;
     children: ReactNode;
     entryCatalog?: CatalogResponse;
+    entryDraft?: ScheduleDraft;
     entryShareSlug?: string;
     isSharedEntry?: boolean;
 }
@@ -204,6 +221,13 @@ function isMatchingEntryCatalog(
     catalog: CatalogResponse | undefined,
 ): catalog is CatalogResponse {
     return catalog?.id === catalogId;
+}
+
+function isMatchingEntryDraft(
+    catalogId: string,
+    draft: ScheduleDraft | undefined,
+): draft is ScheduleDraft {
+    return draft?.catalogId === catalogId;
 }
 
 function getCatalogErrorMessage(err: unknown): string {
@@ -216,18 +240,27 @@ function getDraftErrorMessage(err: unknown): string {
         : "Failed to fetch catalog sections.";
 }
 
+function getForkErrorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : "Failed to fork catalog.";
+}
+
 export function ScheduleDraftProvider({
     catalogId,
     children,
     entryCatalog,
+    entryDraft,
     entryShareSlug,
     isSharedEntry = false,
 }: ScheduleDraftProviderProps) {
     const initialCatalog = isMatchingEntryCatalog(catalogId, entryCatalog)
         ? entryCatalog
         : null;
+    const initialEntryDraft = isMatchingEntryDraft(catalogId, entryDraft)
+        ? entryDraft
+        : null;
+    const initialDraft = initialEntryDraft ?? buildInitialDraft(catalogId);
     const [draft, setDraft] = useState<ScheduleDraft>(() =>
-        buildInitialDraft(catalogId),
+        initialDraft,
     );
     const [catalog, setCatalog] = useState<CatalogResponse | null>(
         initialCatalog,
@@ -236,8 +269,13 @@ export function ScheduleDraftProvider({
         initialCatalog === null,
     );
     const [catalogError, setCatalogError] = useState<string | null>(null);
-    const [isDraftLoading, setIsDraftLoading] = useState(true);
+    const [isDraftLoading, setIsDraftLoading] = useState(
+        initialEntryDraft === null,
+    );
     const [draftError, setDraftError] = useState<string | null>(null);
+    const [isCatalogDraftDirty, setIsCatalogDraftDirty] = useState(false);
+    const [isForkingCatalog, setIsForkingCatalog] = useState(false);
+    const [forkError, setForkError] = useState<string | null>(null);
 
     const refreshCatalog = useCallback(async () => {
         setIsCatalogLoading(true);
@@ -260,6 +298,7 @@ export function ScheduleDraftProvider({
         try {
             const sections = await getCatalogSections(catalogId);
             setDraft(buildDraftFromCatalogSections(catalogId, sections));
+            setIsCatalogDraftDirty(false);
         } catch (err) {
             setDraftError(getDraftErrorMessage(err));
         } finally {
@@ -272,26 +311,36 @@ export function ScheduleDraftProvider({
         const seededCatalog = isMatchingEntryCatalog(catalogId, entryCatalog)
             ? entryCatalog
             : null;
+        const seededDraft = isMatchingEntryDraft(catalogId, entryDraft)
+            ? entryDraft
+            : null;
 
-        setDraft(buildInitialDraft(catalogId));
+        setDraft(seededDraft ?? buildInitialDraft(catalogId));
         setCatalog(seededCatalog);
         setCatalogError(null);
         setDraftError(null);
+        setForkError(null);
+        setIsCatalogDraftDirty(false);
 
-        setIsDraftLoading(true);
-        getCatalogSections(catalogId)
-            .then((sections) => {
-                if (!isCurrent) return;
-                setDraft(buildDraftFromCatalogSections(catalogId, sections));
-            })
-            .catch((err) => {
-                if (!isCurrent) return;
-                setDraftError(getDraftErrorMessage(err));
-            })
-            .finally(() => {
-                if (!isCurrent) return;
-                setIsDraftLoading(false);
-            });
+        if (seededDraft) {
+            setIsDraftLoading(false);
+        } else {
+            setIsDraftLoading(true);
+            getCatalogSections(catalogId)
+                .then((sections) => {
+                    if (!isCurrent) return;
+                    setDraft(buildDraftFromCatalogSections(catalogId, sections));
+                    setIsCatalogDraftDirty(false);
+                })
+                .catch((err) => {
+                    if (!isCurrent) return;
+                    setDraftError(getDraftErrorMessage(err));
+                })
+                .finally(() => {
+                    if (!isCurrent) return;
+                    setIsDraftLoading(false);
+                });
+        }
 
         if (seededCatalog) {
             setIsCatalogLoading(false);
@@ -319,7 +368,7 @@ export function ScheduleDraftProvider({
         return () => {
             isCurrent = false;
         };
-    }, [catalogId, entryCatalog]);
+    }, [catalogId, entryCatalog, entryDraft]);
 
     const updateDraft = useCallback(
         (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => {
@@ -340,18 +389,55 @@ export function ScheduleDraftProvider({
                           : prev.generationResult,
                 };
             });
+
+            if (patchChangesCatalogDraft(patch)) {
+                setIsCatalogDraftDirty(true);
+            }
         },
         [],
     );
 
     const resetDraft = useCallback(() => {
         setDraft(buildInitialDraft(catalogId));
+        setIsCatalogDraftDirty(false);
     }, [catalogId]);
+
+    const markCatalogDraftClean = useCallback(() => {
+        setIsCatalogDraftDirty(false);
+    }, []);
 
     const catalogStatus = catalog?.status ?? null;
     const shareSlug = catalog?.share_slug ?? entryShareSlug ?? null;
     const forkedFromCatalogId = catalog?.forked_from_catalog_id ?? null;
     const isPublished = catalogStatus === "published";
+
+    const ensureEditableCatalog = useCallback(async (): Promise<CatalogResponse> => {
+        setForkError(null);
+
+        const currentCatalog = catalog ?? (await getCatalog(catalogId));
+        const needsFork =
+            isSharedEntry ||
+            currentCatalog.status === "published" ||
+            currentCatalog.source_type === "demo";
+
+        if (!needsFork) {
+            return currentCatalog;
+        }
+
+        setIsForkingCatalog(true);
+
+        try {
+            const forkedCatalog = await forkCatalog(catalogId);
+            setCatalog(forkedCatalog);
+            return forkedCatalog;
+        } catch (err) {
+            const message = getForkErrorMessage(err);
+            setForkError(message);
+            throw new Error(message);
+        } finally {
+            setIsForkingCatalog(false);
+        }
+    }, [catalog, catalogId, isSharedEntry]);
 
     const value = useMemo(
         () => ({
@@ -366,10 +452,15 @@ export function ScheduleDraftProvider({
             catalogError,
             isDraftLoading,
             draftError,
+            isCatalogDraftDirty,
+            isForkingCatalog,
+            forkError,
             updateDraft,
             resetDraft,
             refreshCatalog,
             refreshDraft,
+            markCatalogDraftClean,
+            ensureEditableCatalog,
         }),
         [
             draft,
@@ -383,10 +474,15 @@ export function ScheduleDraftProvider({
             catalogError,
             isDraftLoading,
             draftError,
+            isCatalogDraftDirty,
+            isForkingCatalog,
+            forkError,
             updateDraft,
             resetDraft,
             refreshCatalog,
             refreshDraft,
+            markCatalogDraftClean,
+            ensureEditableCatalog,
         ],
     );
 
