@@ -28,11 +28,16 @@ export default function ScheduleRequestStep() {
         updateCatalogDraft,
         updateScheduleRequest,
         setGenerationResult,
+        shareSlug,
+        catalogStatus,
+        isCatalogLoading,
+        catalogError,
         isDraftLoading,
         draftError,
         isCatalogDraftDirty,
         ensureEditableCatalog,
         markCatalogDraftClean,
+        publishCurrentCatalog,
     } = useScheduleDraft();
     const navigate = useNavigate();
 
@@ -48,6 +53,7 @@ export default function ScheduleRequestStep() {
     >([]);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [copyShareLabel, setCopyShareLabel] = useState("Copy Link");
     const [limits, setLimits] = useState<ScheduleLimitsResponse | null>(null);
 
     const selectedCourse = draft.requirementCourses.find(
@@ -86,6 +92,9 @@ export default function ScheduleRequestStep() {
         limits !== null &&
         draft.requirementCourses.length >= limits.maxCatalogCourses;
     const isAddCourseDisabled = limits === null || isCourseLimitReached;
+    const shareUrl = shareSlug
+        ? `${window.location.origin}/c/${shareSlug}`
+        : null;
 
     useEffect(() => {
         let isCurrent = true;
@@ -109,18 +118,18 @@ export default function ScheduleRequestStep() {
         };
     }, []);
 
-    if (isDraftLoading) {
+    if (isDraftLoading || isCatalogLoading) {
         return (
             <div className="h-full col-span-full flex items-center justify-center text-background/50 text-sm">
-                Loading catalog sections.
+                Loading catalog.
             </div>
         );
     }
 
-    if (draftError) {
+    if (draftError || catalogError) {
         return (
             <div className="h-full col-span-full flex items-center justify-center text-background/60 text-sm">
-                {draftError}
+                {draftError ?? catalogError}
             </div>
         );
     }
@@ -156,6 +165,20 @@ export default function ScheduleRequestStep() {
         };
     }
 
+    async function publishCatalogIfNeeded({
+        targetCatalogId,
+        targetCatalog,
+    }: {
+        targetCatalogId: string;
+        targetCatalog: Awaited<ReturnType<typeof ensureEditableCatalog>> | null;
+    }): Promise<Awaited<ReturnType<typeof ensureEditableCatalog>> | null> {
+        if ((targetCatalog?.status ?? catalogStatus) === "published") {
+            return targetCatalog;
+        }
+
+        return publishCurrentCatalog(targetCatalogId);
+    }
+
     async function handleContinue() {
         if (!catalogId) return;
 
@@ -165,6 +188,10 @@ export default function ScheduleRequestStep() {
         try {
             const { targetCatalogId, targetCatalog, targetDraft } =
                 await saveCatalogDraftIfNeeded();
+            const publishedCatalog = await publishCatalogIfNeeded({
+                targetCatalogId,
+                targetCatalog,
+            });
 
             const generationPayload = buildScheduleGenerateRequest(targetDraft);
             const generationResult = await generateSchedules(generationPayload);
@@ -178,7 +205,7 @@ export default function ScheduleRequestStep() {
                     replace: true,
                     state: {
                         source: "forked_catalog",
-                        catalog: targetCatalog,
+                        catalog: publishedCatalog,
                         draft: draftWithResults,
                     },
                 });
@@ -194,6 +221,18 @@ export default function ScheduleRequestStep() {
                     : "Failed to generate schedules.",
             );
             setIsSaving(false);
+        }
+    }
+
+    async function handleCopyShareUrl() {
+        if (!shareUrl) return;
+
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopyShareLabel("Copied");
+            window.setTimeout(() => setCopyShareLabel("Copy Link"), 1500);
+        } catch {
+            setSaveError("Failed to copy share link.");
         }
     }
 
@@ -476,6 +515,9 @@ export default function ScheduleRequestStep() {
                 continueLabel="Generate Schedules"
                 continuingLabel="Generating..."
                 continueError={saveError}
+                shareUrl={shareUrl}
+                onCopyShareUrl={handleCopyShareUrl}
+                copyShareLabel={copyShareLabel}
                 fieldOptions={{
                     instructor: {
                         options: instructorOptions,

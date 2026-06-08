@@ -20,6 +20,9 @@ type CourseDetailPanelProps = {
     continueLabel?: string;
     continuingLabel?: string;
     continueError?: string | null;
+    shareUrl?: string | null;
+    onCopyShareUrl?: () => void;
+    copyShareLabel?: string;
     fieldOptions?: Partial<Record<string, ComboboxFieldOptions>>;
 };
 
@@ -36,6 +39,9 @@ export default function CourseDetailPanel({
     continueLabel = "Continue",
     continuingLabel = "Saving...",
     continueError = null,
+    shareUrl = null,
+    onCopyShareUrl,
+    copyShareLabel = "Copy Link",
     fieldOptions,
 }: CourseDetailPanelProps) {
     return (
@@ -83,13 +89,33 @@ export default function CourseDetailPanel({
             )}
 
             <div className="mt-auto">
+                {shareUrl ? (
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-background/10 bg-background/5 px-3 py-2 text-sm">
+                        <a
+                            href={shareUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="min-w-0 flex-1 truncate text-background/70 hover:text-accent"
+                        >
+                            {shareUrl}
+                        </a>
+                        <button
+                            type="button"
+                            onClick={onCopyShareUrl}
+                            className="px-3 py-1.5 rounded-md border border-background/15 text-background/70 font-semibold hover:bg-background/10 transition-colors"
+                        >
+                            {copyShareLabel}
+                        </button>
+                    </div>
+                ) : null}
+
                 {continueError ? (
                     <div className="mb-4 border border-red-500/40 bg-red-500/10 text-red-700 rounded-md px-3 py-2 text-sm">
                         {continueError}
                     </div>
                 ) : null}
 
-                <div className="flex justify-end pt-4 border-t border-background/10">
+                <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-background/10">
                     <button
                         type="button"
                         onClick={onContinue}

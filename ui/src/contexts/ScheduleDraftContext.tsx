@@ -2,6 +2,7 @@ import {
     forkCatalog,
     getCatalog,
     getCatalogSections,
+    publishCatalog,
     type CatalogSectionResponse,
     type CatalogResponse,
     type ScheduleGenerateResponse,
@@ -80,6 +81,8 @@ interface ScheduleDraftContextType {
     isCatalogDraftDirty: boolean;
     isForkingCatalog: boolean;
     forkError: string | null;
+    isPublishingCatalog: boolean;
+    publishError: string | null;
     updateCatalogDraft: (patch: CatalogDraftPatch) => void;
     updateScheduleRequest: (patch: ScheduleRequestPatch) => void;
     setGenerationResult: (result: ScheduleGenerateResponse | null) => void;
@@ -88,6 +91,7 @@ interface ScheduleDraftContextType {
     refreshDraft: () => Promise<void>;
     markCatalogDraftClean: () => void;
     ensureEditableCatalog: () => Promise<CatalogResponse>;
+    publishCurrentCatalog: (catalogIdOverride?: string) => Promise<CatalogResponse>;
 }
 
 // Context
@@ -247,6 +251,10 @@ function getForkErrorMessage(err: unknown): string {
     return err instanceof Error ? err.message : "Failed to fork catalog.";
 }
 
+function getPublishErrorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : "Failed to publish catalog.";
+}
+
 export function ScheduleDraftProvider({
     catalogId,
     children,
@@ -279,6 +287,8 @@ export function ScheduleDraftProvider({
     const [isCatalogDraftDirty, setIsCatalogDraftDirty] = useState(false);
     const [isForkingCatalog, setIsForkingCatalog] = useState(false);
     const [forkError, setForkError] = useState<string | null>(null);
+    const [isPublishingCatalog, setIsPublishingCatalog] = useState(false);
+    const [publishError, setPublishError] = useState<string | null>(null);
 
     const refreshCatalog = useCallback(async () => {
         setIsCatalogLoading(true);
@@ -323,6 +333,7 @@ export function ScheduleDraftProvider({
         setCatalogError(null);
         setDraftError(null);
         setForkError(null);
+        setPublishError(null);
         setIsCatalogDraftDirty(false);
 
         if (seededDraft) {
@@ -459,6 +470,29 @@ export function ScheduleDraftProvider({
         }
     }, [catalog, catalogId, isSharedEntry]);
 
+    const publishCurrentCatalog = useCallback(
+        async (catalogIdOverride?: string): Promise<CatalogResponse> => {
+            const targetCatalogId = catalogIdOverride ?? catalogId;
+
+            setPublishError(null);
+            setIsPublishingCatalog(true);
+
+            try {
+                const publishedCatalog = await publishCatalog(targetCatalogId);
+                setCatalog(publishedCatalog);
+                setIsCatalogDraftDirty(false);
+                return publishedCatalog;
+            } catch (err) {
+                const message = getPublishErrorMessage(err);
+                setPublishError(message);
+                throw new Error(message);
+            } finally {
+                setIsPublishingCatalog(false);
+            }
+        },
+        [catalogId],
+    );
+
     const value = useMemo(
         () => ({
             draft,
@@ -475,6 +509,8 @@ export function ScheduleDraftProvider({
             isCatalogDraftDirty,
             isForkingCatalog,
             forkError,
+            isPublishingCatalog,
+            publishError,
             updateCatalogDraft,
             updateScheduleRequest,
             setGenerationResult,
@@ -483,6 +519,7 @@ export function ScheduleDraftProvider({
             refreshDraft,
             markCatalogDraftClean,
             ensureEditableCatalog,
+            publishCurrentCatalog,
         }),
         [
             draft,
@@ -499,6 +536,8 @@ export function ScheduleDraftProvider({
             isCatalogDraftDirty,
             isForkingCatalog,
             forkError,
+            isPublishingCatalog,
+            publishError,
             updateCatalogDraft,
             updateScheduleRequest,
             setGenerationResult,
@@ -507,6 +546,7 @@ export function ScheduleDraftProvider({
             refreshDraft,
             markCatalogDraftClean,
             ensureEditableCatalog,
+            publishCurrentCatalog,
         ],
     );
 
