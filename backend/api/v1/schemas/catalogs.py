@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime, time
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.api.v1.schemas.base import CamelModel
+
+CatalogSourceType = Literal["csv", "paste", "manual", "importer", "demo"]
+CatalogStatus = Literal["draft", "ready", "published", "error", "archived"]
 
 
 def _normalize_days(value: str) -> str:
@@ -33,10 +36,7 @@ class CatalogCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = Field(default=None, max_length=1000)
-    source_type: str = Field(
-        default="manual",
-        pattern=r"^(csv|paste|manual|importer|demo)$",
-    )
+    source_type: CatalogSourceType = "manual"
     school_name: Optional[str] = Field(default=None, max_length=200)
     term_name: Optional[str] = Field(default=None, max_length=100)
 
@@ -47,10 +47,13 @@ class CatalogResponse(BaseModel):
     id: UUID
     name: str
     description: Optional[str] = None
-    source_type: str
+    source_type: CatalogSourceType
     school_name: Optional[str] = None
     term_name: Optional[str] = None
-    status: str
+    status: CatalogStatus
+    share_slug: Optional[str] = None
+    published_at: Optional[datetime] = None
+    forked_from_catalog_id: Optional[UUID] = None
     row_count: int
     source_metadata: dict[str, Any]
     created_by: Optional[UUID] = None
@@ -136,3 +139,9 @@ class CatalogSectionResponse(CamelModel):
     created_at: datetime
     updated_at: datetime
     meetings: list[CatalogSectionMeetingResponse] = Field(default_factory=list)
+
+
+class CatalogForkRequest(CamelModel):
+    """Request to fork a published/shared catalog into a new draft."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)

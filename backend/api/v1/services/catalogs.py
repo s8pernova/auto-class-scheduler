@@ -5,18 +5,24 @@ Catalog service - Supabase edition.
 from __future__ import annotations
 
 import json
+import secrets
 from collections import Counter
+from datetime import datetime, timezone
 from uuid import UUID
 
 from backend.api.v1.schemas.catalogs import (
     CatalogCreate,
     CatalogResponse,
+    CatalogSectionInput,
+    CatalogSectionMeetingInput,
     CatalogSectionMeetingResponse,
     CatalogSectionResponse,
     CatalogSectionsReplaceRequest,
 )
 from backend.config import get_settings
 from supabase import Client
+
+CATALOG_WRITABLE_STATUSES = {"draft", "ready"}
 
 
 def create_catalog(
@@ -97,10 +103,7 @@ def replace_catalog_sections(
     """Atomically replace all saved candidate sections for a catalog."""
     validate_catalog_sections_payload(payload)
 
-    section_rows = [
-        section.model_dump(mode="json")
-        for section in payload.sections
-    ]
+    section_rows = [section.model_dump(mode="json") for section in payload.sections]
     client.rpc(
         "replace_catalog_sections",
         {
@@ -171,3 +174,156 @@ def validate_catalog_sections_payload(payload: CatalogSectionsReplaceRequest) ->
             f"Catalogs cannot include more than {settings.max_catalog_meetings} "
             "meetings"
         )
+
+
+def publish_catalog(
+    client: Client,
+    catalog_id: UUID,
+    *,
+    user_id: UUID,
+) -> CatalogResponse:
+    """Publish an owned catalog as an immutable shared snapshot."""
+    catalog = get_catalog(client, catalog_id)
+    if catalog is None:
+        raise ValueError("Catalog not found or not accessible")
+    if catalog.created_by != user_id:
+        raise ValueError("Catalog not found or not writable")
+    if catalog.source_type == "demo":
+        raise ValueError("Demo catalogs cannot be published")
+    if catalog.status == "published":
+        return catalog
+    if catalog.status not in CATALOG_WRITABLE_STATUSES:
+        raise ValueError("Only draft or ready catalogs can be published")
+    if catalog.row_count <= 0:
+        raise ValueError("Catalogs need at least one section before publishing")
+
+    timestamp = datetime.now(timezone.utc).isoformat()
+    row = {
+        "status": "published",
+        "share_slug": _generate_unique_share_slug(client),
+        "published_at": timestamp,
+        "updated_at": timestamp,
+    }
+
+    resp = (
+        client.table("catalogs")
+        .update(row)
+        .eq("id", str(catalog_id))
+        .select("*")
+        .maybe_single()
+        .execute()
+    )
+    if resp.data is None:
+        raise ValueError("Catalog not found or not writable")
+    return CatalogResponse(**resp.data)
+
+
+def get_catalog_by_share_slug(
+    client: Client,
+    share_slug: str,
+) -> CatalogResponse | None:
+    normalized_slug = share_slug.strip().lower()
+    resp = (
+        client.table("catalogs")
+        .select("*")
+        .eq("share_slug", normalized_slug)
+        .eq("status", "published")
+        .maybe_single()
+        .execute()
+    )
+    if resp.data is None:
+        return None
+    return CatalogResponse(**resp.data)
+
+
+def fork_catalog(
+    client: Client,
+    catalog_id: UUID,
+    *,
+    user_id: UUID,
+    name: str | None = None,
+) -> CatalogResponse:
+    """Copy a published or demo catalog into a new editable draft."""
+    source = get_catalog(client, catalog_id)
+    if source is None:
+        raise ValueError("Catalog not found or not accessible")
+    if source.status != "published" and source.source_type != "demo":
+        raise ValueError("Only published or demo catalogs can be forked")
+
+    section_payload = _build_fork_sections_payload(
+        list_catalog_sections(client, source.id)
+    )
+    validate_catalog_sections_payload(section_payload)
+
+    row = {
+        "name": name or f"{source.name} (copy)",
+        "description": source.description,
+        "source_type": "manual",
+        "school_name": source.school_name,
+        "term_name": source.term_name,
+        "status": "draft",
+        "source_metadata": source.source_metadata,
+        "created_by": str(user_id),
+        "forked_from_catalog_id": str(source.id),
+    }
+
+    inserted = client.table("catalogs").insert(row).execute()
+    if not inserted.data:
+        raise ValueError("Forked catalog could not be created")
+    forked = CatalogResponse(**inserted.data[0])
+
+    replace_catalog_sections(client, forked.id, section_payload)
+
+    refreshed = get_catalog(client, forked.id)
+    if refreshed is None:
+        raise ValueError("Forked catalog could not be reloaded")
+    return refreshed
+
+
+def _generate_share_slug() -> str:
+    """Generate one URL-safe lowercase slug accepted by the DB constraint."""
+    return secrets.token_urlsafe(12).lower()
+
+
+def _generate_unique_share_slug(client: Client) -> str:
+    """Generate a share slug that does not already exist."""
+    for _ in range(10):
+        slug = _generate_share_slug()
+        existing = (
+            client.table("catalogs")
+            .select("id")
+            .eq("share_slug", slug)
+            .maybe_single()
+            .execute()
+        )
+        if existing.data is None:
+            return slug
+
+    raise ValueError("Could not generate a unique catalog share slug")
+
+
+def _build_fork_sections_payload(
+    sections: list[CatalogSectionResponse],
+) -> CatalogSectionsReplaceRequest:
+    """Convert persisted section responses back into replace-input payloads."""
+    return CatalogSectionsReplaceRequest(
+        sections=[
+            CatalogSectionInput(
+                course_name=section.course_name,
+                crn=section.crn,
+                instructor_name=section.instructor_name,
+                sort_order=section.sort_order,
+                source_metadata=section.source_metadata,
+                meetings=[
+                    CatalogSectionMeetingInput(
+                        days=meeting.days,
+                        start_time=meeting.start_time,
+                        end_time=meeting.end_time,
+                        sort_order=meeting.sort_order,
+                    )
+                    for meeting in section.meetings
+                ],
+            )
+            for section in sections
+        ],
+    )
