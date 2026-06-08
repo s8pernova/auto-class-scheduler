@@ -29,6 +29,7 @@ export default function SharedCatalogPage() {
                     state: {
                         source: "shared_catalog",
                         shareSlug,
+                        catalog,
                     },
                 });
             })

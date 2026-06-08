@@ -1,8 +1,13 @@
-import type { ScheduleGenerateResponse } from "@/api";
+import {
+    getCatalog,
+    type CatalogResponse,
+    type ScheduleGenerateResponse,
+} from "@/api";
 import {
     createContext,
     useCallback,
     useContext,
+    useEffect,
     useMemo,
     useState,
     type ReactNode,
@@ -38,6 +43,7 @@ export interface BlockedTime {
 }
 
 export type InstructorRatings = Record<string, number | null>;
+export type CatalogStatus = CatalogResponse["status"];
 
 export interface ScheduleDraft {
     catalogId: string;
@@ -50,8 +56,17 @@ export interface ScheduleDraft {
 
 interface ScheduleDraftContextType {
     draft: ScheduleDraft;
+    catalog: CatalogResponse | null;
+    catalogStatus: CatalogStatus | null;
+    shareSlug: string | null;
+    isPublished: boolean;
+    isSharedEntry: boolean;
+    forkedFromCatalogId: string | null;
+    isCatalogLoading: boolean;
+    catalogError: string | null;
     updateDraft: (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => void;
     resetDraft: () => void;
+    refreshCatalog: () => Promise<void>;
 }
 
 // Context
@@ -92,16 +107,97 @@ function buildInitialDraft(catalogId: string): ScheduleDraft {
 
 // Provider
 
+interface ScheduleDraftProviderProps {
+    catalogId: string;
+    children: ReactNode;
+    entryCatalog?: CatalogResponse;
+    entryShareSlug?: string;
+    isSharedEntry?: boolean;
+}
+
+function isMatchingEntryCatalog(
+    catalogId: string,
+    catalog: CatalogResponse | undefined,
+): catalog is CatalogResponse {
+    return catalog?.id === catalogId;
+}
+
+function getCatalogErrorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : "Failed to fetch catalog.";
+}
+
 export function ScheduleDraftProvider({
     catalogId,
     children,
-}: {
-    catalogId: string;
-    children: ReactNode;
-}) {
+    entryCatalog,
+    entryShareSlug,
+    isSharedEntry = false,
+}: ScheduleDraftProviderProps) {
+    const initialCatalog = isMatchingEntryCatalog(catalogId, entryCatalog)
+        ? entryCatalog
+        : null;
     const [draft, setDraft] = useState<ScheduleDraft>(() =>
         buildInitialDraft(catalogId),
     );
+    const [catalog, setCatalog] = useState<CatalogResponse | null>(
+        initialCatalog,
+    );
+    const [isCatalogLoading, setIsCatalogLoading] = useState(
+        initialCatalog === null,
+    );
+    const [catalogError, setCatalogError] = useState<string | null>(null);
+
+    const refreshCatalog = useCallback(async () => {
+        setIsCatalogLoading(true);
+        setCatalogError(null);
+
+        try {
+            const nextCatalog = await getCatalog(catalogId);
+            setCatalog(nextCatalog);
+        } catch (err) {
+            setCatalogError(getCatalogErrorMessage(err));
+        } finally {
+            setIsCatalogLoading(false);
+        }
+    }, [catalogId]);
+
+    useEffect(() => {
+        let isCurrent = true;
+        const seededCatalog = isMatchingEntryCatalog(catalogId, entryCatalog)
+            ? entryCatalog
+            : null;
+
+        setDraft(buildInitialDraft(catalogId));
+        setCatalog(seededCatalog);
+        setCatalogError(null);
+
+        if (seededCatalog) {
+            setIsCatalogLoading(false);
+            return () => {
+                isCurrent = false;
+            };
+        }
+
+        setIsCatalogLoading(true);
+
+        getCatalog(catalogId)
+            .then((nextCatalog) => {
+                if (!isCurrent) return;
+                setCatalog(nextCatalog);
+            })
+            .catch((err) => {
+                if (!isCurrent) return;
+                setCatalogError(getCatalogErrorMessage(err));
+            })
+            .finally(() => {
+                if (!isCurrent) return;
+                setIsCatalogLoading(false);
+            });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [catalogId, entryCatalog]);
 
     const updateDraft = useCallback(
         (patch: Partial<Omit<ScheduleDraft, "catalogId">>) => {
@@ -130,9 +226,40 @@ export function ScheduleDraftProvider({
         setDraft(buildInitialDraft(catalogId));
     }, [catalogId]);
 
+    const catalogStatus = catalog?.status ?? null;
+    const shareSlug = catalog?.share_slug ?? entryShareSlug ?? null;
+    const forkedFromCatalogId = catalog?.forked_from_catalog_id ?? null;
+    const isPublished = catalogStatus === "published";
+
     const value = useMemo(
-        () => ({ draft, updateDraft, resetDraft }),
-        [draft, updateDraft, resetDraft],
+        () => ({
+            draft,
+            catalog,
+            catalogStatus,
+            shareSlug,
+            isPublished,
+            isSharedEntry,
+            forkedFromCatalogId,
+            isCatalogLoading,
+            catalogError,
+            updateDraft,
+            resetDraft,
+            refreshCatalog,
+        }),
+        [
+            draft,
+            catalog,
+            catalogStatus,
+            shareSlug,
+            isPublished,
+            isSharedEntry,
+            forkedFromCatalogId,
+            isCatalogLoading,
+            catalogError,
+            updateDraft,
+            resetDraft,
+            refreshCatalog,
+        ],
     );
 
     return (
