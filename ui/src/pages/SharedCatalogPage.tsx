@@ -12,7 +12,6 @@ export default function SharedCatalogPage() {
 
     useEffect(() => {
         if (!shareSlug) {
-            setLoadState("not_found");
             return;
         }
 
@@ -54,6 +53,7 @@ export default function SharedCatalogPage() {
         };
     }, [navigate, shareSlug]);
 
+    // TODO: maybe make a separate `if (loadState === "not_found")` statement to return <SharedCatalogUnavailable />
     if (!shareSlug || loadState === "not_found") {
         return <Navigate to="/catalogs/new" replace />;
     }
@@ -66,7 +66,8 @@ export default function SharedCatalogPage() {
                         Shared catalog unavailable
                     </h1>
                     <p className="text-sm text-background/60">
-                        {errorMessage ?? "This shared catalog could not be loaded."}
+                        {errorMessage ??
+                            "This shared catalog could not be loaded."}
                     </p>
                     <button
                         type="button"
