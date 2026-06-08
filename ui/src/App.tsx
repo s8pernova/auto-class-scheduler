@@ -6,6 +6,7 @@ import {
     CatalogCreatePage,
     CatalogFlowShell,
     CatalogWizardShell,
+    SharedCatalogPage,
     ScheduleRequestStep,
     ScheduleResultsStep,
     WizardLayout,
@@ -25,6 +26,10 @@ function App() {
 
                 {/* Catalog flow routes */}
                 <Route element={<WizardLayout />}>
+                    <Route
+                        path="/c/:shareSlug"
+                        element={<SharedCatalogPage />}
+                    />
                     <Route
                         path="/catalogs/new"
                         element={<CatalogCreatePage />}
