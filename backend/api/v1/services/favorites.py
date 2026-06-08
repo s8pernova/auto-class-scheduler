@@ -48,6 +48,8 @@ def save_and_favorite_generated_schedule(
     catalog = catalog_service.get_catalog(client, payload.catalog_id)
     if catalog is None:
         raise ValueError("Catalog not found or not accessible")
+    if catalog.status != "published":
+        raise ValueError("Schedules can only be favorited from published catalogs")
 
     requested_ids = [str(section_id) for section_id in payload.catalog_section_ids]
     _validate_saved_schedule_size(len(requested_ids))
@@ -73,7 +75,7 @@ def save_and_favorite_generated_schedule(
 
     summary = compute_schedule_summary(sections)
     schedule_hash = _build_schedule_hash(payload.catalog_id, requested_ids)
-    schedule_id = _upsert_saved_schedule(
+    schedule_id, schedule_created = _upsert_saved_schedule(
         client,
         catalog_id=payload.catalog_id,
         user_id=user_id,
@@ -81,22 +83,27 @@ def save_and_favorite_generated_schedule(
         term_name=catalog.term_name,
         summary=summary,
     )
-    _replace_saved_schedule_sections(
-        client,
-        schedule_id=schedule_id,
-        catalog_sections=selected_catalog_sections,
-        sections=sections,
-    )
+    try:
+        _replace_saved_schedule_sections(
+            client,
+            schedule_id=schedule_id,
+            catalog_sections=selected_catalog_sections,
+            sections=sections,
+        )
 
-    return create_favorite(
-        client,
-        schedule_id,
-        user_id=user_id,
-        catalog_id=payload.catalog_id,
-    )
+        return _create_favorite(
+            client,
+            schedule_id,
+            user_id=user_id,
+            catalog_id=payload.catalog_id,
+        )
+    except Exception:
+        if schedule_created:
+            _delete_saved_schedule(client, schedule_id, user_id=user_id)
+        raise
 
 
-def create_favorite(
+def _create_favorite(
     client: Client,
     schedule_id: int,
     *,
@@ -121,15 +128,34 @@ def create_favorite(
 
 
 def delete_favorite(client: Client, schedule_id: int, *, user_id: UUID) -> bool:
-    """Remove a favorite. Returns ``True`` if a row was deleted."""
+    """Delete a favorited saved schedule. Cascades to favorite and section rows."""
+    if not _favorite_exists(client, schedule_id, user_id=user_id):
+        return False
+
+    _delete_saved_schedule(client, schedule_id, user_id=user_id)
+    return not _favorite_exists(client, schedule_id, user_id=user_id)
+
+
+def _favorite_exists(client: Client, schedule_id: int, *, user_id: UUID) -> bool:
     resp = (
         client.table("user_favorites")
-        .delete()
+        .select("schedule_id")
         .eq("schedule_id", schedule_id)
+        .eq("user_id", str(user_id))
+        .limit(1)
+        .execute()
+    )
+    return bool(resp.data)
+
+
+def _delete_saved_schedule(client: Client, schedule_id: int, *, user_id: UUID) -> None:
+    (
+        client.table("saved_schedules")
+        .delete()
+        .eq("id", schedule_id)
         .eq("user_id", str(user_id))
         .execute()
     )
-    return len(resp.data or []) > 0
 
 
 def _validate_one_section_per_course(
@@ -213,7 +239,7 @@ def _upsert_saved_schedule(
     schedule_hash: str,
     term_name: str | None,
     summary: dict,
-) -> int:
+) -> tuple[int, bool]:
     existing = (
         client.table("saved_schedules")
         .select("id")
@@ -246,10 +272,10 @@ def _upsert_saved_schedule(
     if existing.data:
         schedule_id = int(existing.data["id"])
         client.table("saved_schedules").update(row).eq("id", schedule_id).execute()
-        return schedule_id
+        return schedule_id, False
 
     inserted = client.table("saved_schedules").insert(row).execute()
-    return int(inserted.data[0]["id"])
+    return int(inserted.data[0]["id"]), True
 
 
 def _replace_saved_schedule_sections(

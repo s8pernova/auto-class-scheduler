@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateCatalogApiV1CatalogsPostData, CreateCatalogApiV1CatalogsPostErrors, CreateCatalogApiV1CatalogsPostResponses, FavoriteGeneratedScheduleApiV1FavoritesPostData, FavoriteGeneratedScheduleApiV1FavoritesPostErrors, FavoriteGeneratedScheduleApiV1FavoritesPostResponses, FavoriteScheduleApiV1FavoritesScheduleIdPostData, FavoriteScheduleApiV1FavoritesScheduleIdPostErrors, FavoriteScheduleApiV1FavoritesScheduleIdPostResponses, GenerateSchedulesApiV1SchedulesGeneratePostData, GenerateSchedulesApiV1SchedulesGeneratePostErrors, GenerateSchedulesApiV1SchedulesGeneratePostResponses, GetCatalogApiV1CatalogsCatalogIdGetData, GetCatalogApiV1CatalogsCatalogIdGetErrors, GetCatalogApiV1CatalogsCatalogIdGetResponses, GetFavoritesApiV1FavoritesGetData, GetFavoritesApiV1FavoritesGetResponses, GetScheduleLimitsApiV1SchedulesLimitsGetData, GetScheduleLimitsApiV1SchedulesLimitsGetResponses, GetSchedulesApiV1SchedulesGetData, GetSchedulesApiV1SchedulesGetErrors, GetSchedulesApiV1SchedulesGetResponses, HealthCheckApiV1HealthGetData, HealthCheckApiV1HealthGetResponses, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetData, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetErrors, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetResponses, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutData, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutErrors, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutResponses, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteData, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteErrors, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses } from './types.gen';
+import type { CreateCatalogApiV1CatalogsPostData, CreateCatalogApiV1CatalogsPostErrors, CreateCatalogApiV1CatalogsPostResponses, FavoriteGeneratedScheduleApiV1FavoritesPostData, FavoriteGeneratedScheduleApiV1FavoritesPostErrors, FavoriteGeneratedScheduleApiV1FavoritesPostResponses, ForkCatalogApiV1CatalogsCatalogIdForkPostData, ForkCatalogApiV1CatalogsCatalogIdForkPostErrors, ForkCatalogApiV1CatalogsCatalogIdForkPostResponses, GenerateSchedulesApiV1SchedulesGeneratePostData, GenerateSchedulesApiV1SchedulesGeneratePostErrors, GenerateSchedulesApiV1SchedulesGeneratePostResponses, GetCatalogApiV1CatalogsCatalogIdGetData, GetCatalogApiV1CatalogsCatalogIdGetErrors, GetCatalogApiV1CatalogsCatalogIdGetResponses, GetFavoritesApiV1FavoritesGetData, GetFavoritesApiV1FavoritesGetResponses, GetScheduleLimitsApiV1SchedulesLimitsGetData, GetScheduleLimitsApiV1SchedulesLimitsGetResponses, GetSchedulesApiV1SchedulesGetData, GetSchedulesApiV1SchedulesGetErrors, GetSchedulesApiV1SchedulesGetResponses, GetSharedCatalogApiV1CatalogsSharedShareSlugGetData, GetSharedCatalogApiV1CatalogsSharedShareSlugGetErrors, GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponses, HealthCheckApiV1HealthGetData, HealthCheckApiV1HealthGetResponses, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetData, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetErrors, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetResponses, PublishCatalogApiV1CatalogsCatalogIdPublishPostData, PublishCatalogApiV1CatalogsCatalogIdPublishPostErrors, PublishCatalogApiV1CatalogsCatalogIdPublishPostResponses, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutData, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutErrors, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutResponses, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteData, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteErrors, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -34,6 +34,17 @@ export const createCatalogApiV1CatalogsPost = <ThrowOnError extends boolean = fa
 });
 
 /**
+ * Get Shared Catalog
+ *
+ * Fetch a published catalog by share slug.
+ */
+export const getSharedCatalogApiV1CatalogsSharedShareSlugGet = <ThrowOnError extends boolean = false>(options: Options<GetSharedCatalogApiV1CatalogsSharedShareSlugGetData, ThrowOnError>) => (options.client ?? client).get<GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponses, GetSharedCatalogApiV1CatalogsSharedShareSlugGetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/catalogs/shared/{share_slug}',
+    ...options
+});
+
+/**
  * Get Catalog
  *
  * Fetch a catalog by ID.
@@ -41,6 +52,32 @@ export const createCatalogApiV1CatalogsPost = <ThrowOnError extends boolean = fa
 export const getCatalogApiV1CatalogsCatalogIdGet = <ThrowOnError extends boolean = false>(options: Options<GetCatalogApiV1CatalogsCatalogIdGetData, ThrowOnError>) => (options.client ?? client).get<GetCatalogApiV1CatalogsCatalogIdGetResponses, GetCatalogApiV1CatalogsCatalogIdGetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/catalogs/{catalog_id}',
+    ...options
+});
+
+/**
+ * Fork Catalog
+ *
+ * Fork a published or demo catalog into a new editable catalog.
+ */
+export const forkCatalogApiV1CatalogsCatalogIdForkPost = <ThrowOnError extends boolean = false>(options: Options<ForkCatalogApiV1CatalogsCatalogIdForkPostData, ThrowOnError>) => (options.client ?? client).post<ForkCatalogApiV1CatalogsCatalogIdForkPostResponses, ForkCatalogApiV1CatalogsCatalogIdForkPostErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/catalogs/{catalog_id}/fork',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Publish Catalog
+ *
+ * Publish an owned catalog as an immutable shared snapshot.
+ */
+export const publishCatalogApiV1CatalogsCatalogIdPublishPost = <ThrowOnError extends boolean = false>(options: Options<PublishCatalogApiV1CatalogsCatalogIdPublishPostData, ThrowOnError>) => (options.client ?? client).post<PublishCatalogApiV1CatalogsCatalogIdPublishPostResponses, PublishCatalogApiV1CatalogsCatalogIdPublishPostErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/catalogs/{catalog_id}/publish',
     ...options
 });
 
@@ -99,20 +136,9 @@ export const favoriteGeneratedScheduleApiV1FavoritesPost = <ThrowOnError extends
 /**
  * Unfavorite Schedule
  *
- * Remove a schedule from the current user's favorites.
+ * Remove a favorited saved schedule for the current user.
  */
 export const unfavoriteScheduleApiV1FavoritesScheduleIdDelete = <ThrowOnError extends boolean = false>(options: Options<UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v1/favorites/{schedule_id}',
-    ...options
-});
-
-/**
- * Favorite Schedule
- *
- * Favorite an already-saved schedule.
- */
-export const favoriteScheduleApiV1FavoritesScheduleIdPost = <ThrowOnError extends boolean = false>(options: Options<FavoriteScheduleApiV1FavoritesScheduleIdPostData, ThrowOnError>) => (options.client ?? client).post<FavoriteScheduleApiV1FavoritesScheduleIdPostResponses, FavoriteScheduleApiV1FavoritesScheduleIdPostErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/favorites/{schedule_id}',
     ...options

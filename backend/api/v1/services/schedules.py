@@ -35,20 +35,6 @@ DAY_CODE_TO_NAME = {
     "S": "Sat",
 }
 
-# Public API
-
-
-def get_schedule_exists(client: Client, schedule_id: int) -> bool:
-    """Return ``True`` if *schedule_id* exists in the database."""
-    resp = (
-        client.table("saved_schedules")
-        .select("id", count="exact")
-        .eq("id", schedule_id)
-        .execute()
-    )
-    return (resp.count or 0) > 0
-
-
 def generate_schedules_from_request(
     client: Client,
     payload: ScheduleGenerateRequest,
