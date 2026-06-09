@@ -23,6 +23,22 @@ import {
 const EMPTY_SCHEDULES: GeneratedScheduleResponse[] = [];
 const DEV_RESULTS_FIXTURE_PARAM = "fixture";
 
+type FavoriteState = {
+    scheduleId: number | null;
+    isSaving: boolean;
+    error: string | null;
+};
+
+function getGeneratedScheduleFavoriteKey(
+    schedule: GeneratedScheduleResponse,
+): string {
+    const sectionIds = schedule.sections
+        .map((section) => section.catalogSectionId)
+        .sort();
+
+    return sectionIds.length > 0 ? sectionIds.join("|") : schedule.resultId;
+}
+
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const { draft, isDraftLoading, draftError } = useScheduleDraft();
@@ -35,6 +51,9 @@ export default function ScheduleResultsStep() {
     );
     const [devFixtureDraft, setDevFixtureDraft] =
         useState<ScheduleDraft | null>(null);
+    const [favoriteStates, setFavoriteStates] = useState<
+        Record<string, FavoriteState>
+    >({});
     const [isLoadingDevFixture, setIsLoadingDevFixture] = useState(false);
     const [didFailDevFixture, setDidFailDevFixture] = useState(false);
     const fixtureName = searchParams.get(DEV_RESULTS_FIXTURE_PARAM);
@@ -95,6 +114,16 @@ export default function ScheduleResultsStep() {
 
         return sortSchedules(filtered, sortKey);
     }, [allSchedules, dayFilter, sortKey]);
+    const favoriteStateByResultId = useMemo(
+        () =>
+            Object.fromEntries(
+                visibleSchedules.map((schedule) => [
+                    schedule.resultId,
+                    favoriteStates[getGeneratedScheduleFavoriteKey(schedule)],
+                ]),
+            ),
+        [favoriteStates, visibleSchedules],
+    );
     const selectedSchedule =
         visibleSchedules.find(
             (schedule) => schedule.resultId === selectedResultId,
@@ -147,16 +176,49 @@ export default function ScheduleResultsStep() {
         schedule: GeneratedScheduleResponse,
     ) {
         e.stopPropagation();
+        const favoriteKey = getGeneratedScheduleFavoriteKey(schedule);
+        const currentState = favoriteStates[favoriteKey];
+
+        if (currentState?.isSaving || currentState?.scheduleId) {
+            return;
+        }
+
+        setFavoriteStates((prev) => ({
+            ...prev,
+            [favoriteKey]: {
+                scheduleId: prev[favoriteKey]?.scheduleId ?? null,
+                isSaving: true,
+                error: null,
+            },
+        }));
+
         try {
-            await favoriteGeneratedSchedule({
+            const response = await favoriteGeneratedSchedule({
                 catalogId: activeDraft.catalogId,
                 catalogSectionIds: schedule.sections.map(
                     (section) => section.catalogSectionId,
                 ),
             });
-            // TODO change the star to yellow or something
+            setFavoriteStates((prev) => ({
+                ...prev,
+                [favoriteKey]: {
+                    scheduleId: response.scheduleId,
+                    isSaving: false,
+                    error: null,
+                },
+            }));
         } catch (err) {
-            console.error("Failed to favorite generated schedule", err);
+            setFavoriteStates((prev) => ({
+                ...prev,
+                [favoriteKey]: {
+                    scheduleId: prev[favoriteKey]?.scheduleId ?? null,
+                    isSaving: false,
+                    error:
+                        err instanceof Error
+                            ? err.message
+                            : "Failed to favorite schedule.",
+                },
+            }));
         }
     }
 
@@ -175,6 +237,7 @@ export default function ScheduleResultsStep() {
                 selectedSchedule={selectedSchedule}
                 onSelectSchedule={setSelectedResultId}
                 onFavorite={handleFavorite}
+                favoriteStates={favoriteStateByResultId}
             />
             <ResultsDetailsPanel
                 generationResult={generationResult}
