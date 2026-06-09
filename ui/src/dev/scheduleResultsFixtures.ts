@@ -1,3 +1,5 @@
+// Use /catalogs/dev-catalog/results?fixture=generated-results
+
 import type {
     GeneratedMeetingResponse,
     GeneratedScheduleResponse,
@@ -8,12 +10,57 @@ import type {
     RequirementCourse,
     RequirementGroup,
     ScheduleDraft,
+    SectionRef,
 } from "@/contexts/ScheduleDraftContext";
 
+function draftSection(
+    days: string,
+    time: string,
+    crn: string,
+    instructor: string,
+): SectionRef {
+    return {
+        days,
+        time,
+        crn,
+        instructor,
+    };
+}
+
 const COURSES: RequirementCourse[] = [
-    { id: "req-cs-2104", label: "CS 2104", sections: [] },
-    { id: "req-math-2114", label: "MATH 2114", sections: [] },
-    { id: "req-stat-3005", label: "STAT 3005", sections: [] },
+    {
+        id: "req-cs-2104",
+        label: "CS 2104",
+        sections: [
+            draftSection("MWF", "08:00-08:50", "21041", "Avery Chen"),
+            draftSection("TR", "12:30-13:45", "21042", "Sam Rivera"),
+            draftSection("M", "17:30-18:45", "21043", "Avery Chen"),
+            draftSection("S", "09:00-11:30", "21044", "Instructor TBD"),
+            draftSection("TR", "09:30-10:45", "21045", "Sam Rivera"),
+        ],
+    },
+    {
+        id: "req-math-2114",
+        label: "MATH 2114",
+        sections: [
+            draftSection("MW", "10:00-11:15", "21141", "Mina Patel"),
+            draftSection("TR", "14:00-15:15", "21142", "Mina Patel"),
+            draftSection("W", "19:30-20:45", "21143", "Theo Brooks"),
+            draftSection("F", "12:20-13:20", "21144", "Theo Brooks"),
+            draftSection("MW", "15:30-16:45", "21145", "Mina Patel"),
+        ],
+    },
+    {
+        id: "req-stat-3005",
+        label: "STAT 3005",
+        sections: [
+            draftSection("F", "09:05-09:55", "30051", "Jordan Lee"),
+            draftSection("R", "09:30-10:45", "30052", "Noor Hassan"),
+            draftSection("F", "18:00-19:15", "30053", "Jordan Lee"),
+            draftSection("F", "10:10-11:00", "30054", "Noor Hassan"),
+            draftSection("R", "12:30-13:45", "30055", "Jordan Lee"),
+        ],
+    },
 ];
 
 const REQUIREMENT_GROUPS: RequirementGroup[] = COURSES.map((course) => ({

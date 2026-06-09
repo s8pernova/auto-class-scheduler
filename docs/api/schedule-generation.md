@@ -129,7 +129,8 @@ selected section:
 }
 ```
 
-To favorite one generated result, `POST /api/v1/favorites` with only the selected catalog section IDs:
+To favorite one generated result from a published catalog, `POST /api/v1/favorites`
+with only the selected catalog section IDs:
 
 ```json
 {

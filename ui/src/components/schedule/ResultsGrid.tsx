@@ -1,7 +1,13 @@
 import { FaStar } from "react-icons/fa";
-import type { MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import type { GeneratedScheduleResponse } from "@/api";
 import { formatTime, scheduleDayCount } from "@/utils/scheduleResults";
+
+type ResultFavoriteState = {
+    scheduleId: number | null;
+    isSaving: boolean;
+    error: string | null;
+};
 
 type ResultsGridProps = {
     schedules: GeneratedScheduleResponse[];
@@ -11,6 +17,7 @@ type ResultsGridProps = {
         event: MouseEvent<HTMLButtonElement>,
         schedule: GeneratedScheduleResponse,
     ) => void;
+    favoriteStates?: Record<string, ResultFavoriteState | undefined>;
 };
 
 export default function ResultsGrid({
@@ -18,7 +25,20 @@ export default function ResultsGrid({
     selectedSchedule,
     onSelectSchedule,
     onFavorite,
+    favoriteStates = {},
 }: ResultsGridProps) {
+    function handleCardKeyDown(
+        event: KeyboardEvent<HTMLElement>,
+        resultId: string,
+    ): void {
+        if (event.key !== "Enter" && event.key !== " ") {
+            return;
+        }
+
+        event.preventDefault();
+        onSelectSchedule(resultId);
+    }
+
     return (
         <main className="bg-surface rounded-[10px] p-[10px] overflow-y-auto">
             {schedules.length === 0 ? (
@@ -27,51 +47,96 @@ export default function ResultsGrid({
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-[10px]">
-                    {schedules.map((schedule) => (
-                        <button
-                            type="button"
-                            key={schedule.resultId}
-                            onClick={() => onSelectSchedule(schedule.resultId)}
-                            className={`text-left border rounded-[10px] p-4 transition-colors ${
-                                selectedSchedule?.resultId === schedule.resultId
-                                    ? "border-accent bg-accent/10"
-                                    : "border-background/10 bg-background/5 hover:border-background/30"
-                            }`}
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <h3 className="font-semibold text-background">
-                                        Schedule {schedule.resultId}
-                                    </h3>
-                                    <p className="text-xs text-background/60 mt-1">
-                                        {scheduleDayCount(schedule)} meeting
-                                        days
-                                    </p>
-                                </div>
-                                <div className="text-right text-sm text-background/70">
-                                    <p>
-                                        {formatTime(schedule.earliestStart)} -{" "}
-                                        {formatTime(schedule.latestEnd)}
-                                    </p>
-                                    {schedule.totalInstructorScore != null ? (
-                                        <p>
-                                            Score{" "}
-                                            {schedule.totalInstructorScore}
+                    {schedules.map((schedule) => {
+                        const favoriteState = favoriteStates[schedule.resultId];
+                        const isFavorited = Boolean(favoriteState?.scheduleId);
+                        const isSavingFavorite = Boolean(
+                            favoriteState?.isSaving,
+                        );
+
+                        return (
+                            <article
+                                key={schedule.resultId}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() =>
+                                    onSelectSchedule(schedule.resultId)
+                                }
+                                onKeyDown={(event) =>
+                                    handleCardKeyDown(event, schedule.resultId)
+                                }
+                                className={`text-left border rounded-[10px] p-4 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent ${
+                                    selectedSchedule?.resultId ===
+                                    schedule.resultId
+                                        ? "border-accent bg-accent/10"
+                                        : "border-background/10 bg-background/5 hover:border-background/30"
+                                }`}
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <h3 className="font-semibold text-background">
+                                            Schedule {schedule.resultId}
+                                        </h3>
+                                        <p className="text-xs text-background/60 mt-1">
+                                            {scheduleDayCount(schedule)} meeting
+                                            days
                                         </p>
-                                    ) : null}
+                                    </div>
+                                    <div className="text-right text-sm text-background/70">
+                                        <p>
+                                            {formatTime(schedule.earliestStart)}{" "}
+                                            - {formatTime(schedule.latestEnd)}
+                                        </p>
+                                        {schedule.totalInstructorScore !=
+                                        null ? (
+                                            <p>
+                                                Score{" "}
+                                                {schedule.totalInstructorScore}
+                                            </p>
+                                        ) : null}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={(event) =>
+                                            onFavorite(event, schedule)
+                                        }
+                                        disabled={isSavingFavorite}
+                                        aria-pressed={isFavorited}
+                                        aria-label={
+                                            isFavorited
+                                                ? "Unfavorite schedule"
+                                                : "Favorite schedule"
+                                        }
+                                        title={
+                                            isFavorited
+                                                ? "Unfavorite schedule"
+                                                : "Favorite schedule"
+                                        }
+                                        className={`p-1.5 rounded transition-colors ${
+                                            isFavorited
+                                                ? "text-yellow-500 hover:text-background/35"
+                                                : "text-background/30 hover:text-yellow-500"
+                                        } disabled:cursor-default`}
+                                    >
+                                        <FaStar
+                                            className={
+                                                isSavingFavorite
+                                                    ? "animate-pulse"
+                                                    : ""
+                                            }
+                                        />
+                                    </button>
                                 </div>
 
-                                <button
-                                    className=""
-                                    onClick={(event) =>
-                                        onFavorite(event, schedule)
-                                    }
-                                >
-                                    <FaStar />
-                                </button>
-                            </div>
-                        </button>
-                    ))}
+                                {favoriteState?.error ? (
+                                    <p className="mt-3 text-xs text-red-600">
+                                        {favoriteState.error}
+                                    </p>
+                                ) : null}
+                            </article>
+                        );
+                    })}
                 </div>
             )}
         </main>

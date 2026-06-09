@@ -9,7 +9,6 @@ from backend.api.v1.schemas.favorites import (
     FavoriteResponse,
 )
 from backend.api.v1.services import favorites as fav_service
-from backend.api.v1.services import schedules as schedule_service
 from backend.dependencies import SupabaseDep, UserIdDep
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
@@ -49,33 +48,13 @@ async def favorite_generated_schedule(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.post("/{schedule_id}", response_model=FavoriteResponse)
-async def favorite_schedule(
-    schedule_id: int,
-    client: SupabaseDep,
-    user_id: UserIdDep,
-) -> FavoriteResponse:
-    """Favorite an already-saved schedule."""
-    current_user_id = _require_user(user_id)
-    if not schedule_service.get_schedule_exists(client, schedule_id):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Schedule {schedule_id} not found",
-        )
-    return fav_service.create_favorite(
-        client,
-        schedule_id,
-        user_id=current_user_id,
-    )
-
-
 @router.delete("/{schedule_id}")
 async def unfavorite_schedule(
     schedule_id: int,
     client: SupabaseDep,
     user_id: UserIdDep,
 ) -> dict:
-    """Remove a schedule from the current user's favorites."""
+    """Remove a favorited saved schedule for the current user."""
     current_user_id = _require_user(user_id)
     if not fav_service.delete_favorite(client, schedule_id, user_id=current_user_id):
         raise HTTPException(

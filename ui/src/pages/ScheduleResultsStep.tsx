@@ -9,7 +9,7 @@ import {
     type ScheduleDraft,
     useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
-import { favoriteGeneratedSchedule } from "@/api";
+import { favoriteGeneratedSchedule, unfavoriteSchedule } from "@/api";
 import type { GeneratedScheduleResponse } from "@/api";
 import ResultsFiltersSidebar from "@/components/schedule/ResultsFiltersSidebar";
 import ResultsGrid from "@/components/schedule/ResultsGrid";
@@ -23,9 +23,34 @@ import {
 const EMPTY_SCHEDULES: GeneratedScheduleResponse[] = [];
 const DEV_RESULTS_FIXTURE_PARAM = "fixture";
 
+type FavoriteState = {
+    scheduleId: number | null;
+    isSaving: boolean;
+    error: string | null;
+};
+
+function getGeneratedScheduleFavoriteKey(
+    schedule: GeneratedScheduleResponse,
+): string {
+    const sectionIds = schedule.sections
+        .map((section) => section.catalogSectionId)
+        .sort();
+
+    return sectionIds.length > 0 ? sectionIds.join("|") : schedule.resultId;
+}
+
+function getDevFixtureScheduleId(schedule: GeneratedScheduleResponse): number {
+    return Math.abs(
+        Array.from(schedule.resultId).reduce(
+            (hash, char) => (hash * 31 + char.charCodeAt(0)) | 0,
+            0,
+        ),
+    );
+}
+
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
-    const { draft } = useScheduleDraft();
+    const { draft, isDraftLoading, draftError } = useScheduleDraft();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [sortKey, setSortKey] = useState<SortKey>("earliestStart");
@@ -35,6 +60,9 @@ export default function ScheduleResultsStep() {
     );
     const [devFixtureDraft, setDevFixtureDraft] =
         useState<ScheduleDraft | null>(null);
+    const [favoriteStates, setFavoriteStates] = useState<
+        Record<string, FavoriteState>
+    >({});
     const [isLoadingDevFixture, setIsLoadingDevFixture] = useState(false);
     const [didFailDevFixture, setDidFailDevFixture] = useState(false);
     const fixtureName = searchParams.get(DEV_RESULTS_FIXTURE_PARAM);
@@ -82,6 +110,7 @@ export default function ScheduleResultsStep() {
     }, [catalogId, draft.catalogId, fixtureName, shouldLoadDevFixture]);
 
     const activeDraft = devFixtureDraft ?? draft;
+    const isUsingDevFixture = devFixtureDraft !== null;
     const generationResult = activeDraft.generationResult;
     const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
     const visibleSchedules = useMemo(() => {
@@ -94,6 +123,16 @@ export default function ScheduleResultsStep() {
 
         return sortSchedules(filtered, sortKey);
     }, [allSchedules, dayFilter, sortKey]);
+    const favoriteStateByResultId = useMemo(
+        () =>
+            Object.fromEntries(
+                visibleSchedules.map((schedule) => [
+                    schedule.resultId,
+                    favoriteStates[getGeneratedScheduleFavoriteKey(schedule)],
+                ]),
+            ),
+        [favoriteStates, visibleSchedules],
+    );
     const selectedSchedule =
         visibleSchedules.find(
             (schedule) => schedule.resultId === selectedResultId,
@@ -109,6 +148,22 @@ export default function ScheduleResultsStep() {
         return (
             <div className="h-full flex items-center justify-center text-background/50 text-sm">
                 Loading results fixture.
+            </div>
+        );
+    }
+
+    if (!isUsingDevFixture && isDraftLoading) {
+        return (
+            <div className="h-full flex items-center justify-center text-background/50 text-sm">
+                Loading catalog sections.
+            </div>
+        );
+    }
+
+    if (!isUsingDevFixture && draftError) {
+        return (
+            <div className="h-full flex items-center justify-center text-background/60 text-sm">
+                {draftError}
             </div>
         );
     }
@@ -130,16 +185,101 @@ export default function ScheduleResultsStep() {
         schedule: GeneratedScheduleResponse,
     ) {
         e.stopPropagation();
+        const favoriteKey = getGeneratedScheduleFavoriteKey(schedule);
+        const currentState = favoriteStates[favoriteKey];
+        const savedScheduleId = currentState?.scheduleId ?? null;
+
+        if (currentState?.isSaving) {
+            return;
+        }
+
+        setFavoriteStates((prev) => ({
+            ...prev,
+            [favoriteKey]: {
+                scheduleId: savedScheduleId,
+                isSaving: true,
+                error: null,
+            },
+        }));
+
+        if (savedScheduleId !== null) {
+            if (isUsingDevFixture) {
+                setFavoriteStates((prev) => ({
+                    ...prev,
+                    [favoriteKey]: {
+                        scheduleId: null,
+                        isSaving: false,
+                        error: null,
+                    },
+                }));
+                return;
+            }
+
+            try {
+                await unfavoriteSchedule(savedScheduleId);
+                setFavoriteStates((prev) => ({
+                    ...prev,
+                    [favoriteKey]: {
+                        scheduleId: null,
+                        isSaving: false,
+                        error: null,
+                    },
+                }));
+            } catch (err) {
+                setFavoriteStates((prev) => ({
+                    ...prev,
+                    [favoriteKey]: {
+                        scheduleId: savedScheduleId,
+                        isSaving: false,
+                        error:
+                            err instanceof Error
+                                ? err.message
+                                : "Failed to unfavorite schedule.",
+                    },
+                }));
+            }
+            return;
+        }
+
+        if (isUsingDevFixture) {
+            setFavoriteStates((prev) => ({
+                ...prev,
+                [favoriteKey]: {
+                    scheduleId: getDevFixtureScheduleId(schedule),
+                    isSaving: false,
+                    error: null,
+                },
+            }));
+            return;
+        }
+
         try {
-            await favoriteGeneratedSchedule({
+            const response = await favoriteGeneratedSchedule({
                 catalogId: activeDraft.catalogId,
                 catalogSectionIds: schedule.sections.map(
                     (section) => section.catalogSectionId,
                 ),
             });
-            // TODO change the star to yellow or something
+            setFavoriteStates((prev) => ({
+                ...prev,
+                [favoriteKey]: {
+                    scheduleId: response.scheduleId,
+                    isSaving: false,
+                    error: null,
+                },
+            }));
         } catch (err) {
-            console.error("Failed to favorite generated schedule", err);
+            setFavoriteStates((prev) => ({
+                ...prev,
+                [favoriteKey]: {
+                    scheduleId: prev[favoriteKey]?.scheduleId ?? null,
+                    isSaving: false,
+                    error:
+                        err instanceof Error
+                            ? err.message
+                            : "Failed to favorite schedule.",
+                },
+            }));
         }
     }
 
@@ -158,6 +298,7 @@ export default function ScheduleResultsStep() {
                 selectedSchedule={selectedSchedule}
                 onSelectSchedule={setSelectedResultId}
                 onFavorite={handleFavorite}
+                favoriteStates={favoriteStateByResultId}
             />
             <ResultsDetailsPanel
                 generationResult={generationResult}

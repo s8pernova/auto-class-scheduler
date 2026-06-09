@@ -25,11 +25,23 @@ export type CatalogCreate = {
     /**
      * Source Type
      */
-    source_type?: string;
+    source_type?: 'csv' | 'paste' | 'manual' | 'importer' | 'demo';
     /**
      * Term Name
      */
     term_name?: string | null;
+};
+
+/**
+ * CatalogForkRequest
+ *
+ * Request to fork a published/shared catalog into a new draft.
+ */
+export type CatalogForkRequest = {
+    /**
+     * Name
+     */
+    name?: string | null;
 };
 
 /**
@@ -51,6 +63,10 @@ export type CatalogResponse = {
      */
     description?: string | null;
     /**
+     * Forked From Catalog Id
+     */
+    forked_from_catalog_id?: string | null;
+    /**
      * Id
      */
     id: string;
@@ -63,6 +79,10 @@ export type CatalogResponse = {
      */
     name: string;
     /**
+     * Published At
+     */
+    published_at?: string | null;
+    /**
      * Row Count
      */
     row_count: number;
@@ -70,6 +90,10 @@ export type CatalogResponse = {
      * School Name
      */
     school_name?: string | null;
+    /**
+     * Share Slug
+     */
+    share_slug?: string | null;
     /**
      * Source Metadata
      */
@@ -79,11 +103,11 @@ export type CatalogResponse = {
     /**
      * Source Type
      */
-    source_type: string;
+    source_type: 'csv' | 'paste' | 'manual' | 'importer' | 'demo';
     /**
      * Status
      */
-    status: string;
+    status: 'draft' | 'ready' | 'published' | 'error' | 'archived';
     /**
      * Term Name
      */
@@ -768,6 +792,36 @@ export type CreateCatalogApiV1CatalogsPostResponses = {
 
 export type CreateCatalogApiV1CatalogsPostResponse = CreateCatalogApiV1CatalogsPostResponses[keyof CreateCatalogApiV1CatalogsPostResponses];
 
+export type GetSharedCatalogApiV1CatalogsSharedShareSlugGetData = {
+    body?: never;
+    path: {
+        /**
+         * Share Slug
+         */
+        share_slug: string;
+    };
+    query?: never;
+    url: '/api/v1/catalogs/shared/{share_slug}';
+};
+
+export type GetSharedCatalogApiV1CatalogsSharedShareSlugGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSharedCatalogApiV1CatalogsSharedShareSlugGetError = GetSharedCatalogApiV1CatalogsSharedShareSlugGetErrors[keyof GetSharedCatalogApiV1CatalogsSharedShareSlugGetErrors];
+
+export type GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: CatalogResponse;
+};
+
+export type GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponse = GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponses[keyof GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponses];
+
 export type GetCatalogApiV1CatalogsCatalogIdGetData = {
     body?: never;
     path: {
@@ -797,6 +851,69 @@ export type GetCatalogApiV1CatalogsCatalogIdGetResponses = {
 };
 
 export type GetCatalogApiV1CatalogsCatalogIdGetResponse = GetCatalogApiV1CatalogsCatalogIdGetResponses[keyof GetCatalogApiV1CatalogsCatalogIdGetResponses];
+
+export type ForkCatalogApiV1CatalogsCatalogIdForkPostData = {
+    /**
+     * Payload
+     */
+    body?: CatalogForkRequest | null;
+    path: {
+        /**
+         * Catalog Id
+         */
+        catalog_id: string;
+    };
+    query?: never;
+    url: '/api/v1/catalogs/{catalog_id}/fork';
+};
+
+export type ForkCatalogApiV1CatalogsCatalogIdForkPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ForkCatalogApiV1CatalogsCatalogIdForkPostError = ForkCatalogApiV1CatalogsCatalogIdForkPostErrors[keyof ForkCatalogApiV1CatalogsCatalogIdForkPostErrors];
+
+export type ForkCatalogApiV1CatalogsCatalogIdForkPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: CatalogResponse;
+};
+
+export type ForkCatalogApiV1CatalogsCatalogIdForkPostResponse = ForkCatalogApiV1CatalogsCatalogIdForkPostResponses[keyof ForkCatalogApiV1CatalogsCatalogIdForkPostResponses];
+
+export type PublishCatalogApiV1CatalogsCatalogIdPublishPostData = {
+    body?: never;
+    path: {
+        /**
+         * Catalog Id
+         */
+        catalog_id: string;
+    };
+    query?: never;
+    url: '/api/v1/catalogs/{catalog_id}/publish';
+};
+
+export type PublishCatalogApiV1CatalogsCatalogIdPublishPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PublishCatalogApiV1CatalogsCatalogIdPublishPostError = PublishCatalogApiV1CatalogsCatalogIdPublishPostErrors[keyof PublishCatalogApiV1CatalogsCatalogIdPublishPostErrors];
+
+export type PublishCatalogApiV1CatalogsCatalogIdPublishPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: CatalogResponse;
+};
+
+export type PublishCatalogApiV1CatalogsCatalogIdPublishPostResponse = PublishCatalogApiV1CatalogsCatalogIdPublishPostResponses[keyof PublishCatalogApiV1CatalogsCatalogIdPublishPostResponses];
 
 export type ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetData = {
     body?: never;
@@ -938,36 +1055,6 @@ export type UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses = {
 };
 
 export type UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponse = UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses[keyof UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses];
-
-export type FavoriteScheduleApiV1FavoritesScheduleIdPostData = {
-    body?: never;
-    path: {
-        /**
-         * Schedule Id
-         */
-        schedule_id: number;
-    };
-    query?: never;
-    url: '/api/v1/favorites/{schedule_id}';
-};
-
-export type FavoriteScheduleApiV1FavoritesScheduleIdPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type FavoriteScheduleApiV1FavoritesScheduleIdPostError = FavoriteScheduleApiV1FavoritesScheduleIdPostErrors[keyof FavoriteScheduleApiV1FavoritesScheduleIdPostErrors];
-
-export type FavoriteScheduleApiV1FavoritesScheduleIdPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: FavoriteResponse;
-};
-
-export type FavoriteScheduleApiV1FavoritesScheduleIdPostResponse = FavoriteScheduleApiV1FavoritesScheduleIdPostResponses[keyof FavoriteScheduleApiV1FavoritesScheduleIdPostResponses];
 
 export type HealthCheckApiV1HealthGetData = {
     body?: never;

@@ -9,6 +9,9 @@ interface Route {
 export const CatalogCreatePage = lazy(
     () => import("@/pages/CatalogCreatePage"),
 );
+export const SharedCatalogPage = lazy(
+    () => import("@/pages/SharedCatalogPage"),
+);
 export const ScheduleRequestStep = lazy(
     () => import("@/pages/ScheduleRequestStep"),
 );

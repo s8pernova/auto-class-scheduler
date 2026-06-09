@@ -23,7 +23,22 @@ import InstructorRatings from "@/components/schedule/InstructorRatings";
 
 export default function ScheduleRequestStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
-    const { draft, updateDraft } = useScheduleDraft();
+    const {
+        draft,
+        updateCatalogDraft,
+        updateScheduleRequest,
+        setGenerationResult,
+        shareSlug,
+        catalogStatus,
+        isCatalogLoading,
+        catalogError,
+        isDraftLoading,
+        draftError,
+        isCatalogDraftDirty,
+        ensureEditableCatalog,
+        markCatalogDraftClean,
+        publishCurrentCatalog,
+    } = useScheduleDraft();
     const navigate = useNavigate();
 
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
@@ -38,6 +53,7 @@ export default function ScheduleRequestStep() {
     >([]);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [copyShareLabel, setCopyShareLabel] = useState("Copy Link");
     const [limits, setLimits] = useState<ScheduleLimitsResponse | null>(null);
 
     const selectedCourse = draft.requirementCourses.find(
@@ -76,6 +92,9 @@ export default function ScheduleRequestStep() {
         limits !== null &&
         draft.requirementCourses.length >= limits.maxCatalogCourses;
     const isAddCourseDisabled = limits === null || isCourseLimitReached;
+    const shareUrl = shareSlug
+        ? `${window.location.origin}/c/${shareSlug}`
+        : null;
 
     useEffect(() => {
         let isCurrent = true;
@@ -99,6 +118,67 @@ export default function ScheduleRequestStep() {
         };
     }, []);
 
+    if (isDraftLoading || isCatalogLoading) {
+        return (
+            <div className="h-full col-span-full flex items-center justify-center text-background/50 text-sm">
+                Loading catalog.
+            </div>
+        );
+    }
+
+    if (draftError || catalogError) {
+        return (
+            <div className="h-full col-span-full flex items-center justify-center text-background/60 text-sm">
+                {draftError ?? catalogError}
+            </div>
+        );
+    }
+
+    async function saveCatalogDraftIfNeeded(): Promise<{
+        targetCatalogId: string;
+        targetCatalog: Awaited<ReturnType<typeof ensureEditableCatalog>> | null;
+        targetDraft: typeof draft;
+    }> {
+        if (!catalogId || !isCatalogDraftDirty) {
+            return {
+                targetCatalogId: catalogId ?? draft.catalogId,
+                targetCatalog: null,
+                targetDraft: draft,
+            };
+        }
+
+        const targetCatalog = await ensureEditableCatalog();
+        const targetCatalogId = targetCatalog.id;
+        const targetDraft = {
+            ...draft,
+            catalogId: targetCatalogId,
+        };
+
+        const payload = buildCatalogSectionsReplaceRequest(targetDraft);
+        await replaceCatalogSections(targetCatalogId, payload);
+        markCatalogDraftClean();
+
+        return {
+            targetCatalogId,
+            targetCatalog,
+            targetDraft,
+        };
+    }
+
+    async function publishCatalogIfNeeded({
+        targetCatalogId,
+        targetCatalog,
+    }: {
+        targetCatalogId: string;
+        targetCatalog: Awaited<ReturnType<typeof ensureEditableCatalog>> | null;
+    }): Promise<Awaited<ReturnType<typeof ensureEditableCatalog>> | null> {
+        if ((targetCatalog?.status ?? catalogStatus) === "published") {
+            return targetCatalog;
+        }
+
+        return publishCurrentCatalog(targetCatalogId);
+    }
+
     async function handleContinue() {
         if (!catalogId) return;
 
@@ -106,13 +186,34 @@ export default function ScheduleRequestStep() {
         setIsSaving(true);
 
         try {
-            const payload = buildCatalogSectionsReplaceRequest(draft);
-            await replaceCatalogSections(catalogId, payload);
-            const generationPayload = buildScheduleGenerateRequest(draft);
-            const generationResult = await generateSchedules(generationPayload);
+            const { targetCatalogId, targetCatalog, targetDraft } =
+                await saveCatalogDraftIfNeeded();
+            const publishedCatalog = await publishCatalogIfNeeded({
+                targetCatalogId,
+                targetCatalog,
+            });
 
-            updateDraft({ generationResult });
-            navigate(`/catalogs/${catalogId}/results`);
+            const generationPayload = buildScheduleGenerateRequest(targetDraft);
+            const generationResult = await generateSchedules(generationPayload);
+            const draftWithResults = {
+                ...targetDraft,
+                generationResult,
+            };
+
+            if (targetCatalogId !== catalogId) {
+                navigate(`/catalogs/${targetCatalogId}/results`, {
+                    replace: true,
+                    state: {
+                        source: "forked_catalog",
+                        catalog: publishedCatalog,
+                        draft: draftWithResults,
+                    },
+                });
+                return;
+            }
+
+            setGenerationResult(generationResult);
+            navigate(`/catalogs/${targetCatalogId}/results`);
         } catch (err) {
             setSaveError(
                 err instanceof Error
@@ -120,6 +221,18 @@ export default function ScheduleRequestStep() {
                     : "Failed to generate schedules.",
             );
             setIsSaving(false);
+        }
+    }
+
+    async function handleCopyShareUrl() {
+        if (!shareUrl) return;
+
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopyShareLabel("Copied");
+            window.setTimeout(() => setCopyShareLabel("Copy Link"), 1500);
+        } catch {
+            setSaveError("Failed to copy share link.");
         }
     }
 
@@ -175,8 +288,10 @@ export default function ScheduleRequestStep() {
             sections: [],
         };
 
-        updateDraft({
+        updateCatalogDraft({
             requirementCourses: [...draft.requirementCourses, newGroup],
+        });
+        updateScheduleRequest({
             requirementGroups: [
                 ...draft.requirementGroups,
                 {
@@ -207,10 +322,12 @@ export default function ScheduleRequestStep() {
             })
             .filter((group) => group.courseIds.length > 0 && group.choose > 0);
 
-        updateDraft({
+        updateCatalogDraft({
             requirementCourses: draft.requirementCourses.filter(
                 (group) => group.id !== id,
             ),
+        });
+        updateScheduleRequest({
             requirementGroups,
         });
 
@@ -223,7 +340,7 @@ export default function ScheduleRequestStep() {
         groupId: string,
         patch: Partial<RequirementCourse>,
     ) {
-        updateDraft({
+        updateCatalogDraft({
             requirementCourses: draft.requirementCourses.map((group) =>
                 group.id === groupId ? { ...group, ...patch } : group,
             ),
@@ -308,7 +425,7 @@ export default function ScheduleRequestStep() {
         instructorName: string,
         rating: number | null,
     ) {
-        updateDraft({
+        updateScheduleRequest({
             instructorRatings: {
                 ...draft.instructorRatings,
                 [instructorName]: rating,
@@ -329,7 +446,7 @@ export default function ScheduleRequestStep() {
     }
 
     function handleIgnoreInstructor(instructorName: string) {
-        updateDraft({
+        updateScheduleRequest({
             instructorRatings: omitInstructorRating(
                 draft.instructorRatings,
                 instructorName,
@@ -398,6 +515,9 @@ export default function ScheduleRequestStep() {
                 continueLabel="Generate Schedules"
                 continuingLabel="Generating..."
                 continueError={saveError}
+                shareUrl={shareUrl}
+                onCopyShareUrl={handleCopyShareUrl}
+                copyShareLabel={copyShareLabel}
                 fieldOptions={{
                     instructor: {
                         options: instructorOptions,
