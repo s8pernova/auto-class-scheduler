@@ -39,6 +39,15 @@ function getGeneratedScheduleFavoriteKey(
     return sectionIds.length > 0 ? sectionIds.join("|") : schedule.resultId;
 }
 
+function getDevFixtureScheduleId(schedule: GeneratedScheduleResponse): number {
+    return Math.abs(
+        Array.from(schedule.resultId).reduce(
+            (hash, char) => (hash * 31 + char.charCodeAt(0)) | 0,
+            0,
+        ),
+    );
+}
+
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
     const { draft, isDraftLoading, draftError } = useScheduleDraft();
@@ -191,6 +200,18 @@ export default function ScheduleResultsStep() {
                 error: null,
             },
         }));
+
+        if (isUsingDevFixture) {
+            setFavoriteStates((prev) => ({
+                ...prev,
+                [favoriteKey]: {
+                    scheduleId: getDevFixtureScheduleId(schedule),
+                    isSaving: false,
+                    error: null,
+                },
+            }));
+            return;
+        }
 
         try {
             const response = await favoriteGeneratedSchedule({
