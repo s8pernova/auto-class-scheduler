@@ -9,7 +9,7 @@ import {
     type ScheduleDraft,
     useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
-import { favoriteGeneratedSchedule } from "@/api";
+import { favoriteGeneratedSchedule, unfavoriteSchedule } from "@/api";
 import type { GeneratedScheduleResponse } from "@/api";
 import ResultsFiltersSidebar from "@/components/schedule/ResultsFiltersSidebar";
 import ResultsGrid from "@/components/schedule/ResultsGrid";
@@ -187,19 +187,59 @@ export default function ScheduleResultsStep() {
         e.stopPropagation();
         const favoriteKey = getGeneratedScheduleFavoriteKey(schedule);
         const currentState = favoriteStates[favoriteKey];
+        const savedScheduleId = currentState?.scheduleId ?? null;
 
-        if (currentState?.isSaving || currentState?.scheduleId) {
+        if (currentState?.isSaving) {
             return;
         }
 
         setFavoriteStates((prev) => ({
             ...prev,
             [favoriteKey]: {
-                scheduleId: prev[favoriteKey]?.scheduleId ?? null,
+                scheduleId: savedScheduleId,
                 isSaving: true,
                 error: null,
             },
         }));
+
+        if (savedScheduleId !== null) {
+            if (isUsingDevFixture) {
+                setFavoriteStates((prev) => ({
+                    ...prev,
+                    [favoriteKey]: {
+                        scheduleId: null,
+                        isSaving: false,
+                        error: null,
+                    },
+                }));
+                return;
+            }
+
+            try {
+                await unfavoriteSchedule(savedScheduleId);
+                setFavoriteStates((prev) => ({
+                    ...prev,
+                    [favoriteKey]: {
+                        scheduleId: null,
+                        isSaving: false,
+                        error: null,
+                    },
+                }));
+            } catch (err) {
+                setFavoriteStates((prev) => ({
+                    ...prev,
+                    [favoriteKey]: {
+                        scheduleId: savedScheduleId,
+                        isSaving: false,
+                        error:
+                            err instanceof Error
+                                ? err.message
+                                : "Failed to unfavorite schedule.",
+                    },
+                }));
+            }
+            return;
+        }
 
         if (isUsingDevFixture) {
             setFavoriteStates((prev) => ({

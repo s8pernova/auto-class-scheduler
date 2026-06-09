@@ -101,23 +101,21 @@ export default function ResultsGrid({
                                         onClick={(event) =>
                                             onFavorite(event, schedule)
                                         }
-                                        disabled={
-                                            isSavingFavorite || isFavorited
-                                        }
+                                        disabled={isSavingFavorite}
                                         aria-pressed={isFavorited}
                                         aria-label={
                                             isFavorited
-                                                ? "Schedule favorited"
+                                                ? "Unfavorite schedule"
                                                 : "Favorite schedule"
                                         }
                                         title={
                                             isFavorited
-                                                ? "Schedule favorited"
+                                                ? "Unfavorite schedule"
                                                 : "Favorite schedule"
                                         }
                                         className={`p-1.5 rounded transition-colors ${
                                             isFavorited
-                                                ? "text-yellow-500"
+                                                ? "text-yellow-500 hover:text-background/35"
                                                 : "text-background/30 hover:text-yellow-500"
                                         } disabled:cursor-default`}
                                     >
