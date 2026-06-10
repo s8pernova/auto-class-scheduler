@@ -269,7 +269,7 @@ def _upsert_saved_schedule(
         "campus_pattern": summary["campus_pattern"],
     }
 
-    if existing.data:
+    if existing is not None and existing.data:
         schedule_id = int(existing.data["id"])
         client.table("saved_schedules").update(row).eq("id", schedule_id).execute()
         return schedule_id, False

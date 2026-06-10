@@ -210,12 +210,11 @@ def publish_catalog(
         .update(row)
         .eq("id", str(catalog_id))
         .select("*")
-        .maybe_single()
         .execute()
     )
-    if resp.data is None:
+    if not resp.data:
         raise ValueError("Catalog not found or not writable")
-    return CatalogResponse(**resp.data)
+    return CatalogResponse(**resp.data[0])
 
 
 def get_catalog_by_share_slug(
@@ -296,7 +295,7 @@ def _generate_unique_share_slug(client: Client) -> str:
             .maybe_single()
             .execute()
         )
-        if existing.data is None:
+        if existing is None or existing.data is None:
             return slug
 
     raise ValueError("Could not generate a unique catalog share slug")
