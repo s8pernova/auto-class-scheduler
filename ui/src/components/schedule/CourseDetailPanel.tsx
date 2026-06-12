@@ -15,6 +15,11 @@ type CourseDetailPanelProps = {
     onRemoveSection: (rowIndex: number) => void;
     onCopySection: (rowIndex: number) => void;
     onAddSection: (sectionData: Partial<SectionRef>) => void;
+    onSaveDraft?: () => void;
+    canSaveDraft?: boolean;
+    isSavingDraft?: boolean;
+    saveDraftLabel?: string;
+    savingDraftLabel?: string;
     onContinue: () => void;
     isContinuing?: boolean;
     continueLabel?: string;
@@ -34,6 +39,11 @@ export default function CourseDetailPanel({
     onRemoveSection,
     onCopySection,
     onAddSection,
+    onSaveDraft,
+    canSaveDraft = false,
+    isSavingDraft = false,
+    saveDraftLabel = "Save Draft",
+    savingDraftLabel = "Saving...",
     onContinue,
     isContinuing = false,
     continueLabel = "Continue",
@@ -116,10 +126,22 @@ export default function CourseDetailPanel({
                 ) : null}
 
                 <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-background/10">
+                    {onSaveDraft ? (
+                        <button
+                            type="button"
+                            onClick={onSaveDraft}
+                            disabled={
+                                !canSaveDraft || isSavingDraft || isContinuing
+                            }
+                            className="px-6 py-2 border border-background/15 text-background/75 rounded-md font-bold disabled:opacity-50 hover:bg-background/10 transition-colors"
+                        >
+                            {isSavingDraft ? savingDraftLabel : saveDraftLabel}
+                        </button>
+                    ) : null}
                     <button
                         type="button"
                         onClick={onContinue}
-                        disabled={!canContinue || isContinuing}
+                        disabled={!canContinue || isContinuing || isSavingDraft}
                         className="px-6 py-2 bg-accent text-white rounded-md font-bold disabled:opacity-50 hover:bg-accent/90 transition-colors"
                     >
                         {isContinuing ? continuingLabel : continueLabel}

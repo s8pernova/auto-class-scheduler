@@ -52,7 +52,8 @@ export default function ScheduleRequestStep() {
         string[]
     >([]);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     const [copyShareLabel, setCopyShareLabel] = useState("Copy Link");
     const [limits, setLimits] = useState<ScheduleLimitsResponse | null>(null);
 
@@ -134,12 +135,16 @@ export default function ScheduleRequestStep() {
         );
     }
 
-    async function saveCatalogDraftIfNeeded(): Promise<{
+    async function saveCatalogDraftIfNeeded({
+        force = false,
+    }: {
+        force?: boolean;
+    } = {}): Promise<{
         targetCatalogId: string;
         targetCatalog: Awaited<ReturnType<typeof ensureEditableCatalog>> | null;
         targetDraft: typeof draft;
     }> {
-        if (!catalogId || !isCatalogDraftDirty) {
+        if (!catalogId || (!force && !isCatalogDraftDirty)) {
             return {
                 targetCatalogId: catalogId ?? draft.catalogId,
                 targetCatalog: null,
@@ -165,6 +170,35 @@ export default function ScheduleRequestStep() {
         };
     }
 
+    async function handleSaveDraft() {
+        if (!catalogId) return;
+
+        setSaveError(null);
+        setIsSavingDraft(true);
+
+        try {
+            const { targetCatalogId, targetCatalog, targetDraft } =
+                await saveCatalogDraftIfNeeded({ force: true });
+
+            if (targetCatalogId !== catalogId) {
+                navigate(`/catalogs/${targetCatalogId}`, {
+                    replace: true,
+                    state: {
+                        source: "forked_catalog",
+                        catalog: targetCatalog,
+                        draft: targetDraft,
+                    },
+                });
+            }
+        } catch (err) {
+            setSaveError(
+                err instanceof Error ? err.message : "Failed to save draft.",
+            );
+        } finally {
+            setIsSavingDraft(false);
+        }
+    }
+
     async function publishCatalogIfNeeded({
         targetCatalogId,
         targetCatalog,
@@ -183,7 +217,7 @@ export default function ScheduleRequestStep() {
         if (!catalogId) return;
 
         setSaveError(null);
-        setIsSaving(true);
+        setIsGenerating(true);
 
         try {
             const { targetCatalogId, targetCatalog, targetDraft } =
@@ -220,7 +254,7 @@ export default function ScheduleRequestStep() {
                     ? err.message
                     : "Failed to generate schedules.",
             );
-            setIsSaving(false);
+            setIsGenerating(false);
         }
     }
 
@@ -510,8 +544,13 @@ export default function ScheduleRequestStep() {
                         );
                     }
                 }}
+                onSaveDraft={handleSaveDraft}
+                canSaveDraft={isCatalogDraftDirty}
+                isSavingDraft={isSavingDraft}
+                saveDraftLabel={isCatalogDraftDirty ? "Save Draft" : "Saved"}
+                savingDraftLabel="Saving..."
                 onContinue={handleContinue}
-                isContinuing={isSaving}
+                isContinuing={isGenerating}
                 continueLabel="Generate Schedules"
                 continuingLabel="Generating..."
                 continueError={saveError}
