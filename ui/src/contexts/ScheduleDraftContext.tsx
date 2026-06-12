@@ -152,51 +152,32 @@ function formatMeetingTime(value: string): string {
     return `${hours.padStart(2, "0")}:${minutes}`;
 }
 
-function getFirstMeeting(section: CatalogSectionResponse) {
-    return [...(section.meetings ?? [])].sort(
-        (left, right) => left.sortOrder - right.sortOrder,
-    )[0];
-}
-
 function buildDraftFromCatalogSections(
     catalogId: string,
     sections: CatalogSectionResponse[],
 ): ScheduleDraft {
-    const coursesByName = new Map<string, RequirementCourse>();
-
     const sortedSections = [...sections].sort(
         (left, right) => left.sortOrder - right.sortOrder,
     );
-
-    for (const section of sortedSections) {
+    const requirementCourses = sortedSections.map((section, index) => {
         const label = section.courseName.trim();
-        let course = coursesByName.get(label);
+        const meetings = [...(section.meetings ?? [])].sort(
+            (left, right) => left.sortOrder - right.sortOrder,
+        );
 
-        if (!course) {
-            const id = `course-${slugifyCourseId(label)}-${coursesByName.size}`;
-            course = {
-                id,
-                label,
-                sections: [],
-            };
-            coursesByName.set(label, course);
-        }
-
-        const meeting = getFirstMeeting(section);
-
-        course.sections.push({
-            days: meeting?.days ?? "",
-            time: meeting
-                ? `${formatMeetingTime(meeting.startTime)}-${formatMeetingTime(
-                      meeting.endTime,
-                  )}`
-                : "",
-            crn: section.crn ?? "",
-            instructor: section.instructorName ?? "",
-        });
-    }
-
-    const requirementCourses = [...coursesByName.values()];
+        return {
+            id: `course-${slugifyCourseId(label)}-${index}`,
+            label,
+            sections: meetings.map((meeting) => ({
+                days: meeting.days ?? "",
+                time: `${formatMeetingTime(meeting.startTime)}-${formatMeetingTime(
+                    meeting.endTime,
+                )}`,
+                crn: meeting.crn ?? "",
+                instructor: meeting.instructorName ?? "",
+            })),
+        };
+    });
 
     return {
         catalogId,

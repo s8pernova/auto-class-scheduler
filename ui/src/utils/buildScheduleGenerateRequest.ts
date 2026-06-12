@@ -83,28 +83,27 @@ function buildScheduleRequirements(
 export function buildCatalogSectionsReplaceRequest(
     draft: ScheduleDraft,
 ): CatalogSectionsReplaceRequest {
-    let sortOrder = 0;
-
     return {
-        sections: draft.requirementCourses.flatMap((course) => {
+        sections: draft.requirementCourses.map((course, courseIndex) => {
             if (course.sections.length === 0) {
                 throw new Error(`${course.label} needs at least one section.`);
             }
 
-            return course.sections.map((section) => {
-                const crn = optionalString(section.crn);
-                const instructorName = optionalString(section.instructor);
-                const currentSortOrder = sortOrder;
-                sortOrder += 1;
+            return {
+                courseName: course.label,
+                sortOrder: courseIndex,
+                meetings: course.sections.map((section, sectionIndex) => {
+                    const crn = optionalString(section.crn);
+                    const instructorName = optionalString(section.instructor);
 
-                return {
-                    courseName: course.label,
-                    crn,
-                    instructorName,
-                    sortOrder: currentSortOrder,
-                    meetings: [{ ...buildMeeting(section), sortOrder: 0 }],
-                };
-            });
+                    return {
+                        crn,
+                        instructorName,
+                        ...buildMeeting(section),
+                        sortOrder: sectionIndex,
+                    };
+                }),
+            };
         }),
     };
 }

@@ -121,21 +121,13 @@ export type CatalogResponse = {
 /**
  * CatalogSectionInput
  *
- * One candidate section to persist in normalized catalog storage.
+ * One requirement bucket to persist in normalized catalog storage.
  */
 export type CatalogSectionInput = {
     /**
      * Coursename
      */
     courseName: string;
-    /**
-     * Crn
-     */
-    crn?: string | null;
-    /**
-     * Instructorname
-     */
-    instructorName?: string | null;
     /**
      * Meetings
      */
@@ -155,9 +147,13 @@ export type CatalogSectionInput = {
 /**
  * CatalogSectionMeetingInput
  *
- * One meeting block for a saved catalog section.
+ * One main-box row for a saved catalog requirement.
  */
 export type CatalogSectionMeetingInput = {
+    /**
+     * Crn
+     */
+    crn?: string | null;
     /**
      * Days
      */
@@ -166,6 +162,10 @@ export type CatalogSectionMeetingInput = {
      * Endtime
      */
     endTime: string;
+    /**
+     * Instructorname
+     */
+    instructorName?: string | null;
     /**
      * Sortorder
      */
@@ -179,9 +179,13 @@ export type CatalogSectionMeetingInput = {
 /**
  * CatalogSectionMeetingResponse
  *
- * Persisted meeting block for a catalog section.
+ * Persisted main-box row for a catalog requirement.
  */
 export type CatalogSectionMeetingResponse = {
+    /**
+     * Crn
+     */
+    crn?: string | null;
     /**
      * Days
      */
@@ -194,6 +198,10 @@ export type CatalogSectionMeetingResponse = {
      * Id
      */
     id: string;
+    /**
+     * Instructorname
+     */
+    instructorName?: string | null;
     /**
      * Sectionid
      */
@@ -211,7 +219,7 @@ export type CatalogSectionMeetingResponse = {
 /**
  * CatalogSectionResponse
  *
- * Persisted catalog section with nested meeting blocks.
+ * Persisted catalog requirement with nested main-box rows.
  */
 export type CatalogSectionResponse = {
     /**
@@ -227,17 +235,9 @@ export type CatalogSectionResponse = {
      */
     createdAt: string;
     /**
-     * Crn
-     */
-    crn?: string | null;
-    /**
      * Id
      */
     id: string;
-    /**
-     * Instructorname
-     */
-    instructorName?: string | null;
     /**
      * Meetings
      */
@@ -281,9 +281,9 @@ export type FavoriteGeneratedScheduleRequest = {
      */
     catalogId: string;
     /**
-     * Catalogsectionids
+     * Catalogsectionmeetingids
      */
-    catalogSectionIds: Array<string>;
+    catalogSectionMeetingIds: Array<string>;
 };
 
 /**
@@ -396,6 +396,10 @@ export type GeneratedSectionResponse = {
      * Catalogsectionid
      */
     catalogSectionId: string;
+    /**
+     * Catalogsectionmeetingid
+     */
+    catalogSectionMeetingId: string;
     /**
      * Coursename
      */
@@ -580,10 +584,6 @@ export type ScheduleLimitsResponse = {
      */
     maxCatalogCourses: number;
     /**
-     * Maxcatalogmeetings
-     */
-    maxCatalogMeetings: number;
-    /**
      * Maxcatalogsections
      */
     maxCatalogSections: number;
@@ -591,10 +591,6 @@ export type ScheduleLimitsResponse = {
      * Maxinstructorratings
      */
     maxInstructorRatings: number;
-    /**
-     * Maxmeetingspersection
-     */
-    maxMeetingsPerSection: number;
     /**
      * Maxresults
      */
@@ -639,6 +635,10 @@ export type ScheduleSectionDetailResponse = {
      * Catalog Section Id
      */
     catalog_section_id?: string | null;
+    /**
+     * Catalog Section Meeting Id
+     */
+    catalog_section_meeting_id?: string | null;
     /**
      * Course Name
      */

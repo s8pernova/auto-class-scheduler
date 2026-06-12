@@ -35,6 +35,7 @@ DAY_CODE_TO_NAME = {
     "S": "Sat",
 }
 
+
 def generate_schedules_from_request(
     client: Client,
     payload: ScheduleGenerateRequest,
@@ -235,46 +236,46 @@ def _load_catalog_generation_sections(
             sections_by_course[course_key] = []
             target_courses.append(course_key)
 
-        section_counts_by_course[course_key] = (
-            section_counts_by_course.get(course_key, 0) + 1
-        )
-        section_index = section_counts_by_course[course_key]
-        section_code = (
-            catalog_section.crn or f"{catalog_section.course_name}-{section_index}"
-        )
-        instructor_name = catalog_section.instructor_name or ""
-        rating = instructor_ratings.get(instructor_name) if instructor_name else None
-
         if not catalog_section.meetings:
             raise ValueError(
-                "Catalog section "
-                f"{catalog_section.course_name} "
-                f"{section_code} has no meetings"
+                f"Catalog section {catalog_section.course_name} has no candidate rows"
             )
 
-        meetings = [
-            Meeting(
-                day=day,
-                start=meeting.start_time,
-                end=meeting.end_time,
-                campus="Unspecified",
+        for catalog_meeting in catalog_section.meetings:
+            section_counts_by_course[course_key] = (
+                section_counts_by_course.get(course_key, 0) + 1
             )
-            for meeting in catalog_section.meetings
-            for day in _expand_meeting_days(meeting.days)
-        ]
+            section_index = section_counts_by_course[course_key]
+            section_code = (
+                catalog_meeting.crn or f"{catalog_section.course_name}-{section_index}"
+            )
+            instructor_name = catalog_meeting.instructor_name or ""
+            rating = (
+                instructor_ratings.get(instructor_name) if instructor_name else None
+            )
+            meetings = [
+                Meeting(
+                    day=day,
+                    start=catalog_meeting.start_time,
+                    end=catalog_meeting.end_time,
+                    campus="Unspecified",
+                )
+                for day in _expand_meeting_days(catalog_meeting.days)
+            ]
 
-        sections_by_course[course_key].append(
-            Section(
-                catalog_section_id=catalog_section.id,
-                course_name=catalog_section.course_name,
-                section_code=section_code,
-                title="",
-                credits=0,
-                instructor=instructor_name,
-                rating=rating,
-                meetings=meetings,
+            sections_by_course[course_key].append(
+                Section(
+                    catalog_section_id=catalog_section.id,
+                    catalog_section_meeting_id=catalog_meeting.id,
+                    course_name=catalog_section.course_name,
+                    section_code=section_code,
+                    title="",
+                    credits=0,
+                    instructor=instructor_name,
+                    rating=rating,
+                    meetings=meetings,
+                )
             )
-        )
 
     return sections_by_course, target_courses
 
@@ -374,12 +375,12 @@ def _has_duplicate_courses_or_sections(sections: list[Section]) -> bool:
     if len(set(course_names)) != len(course_names):
         return True
 
-    catalog_section_ids = [
-        section.catalog_section_id
+    catalog_section_meeting_ids = [
+        section.catalog_section_meeting_id
         for section in sections
-        if section.catalog_section_id is not None
+        if section.catalog_section_meeting_id is not None
     ]
-    return len(set(catalog_section_ids)) != len(catalog_section_ids)
+    return len(set(catalog_section_meeting_ids)) != len(catalog_section_meeting_ids)
 
 
 def _has_time_conflict(sections: list[Section]) -> bool:
@@ -458,9 +459,14 @@ def _build_generated_schedule_response(
 def _build_generated_section_response(section: Section) -> GeneratedSectionResponse:
     if section.catalog_section_id is None:
         raise ValueError("Generated catalog sections must include catalogSectionId")
+    if section.catalog_section_meeting_id is None:
+        raise ValueError(
+            "Generated catalog sections must include catalogSectionMeetingId"
+        )
 
     return GeneratedSectionResponse(
         catalog_section_id=section.catalog_section_id,
+        catalog_section_meeting_id=section.catalog_section_meeting_id,
         course_name=section.course_name,
         section_code=section.section_code,
         instructor_name=section.instructor or None,
@@ -492,36 +498,64 @@ def _build_classes_lookup(
     client: Client,
     schedules_data: list[dict],
 ) -> dict[str, dict]:
-    """Fetch catalog_sections and meetings to index by catalog_section_id."""
+    """Fetch catalog bucket and meeting details for saved schedule sections."""
     section_ids: set[str] = set()
+    meeting_ids: set[str] = set()
     for sched in schedules_data:
         for sec in sched.get("saved_schedule_sections", []):
             sect_id = sec.get("catalog_section_id")
             if sect_id:
                 section_ids.add(str(sect_id))
+            meeting_id = sec.get("catalog_section_meeting_id")
+            if meeting_id:
+                meeting_ids.add(str(meeting_id))
 
-    if not section_ids:
+    if not section_ids and not meeting_ids:
         return {}
 
-    # Fetch catalog sections details
-    sections_resp = (
-        client.table("catalog_sections")
-        .select("id, course_name, crn, instructor_name, source_metadata")
-        .in_("id", list(section_ids))
-        .execute()
-    )
-    sections_by_id = {row["id"]: row for row in sections_resp.data or []}
+    meetings_rows: list[dict] = []
+    if meeting_ids:
+        meetings_rows.extend(
+            (
+                client.table("catalog_section_meetings")
+                .select(
+                    "id, section_id, crn, instructor_name, days, start_time, end_time"
+                )
+                .in_("id", list(meeting_ids))
+                .execute()
+                .data
+                or []
+            )
+        )
+        section_ids.update(str(row["section_id"]) for row in meetings_rows)
+    else:
+        meetings_rows.extend(
+            (
+                client.table("catalog_section_meetings")
+                .select(
+                    "id, section_id, crn, instructor_name, days, start_time, end_time"
+                )
+                .in_("section_id", list(section_ids))
+                .execute()
+                .data
+                or []
+            )
+        )
 
-    # Fetch meetings details
-    meetings_resp = (
-        client.table("catalog_section_meetings")
-        .select("section_id, days, start_time, end_time")
-        .in_("section_id", list(section_ids))
-        .execute()
-    )
+    sections_by_id: dict[str, dict] = {}
+    if section_ids:
+        sections_resp = (
+            client.table("catalog_sections")
+            .select("id, course_name, source_metadata")
+            .in_("id", list(section_ids))
+            .execute()
+        )
+        sections_by_id = {row["id"]: row for row in sections_resp.data or []}
 
     lookup: dict[str, dict] = {}
-    for sect_id in section_ids:
+    for row in meetings_rows:
+        sect_id = str(row["section_id"])
+        meeting_id = str(row["id"])
         sect_data = sections_by_id.get(sect_id, {})
         metadata = sect_data.get("source_metadata") or {}
 
@@ -530,21 +564,20 @@ def _build_classes_lookup(
         if instructor_rating is None:
             instructor_rating = metadata.get("rating")
 
-        lookup[sect_id] = {
+        details = {
+            "catalog_section_id": sect_id,
+            "catalog_section_meeting_id": meeting_id,
             "course_name": sect_data.get("course_name"),
-            "section_code": sect_data.get("crn") or sect_id,
+            "section_code": row.get("crn") or meeting_id,
             "modality": modality,
-            "instructor_name": sect_data.get("instructor_name")
+            "instructor_name": row.get("instructor_name")
             or metadata.get("instructor_name"),
             "instructor_rating": instructor_rating,
             "meetings": [],
             "source_metadata": metadata,
         }
-
-    for row in meetings_resp.data or []:
-        sect_id = str(row["section_id"])
-        if sect_id not in lookup:
-            continue
+        lookup[meeting_id] = details
+        lookup.setdefault(sect_id, details)
 
         days = row["days"] or ""
         start = row["start_time"]
@@ -553,7 +586,7 @@ def _build_classes_lookup(
         for day_code in days:
             day_name = DAY_CODE_TO_NAME.get(day_code)
             if day_name:
-                lookup[sect_id]["meetings"].append(
+                details["meetings"].append(
                     MeetingResponse(
                         day_of_week=day_name,
                         start_time=start,
@@ -581,7 +614,18 @@ def _assemble_responses(
                 if sec.get("catalog_section_id")
                 else None
             )
-            extra = classes_lookup.get(sect_id) if sect_id else None
+            meeting_id = (
+                str(sec["catalog_section_meeting_id"])
+                if sec.get("catalog_section_meeting_id")
+                else None
+            )
+            extra = (
+                classes_lookup.get(meeting_id)
+                if meeting_id
+                else classes_lookup.get(sect_id)
+                if sect_id
+                else None
+            )
 
             if extra:
                 modality = extra.get("modality")
@@ -605,6 +649,7 @@ def _assemble_responses(
             sections.append(
                 ScheduleSectionDetailResponse(
                     catalog_section_id=sect_id,
+                    catalog_section_meeting_id=meeting_id,
                     course_name=course_name,
                     subject_code=sec.get("subject_code"),
                     course_number=sec.get("course_number"),

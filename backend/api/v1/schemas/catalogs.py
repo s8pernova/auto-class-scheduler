@@ -63,12 +63,22 @@ class CatalogResponse(BaseModel):
 
 
 class CatalogSectionMeetingInput(CamelModel):
-    """One meeting block for a saved catalog section."""
+    """One main-box row for a saved catalog requirement."""
 
+    crn: str | None = Field(default=None, max_length=50)
+    instructor_name: str | None = Field(default=None, max_length=200)
     days: str = Field(..., min_length=1)
     start_time: time
     end_time: time
     sort_order: int = Field(default=0, ge=0)
+
+    @field_validator("crn", "instructor_name", mode="before")
+    @classmethod
+    def normalize_optional_text(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        return stripped or None
 
     @field_validator("days")
     @classmethod
@@ -83,11 +93,9 @@ class CatalogSectionMeetingInput(CamelModel):
 
 
 class CatalogSectionInput(CamelModel):
-    """One candidate section to persist in normalized catalog storage."""
+    """One requirement bucket to persist in normalized catalog storage."""
 
     course_name: str = Field(..., min_length=1, max_length=200)
-    crn: str | None = Field(default=None, max_length=50)
-    instructor_name: str | None = Field(default=None, max_length=200)
     sort_order: int = Field(default=0, ge=0)
     source_metadata: dict[str, Any] = Field(default_factory=dict)
     meetings: list[CatalogSectionMeetingInput] = Field(..., min_length=1)
@@ -100,14 +108,6 @@ class CatalogSectionInput(CamelModel):
             raise ValueError("Course name is required")
         return normalized
 
-    @field_validator("crn", "instructor_name", mode="before")
-    @classmethod
-    def normalize_optional_text(cls, value: Any) -> Any:
-        if not isinstance(value, str):
-            return value
-        stripped = value.strip()
-        return stripped or None
-
 
 class CatalogSectionsReplaceRequest(CamelModel):
     """Full replacement payload for a catalog's candidate sections."""
@@ -116,10 +116,12 @@ class CatalogSectionsReplaceRequest(CamelModel):
 
 
 class CatalogSectionMeetingResponse(CamelModel):
-    """Persisted meeting block for a catalog section."""
+    """Persisted main-box row for a catalog requirement."""
 
     id: UUID
     section_id: UUID
+    crn: str | None = None
+    instructor_name: str | None = None
     days: str
     start_time: time
     end_time: time
@@ -127,13 +129,11 @@ class CatalogSectionMeetingResponse(CamelModel):
 
 
 class CatalogSectionResponse(CamelModel):
-    """Persisted catalog section with nested meeting blocks."""
+    """Persisted catalog requirement with nested main-box rows."""
 
     id: UUID
     catalog_id: UUID
     course_name: str
-    crn: str | None = None
-    instructor_name: str | None = None
     sort_order: int
     source_metadata: dict[str, Any]
     created_at: datetime

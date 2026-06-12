@@ -14,7 +14,7 @@ class FavoriteGeneratedScheduleRequest(CamelModel):
     """Request to save and favorite one generated schedule result."""
 
     catalog_id: UUID
-    catalog_section_ids: list[UUID] = Field(..., min_length=1)
+    catalog_section_meeting_ids: list[UUID] = Field(..., min_length=1)
 
 
 class FavoriteResponse(CamelModel):

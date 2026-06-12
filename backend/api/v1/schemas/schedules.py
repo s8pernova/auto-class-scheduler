@@ -62,8 +62,6 @@ class ScheduleLimitsResponse(CamelModel):
     max_catalog_courses: int
     max_catalog_sections: int
     max_sections_per_course: int
-    max_meetings_per_section: int
-    max_catalog_meetings: int
     max_source_metadata_bytes_per_section: int
     max_blocked_times: int
     max_instructor_ratings: int
@@ -80,6 +78,7 @@ class Section(CamelModel):
     meetings: list[Meeting]
     rating: float | None = None
     catalog_section_id: UUID | None = None
+    catalog_section_meeting_id: UUID | None = None
 
 
 class ScheduleGenerateMetadata(CamelModel):
@@ -189,6 +188,7 @@ class GeneratedSectionResponse(CamelModel):
     """Section detail returned for a generated transient schedule."""
 
     catalog_section_id: UUID
+    catalog_section_meeting_id: UUID
     course_name: str
     section_code: str
     instructor_name: str | None = None
@@ -237,6 +237,7 @@ class ScheduleSectionDetailResponse(BaseModel):
     """Section information including instructor and meeting details."""
 
     catalog_section_id: UUID | None = None
+    catalog_section_meeting_id: UUID | None = None
     course_name: str | None = None
     subject_code: str | None = None
     course_number: int | None = None
@@ -253,6 +254,7 @@ class ScheduleSectionResponse(BaseModel):
     """Minimal section info (without meetings)."""
 
     catalog_section_id: UUID | None = None
+    catalog_section_meeting_id: UUID | None = None
     course_name: str | None = None
     subject_code: str | None = None
     course_number: int | None = None

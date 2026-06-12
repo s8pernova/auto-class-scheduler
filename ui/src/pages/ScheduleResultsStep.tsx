@@ -32,11 +32,13 @@ type FavoriteState = {
 function getGeneratedScheduleFavoriteKey(
     schedule: GeneratedScheduleResponse,
 ): string {
-    const sectionIds = schedule.sections
-        .map((section) => section.catalogSectionId)
+    const sectionRowIds = schedule.sections
+        .map((section) => section.catalogSectionMeetingId)
         .sort();
 
-    return sectionIds.length > 0 ? sectionIds.join("|") : schedule.resultId;
+    return sectionRowIds.length > 0
+        ? sectionRowIds.join("|")
+        : schedule.resultId;
 }
 
 function getDevFixtureScheduleId(schedule: GeneratedScheduleResponse): number {
@@ -256,8 +258,8 @@ export default function ScheduleResultsStep() {
         try {
             const response = await favoriteGeneratedSchedule({
                 catalogId: activeDraft.catalogId,
-                catalogSectionIds: schedule.sections.map(
-                    (section) => section.catalogSectionId,
+                catalogSectionMeetingIds: schedule.sections.map(
+                    (section) => section.catalogSectionMeetingId,
                 ),
             });
             setFavoriteStates((prev) => ({

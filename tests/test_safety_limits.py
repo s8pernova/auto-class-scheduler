@@ -23,11 +23,12 @@ from backend.api.v1.services.schedules import (
 from backend.config import get_settings
 
 
-def _meeting() -> CatalogSectionMeetingInput:
+def _meeting(hour: int = 9, *, crn: str | None = None) -> CatalogSectionMeetingInput:
     return CatalogSectionMeetingInput(
+        crn=crn,
         days="M",
-        start_time=time(9, 0),
-        end_time=time(10, 0),
+        start_time=time(hour, 0),
+        end_time=time(hour + 1, 0),
     )
 
 
@@ -39,7 +40,6 @@ def _catalog_section(
 ) -> CatalogSectionInput:
     return CatalogSectionInput(
         course_name=course_name,
-        crn="12345",
         source_metadata=metadata or {},
         meetings=meetings or [_meeting()],
     )
@@ -48,11 +48,32 @@ def _catalog_section(
 class SafetyLimitTests(unittest.TestCase):
     def test_catalog_rejects_too_many_sections(self) -> None:
         settings = get_settings()
+        section_count = settings.max_catalog_sections + 1
+        courses = []
+        remaining_sections = section_count
+        for course_index in range(settings.max_catalog_courses):
+            if remaining_sections <= 0:
+                break
+            course_section_count = min(
+                remaining_sections,
+                settings.max_sections_per_course,
+            )
+            courses.append(
+                _catalog_section(
+                    f"CS {course_index}",
+                    meetings=[
+                        _meeting(
+                            0,
+                            crn=f"{course_index}-{section_index}",
+                        )
+                        for section_index in range(course_section_count)
+                    ],
+                )
+            )
+            remaining_sections -= course_section_count
+
         payload = CatalogSectionsReplaceRequest(
-            sections=[
-                _catalog_section(f"CS {index}", metadata={"index": index})
-                for index in range(settings.max_catalog_sections + 1)
-            ]
+            sections=courses,
         )
 
         with self.assertRaisesRegex(ValueError, "more than .* sections"):
@@ -74,57 +95,29 @@ class SafetyLimitTests(unittest.TestCase):
         settings = get_settings()
         payload = CatalogSectionsReplaceRequest(
             sections=[
-                _catalog_section("CS 2505", metadata={"index": index})
-                for index in range(settings.max_sections_per_course + 1)
+                _catalog_section(
+                    "CS 2505",
+                    meetings=[
+                        _meeting(0, crn=str(index))
+                        for index in range(settings.max_sections_per_course + 1)
+                    ],
+                )
             ]
         )
 
         with self.assertRaisesRegex(ValueError, "course bucket"):
             validate_catalog_sections_payload(payload)
 
-    def test_catalog_rejects_too_many_meetings_per_section(self) -> None:
+    def test_catalog_rejects_duplicate_course_buckets(self) -> None:
         settings = get_settings()
         payload = CatalogSectionsReplaceRequest(
             sections=[
-                _catalog_section(
-                    meetings=[
-                        CatalogSectionMeetingInput(
-                            days="M",
-                            start_time=time(hour, 0),
-                            end_time=time(hour + 1, 0),
-                        )
-                        for hour in range(settings.max_meetings_per_section + 1)
-                    ]
-                )
+                _catalog_section("CS 2505", metadata={"index": index})
+                for index in range(2)
             ]
         )
 
-        with self.assertRaisesRegex(ValueError, "more than .* meetings"):
-            validate_catalog_sections_payload(payload)
-
-    def test_catalog_rejects_too_many_total_meetings(self) -> None:
-        settings = get_settings()
-        meetings_per_section = settings.max_meetings_per_section
-        section_count = (settings.max_catalog_meetings // meetings_per_section) + 1
-        payload = CatalogSectionsReplaceRequest(
-            sections=[
-                _catalog_section(
-                    f"CS {index % 6}",
-                    metadata={"index": index},
-                    meetings=[
-                        CatalogSectionMeetingInput(
-                            days="M",
-                            start_time=time(hour, 0),
-                            end_time=time(hour + 1, 0),
-                        )
-                        for hour in range(meetings_per_section)
-                    ],
-                )
-                for index in range(section_count)
-            ]
-        )
-
-        with self.assertRaisesRegex(ValueError, "more than .* meetings"):
+        with self.assertRaisesRegex(ValueError, "unique"):
             validate_catalog_sections_payload(payload)
 
     def test_catalog_rejects_large_source_metadata(self) -> None:

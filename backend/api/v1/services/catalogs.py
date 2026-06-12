@@ -120,40 +120,36 @@ def validate_catalog_sections_payload(payload: CatalogSectionsReplaceRequest) ->
     settings = get_settings()
     sections = payload.sections
 
-    if len(sections) > settings.max_catalog_sections:
-        raise ValueError(
-            "Catalogs cannot include more than "
-            f"{settings.max_catalog_sections} sections"
-        )
-
-    course_names = [section.course_name for section in sections]
-    if len(set(course_names)) > settings.max_catalog_courses:
+    if len(sections) > settings.max_catalog_courses:
         raise ValueError(
             f"Catalogs cannot include more than {settings.max_catalog_courses} "
             "course buckets"
         )
 
-    section_counts = Counter(course_names)
-    overloaded_courses = [
-        course_name
-        for course_name, count in section_counts.items()
-        if count > settings.max_sections_per_course
+    course_names = [section.course_name for section in sections]
+    duplicate_course_names = [
+        course_name for course_name, count in Counter(course_names).items() if count > 1
     ]
-    if overloaded_courses:
+    if duplicate_course_names:
         raise ValueError(
-            "A course bucket cannot include more than "
-            f"{settings.max_sections_per_course} sections: "
-            + ", ".join(overloaded_courses)
+            "Catalog course buckets must be unique: "
+            + ", ".join(duplicate_course_names)
         )
 
     total_meetings = 0
     for section in sections:
         meeting_count = len(section.meetings)
         total_meetings += meeting_count
-        if meeting_count > settings.max_meetings_per_section:
+        if meeting_count > settings.max_sections_per_course:
             raise ValueError(
-                "A catalog section cannot include more than "
-                f"{settings.max_meetings_per_section} meetings"
+                "A course bucket cannot include more than "
+                f"{settings.max_sections_per_course} section rows"
+            )
+
+        if total_meetings > settings.max_catalog_sections:
+            raise ValueError(
+                "Catalogs cannot include more than "
+                f"{settings.max_catalog_sections} sections"
             )
 
         metadata_bytes = len(
@@ -168,12 +164,6 @@ def validate_catalog_sections_payload(payload: CatalogSectionsReplaceRequest) ->
                 "sourceMetadata cannot exceed "
                 f"{settings.max_source_metadata_bytes_per_section} bytes per section"
             )
-
-    if total_meetings > settings.max_catalog_meetings:
-        raise ValueError(
-            f"Catalogs cannot include more than {settings.max_catalog_meetings} "
-            "meetings"
-        )
 
 
 def publish_catalog(
@@ -309,12 +299,12 @@ def _build_fork_sections_payload(
         sections=[
             CatalogSectionInput(
                 course_name=section.course_name,
-                crn=section.crn,
-                instructor_name=section.instructor_name,
                 sort_order=section.sort_order,
                 source_metadata=section.source_metadata,
                 meetings=[
                     CatalogSectionMeetingInput(
+                        crn=meeting.crn,
+                        instructor_name=meeting.instructor_name,
                         days=meeting.days,
                         start_time=meeting.start_time,
                         end_time=meeting.end_time,

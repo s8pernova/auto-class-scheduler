@@ -5,7 +5,10 @@ from __future__ import annotations
 import hashlib
 from uuid import UUID
 
-from backend.api.v1.schemas.catalogs import CatalogSectionResponse
+from backend.api.v1.schemas.catalogs import (
+    CatalogSectionMeetingResponse,
+    CatalogSectionResponse,
+)
 from backend.api.v1.schemas.favorites import (
     FavoriteGeneratedScheduleRequest,
     FavoriteResponse,
@@ -51,25 +54,37 @@ def save_and_favorite_generated_schedule(
     if catalog.status != "published":
         raise ValueError("Schedules can only be favorited from published catalogs")
 
-    requested_ids = [str(section_id) for section_id in payload.catalog_section_ids]
+    requested_ids = [
+        str(meeting_id) for meeting_id in payload.catalog_section_meeting_ids
+    ]
     _validate_saved_schedule_size(len(requested_ids))
     if len(set(requested_ids)) != len(requested_ids):
-        raise ValueError("Duplicate catalogSectionIds are not allowed")
+        raise ValueError("Duplicate catalogSectionMeetingIds are not allowed")
 
     all_sections = catalog_service.list_catalog_sections(client, payload.catalog_id)
-    sections_by_id = {str(section.id): section for section in all_sections}
+    meeting_candidates_by_id = {
+        str(meeting.id): (section, meeting)
+        for section in all_sections
+        for meeting in section.meetings
+    }
     missing_ids = [
-        section_id for section_id in requested_ids if section_id not in sections_by_id
+        meeting_id
+        for meeting_id in requested_ids
+        if meeting_id not in meeting_candidates_by_id
     ]
     if missing_ids:
-        raise ValueError("One or more selected catalog sections were not found")
+        raise ValueError("One or more selected catalog section rows were not found")
 
-    selected_catalog_sections = [
-        sections_by_id[section_id] for section_id in requested_ids
+    selected_catalog_rows = [
+        meeting_candidates_by_id[meeting_id] for meeting_id in requested_ids
     ]
+    selected_catalog_sections = [section for section, _meeting in selected_catalog_rows]
     _validate_one_section_per_course(selected_catalog_sections)
 
-    sections = [_to_domain_section(section) for section in selected_catalog_sections]
+    sections = [
+        _to_domain_section(section, meeting)
+        for section, meeting in selected_catalog_rows
+    ]
     if _has_time_conflict(sections):
         raise ValueError("Selected sections contain a time conflict")
 
@@ -87,7 +102,7 @@ def save_and_favorite_generated_schedule(
         _replace_saved_schedule_sections(
             client,
             schedule_id=schedule_id,
-            catalog_sections=selected_catalog_sections,
+            catalog_rows=selected_catalog_rows,
             sections=sections,
         )
 
@@ -175,19 +190,21 @@ def _validate_saved_schedule_size(section_count: int) -> None:
         )
 
 
-def _to_domain_section(catalog_section: CatalogSectionResponse) -> Section:
+def _to_domain_section(
+    catalog_section: CatalogSectionResponse,
+    catalog_meeting: CatalogSectionMeetingResponse,
+) -> Section:
     metadata = catalog_section.source_metadata or {}
-    section_code = catalog_section.crn or str(catalog_section.id)
+    section_code = catalog_meeting.crn or str(catalog_meeting.id)
 
     meetings = [
         Meeting(
             day=day,
-            start=meeting.start_time,
-            end=meeting.end_time,
+            start=catalog_meeting.start_time,
+            end=catalog_meeting.end_time,
             campus=str(metadata.get("campus") or "Unspecified"),
         )
-        for meeting in catalog_section.meetings
-        for day in _expand_meeting_days(meeting.days)
+        for day in _expand_meeting_days(catalog_meeting.days)
     ]
     if not meetings:
         raise ValueError(
@@ -196,11 +213,12 @@ def _to_domain_section(catalog_section: CatalogSectionResponse) -> Section:
 
     return Section(
         catalog_section_id=catalog_section.id,
+        catalog_section_meeting_id=catalog_meeting.id,
         course_name=catalog_section.course_name,
         section_code=section_code,
         title=str(metadata.get("course_title") or catalog_section.course_name),
         credits=_int_from_metadata(metadata.get("credits")),
-        instructor=catalog_section.instructor_name or "",
+        instructor=catalog_meeting.instructor_name or "",
         rating=_rating_from_metadata(metadata),
         meetings=meetings,
     )
@@ -226,8 +244,8 @@ def _has_time_conflict(sections: list[Section]) -> bool:
     return False
 
 
-def _build_schedule_hash(catalog_id: UUID, catalog_section_ids: list[str]) -> str:
-    parts = [str(catalog_id), *sorted(catalog_section_ids)]
+def _build_schedule_hash(catalog_id: UUID, catalog_section_meeting_ids: list[str]) -> str:
+    parts = [str(catalog_id), *sorted(catalog_section_meeting_ids)]
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
@@ -282,7 +300,7 @@ def _replace_saved_schedule_sections(
     client: Client,
     *,
     schedule_id: int,
-    catalog_sections: list[CatalogSectionResponse],
+    catalog_rows: list[tuple[CatalogSectionResponse, CatalogSectionMeetingResponse]],
     sections: list[Section],
 ) -> None:
     (
@@ -293,15 +311,16 @@ def _replace_saved_schedule_sections(
     )
 
     rows = []
-    for sort_order, (catalog_section, section) in enumerate(
-        zip(catalog_sections, sections, strict=True)
+    for sort_order, ((catalog_section, catalog_meeting), section) in enumerate(
+        zip(catalog_rows, sections, strict=True)
     ):
         rows.append(
             {
                 "schedule_id": schedule_id,
                 "catalog_section_id": str(catalog_section.id),
+                "catalog_section_meeting_id": str(catalog_meeting.id),
                 "course_name": catalog_section.course_name,
-                "crn": catalog_section.crn,
+                "crn": catalog_meeting.crn,
                 "subject_code": None,
                 "course_number": None,
                 "section_code": section.section_code,

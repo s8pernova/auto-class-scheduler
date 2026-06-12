@@ -113,8 +113,9 @@ For example, this asks for CS 2505, MATH 2114, and one humanities elective:
 `choose` defaults to `1`. A group with `"choose": 2` means choose two distinct
 course buckets from that group's `courseNames`.
 
-Generated schedule responses include stable `catalogSectionId` values for each
-selected section:
+Generated schedule responses include stable `catalogSectionId` values for the
+requirement bucket and `catalogSectionMeetingId` values for the selected
+main-box row:
 
 ```json
 {
@@ -122,6 +123,7 @@ selected section:
   "sections": [
     {
       "catalogSectionId": "00000000-0000-0000-0000-000000000000",
+      "catalogSectionMeetingId": "11111111-1111-1111-1111-111111111111",
       "courseName": "PHYS 241",
       "sectionCode": "12345"
     }
@@ -130,12 +132,12 @@ selected section:
 ```
 
 To favorite one generated result from a published catalog, `POST /api/v1/favorites`
-with only the selected catalog section IDs:
+with only the selected catalog section row IDs:
 
 ```json
 {
   "catalogId": "00000000-0000-0000-0000-000000000000",
-  "catalogSectionIds": ["00000000-0000-0000-0000-000000000000"]
+  "catalogSectionMeetingIds": ["11111111-1111-1111-1111-111111111111"]
 }
 ```
 

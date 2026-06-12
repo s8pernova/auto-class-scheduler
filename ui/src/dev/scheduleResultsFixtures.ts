@@ -77,6 +77,10 @@ function meeting(
     return { dayOfWeek, startTime, endTime };
 }
 
+function bucketId(courseName: string): string {
+    return `bucket-${courseName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+}
+
 function section(
     id: string,
     courseName: string,
@@ -85,7 +89,8 @@ function section(
     meetings: GeneratedMeetingResponse[],
 ): GeneratedSectionResponse {
     return {
-        catalogSectionId: id,
+        catalogSectionId: bucketId(courseName),
+        catalogSectionMeetingId: id,
         courseName,
         sectionCode,
         instructorName,

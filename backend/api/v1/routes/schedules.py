@@ -41,8 +41,6 @@ async def get_schedule_limits() -> ScheduleLimitsResponse:
         max_catalog_courses=settings.max_catalog_courses,
         max_catalog_sections=settings.max_catalog_sections,
         max_sections_per_course=settings.max_sections_per_course,
-        max_meetings_per_section=settings.max_meetings_per_section,
-        max_catalog_meetings=settings.max_catalog_meetings,
         max_source_metadata_bytes_per_section=settings.max_source_metadata_bytes_per_section,
         max_blocked_times=settings.max_blocked_times,
         max_instructor_ratings=settings.max_instructor_ratings,
