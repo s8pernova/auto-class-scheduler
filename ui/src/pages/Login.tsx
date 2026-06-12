@@ -1,14 +1,25 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from "@/clients/supabaseClient";
 
 type FormStatus = "idle" | "loading" | "success" | "error";
 
+type LocationState = {
+    from?: string;
+};
+
 function Login() {
+    const location = useLocation();
+    const navigate = useNavigate();
     const [status, setStatus] = useState<FormStatus>("idle");
     const [message, setMessage] = useState("");
 
     const isLoading = status === "loading";
+    const locationState = location.state as LocationState | null;
+    const from =
+        typeof locationState?.from === "string"
+            ? locationState.from
+            : "/catalogs/new";
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -54,6 +65,7 @@ function Login() {
         setMessage("Signed in successfully.");
 
         e.currentTarget.reset();
+        navigate(from, { replace: true });
     };
 
     return (

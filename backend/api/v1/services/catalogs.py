@@ -49,7 +49,7 @@ def get_catalog(client: Client, catalog_id: UUID) -> CatalogResponse | None:
         .maybe_single()
         .execute()
     )
-    if resp.data is None:
+    if resp is None or resp.data is None:
         return None
     return CatalogResponse(**resp.data)
 
@@ -220,7 +220,7 @@ def get_catalog_by_share_slug(
         .maybe_single()
         .execute()
     )
-    if resp.data is None:
+    if resp is None or resp.data is None:
         return None
     return CatalogResponse(**resp.data)
 

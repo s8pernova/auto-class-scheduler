@@ -26,9 +26,9 @@ def get_supabase(
         options = ClientOptions(
             headers={"Authorization": f"Bearer {credentials.credentials}"}
         )
-        return create_client(s.supabase_url, s.supabase_anon_key, options=options)
+        return create_client(s.supabase_url, s.supabase_publishable_key, options=options)
 
-    return create_client(s.supabase_url, s.supabase_anon_key)
+    return create_client(s.supabase_url, s.supabase_publishable_key)
 
 
 def get_current_user_id(
