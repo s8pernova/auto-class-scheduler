@@ -109,7 +109,6 @@ class SafetyLimitTests(unittest.TestCase):
             validate_catalog_sections_payload(payload)
 
     def test_catalog_rejects_duplicate_course_buckets(self) -> None:
-        settings = get_settings()
         payload = CatalogSectionsReplaceRequest(
             sections=[
                 _catalog_section("CS 2505", metadata={"index": index})
