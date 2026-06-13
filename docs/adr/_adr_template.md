@@ -1,10 +1,21 @@
-<!-- File name example: 0001-adr-template.md (remove this line later) -->
+<!-- File name example: 0001-adr-template.md -->
 
 # ADR NNNN: <Short decision title>
 
 ## Status
 
 Proposed | Accepted | Rejected | Superseded | Deprecated <!-- Default to 'Proposed' -->
+
+## Implementation
+
+State: Not started | In progress | Partially implemented | Implemented | Blocked <!-- Track implementation separately from decision status -->
+
+Evidence:
+
+- [ ] <code, migration, test, doc, issue, or PR evidence>
+<!-- Add more (or less) if needed -->
+
+Last checked: YYYY-MM-DD <!-- Update on every check -->
 
 ## Date
 
