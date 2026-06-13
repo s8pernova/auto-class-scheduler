@@ -209,7 +209,4 @@ __marimo__/
 # Custom
 node_modules/
 TODO.md
-.env.local
 .codex
-ui/.openapi/
-supabase/backups

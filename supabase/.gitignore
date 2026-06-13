@@ -248,6 +248,7 @@ tmp/
 # Supabase
 .branches
 .temp
+backups
 
 # dotenvx
 .env.keys
