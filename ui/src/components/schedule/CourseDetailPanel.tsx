@@ -55,7 +55,7 @@ export default function CourseDetailPanel({
     fieldOptions,
 }: CourseDetailPanelProps) {
     return (
-        <main className="bg-surface rounded-[10px] p-6 flex flex-col">
+        <main className="bg-surface rounded-[10px] p-6 flex min-h-0 flex-col">
             {!selectedCourse ? (
                 <div className="flex-1 flex flex-col text-background/40">
                     <h1 className="text-xl font-semibold mb-2 text-background/60">
@@ -67,7 +67,7 @@ export default function CourseDetailPanel({
                     </p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex min-h-0 flex-1 flex-col gap-2">
                     <div className="flex justify-between items-start">
                         <div>
                             <input
@@ -85,7 +85,7 @@ export default function CourseDetailPanel({
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-2 mt-2">
+                    <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
                         <RequirementSectionsTable
                             sections={selectedCourse.sections}
                             onUpdateSection={onUpdateSection}
@@ -98,7 +98,7 @@ export default function CourseDetailPanel({
                 </div>
             )}
 
-            <div className="mt-auto">
+            <div className="mt-auto shrink-0">
                 {shareUrl ? (
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-background/10 bg-background/5 px-3 py-2 text-sm">
                         <a

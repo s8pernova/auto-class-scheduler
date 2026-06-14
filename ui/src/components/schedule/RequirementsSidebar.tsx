@@ -21,7 +21,7 @@ export default function RequirementsSidebar({
     onRemoveCourse,
 }: RequirementsSidebarProps) {
     return (
-        <aside className="bg-surface rounded-[10px] p-4 flex flex-col gap-4">
+        <aside className="bg-surface rounded-[10px] p-4 flex min-h-0 flex-col gap-4">
             <h2 className="text-sm font-semibold text-background/60 uppercase tracking-wide">
                 Requirements
             </h2>
@@ -50,7 +50,7 @@ export default function RequirementsSidebar({
                 </button>
             </form>
 
-            <div className="flex flex-col gap-2 overflow-y-auto mt-2">
+            <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
                 {courses.length === 0 ? (
                     <p className="text-sm text-background/40 italic">
                         No requirements added yet.
