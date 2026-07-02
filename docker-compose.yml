@@ -23,6 +23,32 @@ services:
     restart: unless-stopped
     networks:
       - scheduler_network
+    environment:
+      REDIS_URL: "${COMPOSE_REDIS_URL:-redis://redis:6379/0}"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:8.8.0-alpine3.23
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - "${REDIS_MAXMEMORY:-256mb}"
+      - --maxmemory-policy
+      - allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - scheduler_network
 
 networks:
   scheduler_network:
