@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from pydantic import RedisDns
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -53,6 +54,15 @@ class Settings(BaseSettings):
     # User input limits
     max_blocked_times: int = 20
     max_instructor_ratings: int = 200
+
+    # Redis generation sessions
+    redis_url: RedisDns = "redis://localhost:6379"
+    generation_session_ttl_seconds: int = 1_800
+    generation_session_max_results: int = 10_000
+    generation_session_max_bytes: int = 16 * 1024 * 1024
+    generation_page_default: int = 50
+    generation_page_max: int = 100
+    generation_cache_namespace: str = "course-scheduler:v1"
 
 
 @lru_cache(maxsize=1)
