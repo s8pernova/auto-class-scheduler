@@ -29,9 +29,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     try:
         await verify_redis_connection(redis_client)
-    except Exception as e:
-        print("temp error handling: redis connection failed during startup. " + str(e))
-        # TODO: implement error handling for Redis connection failure
+        app.state.redis = redis_client
+        yield
     finally:
         await close_redis_client(redis_client)
 
