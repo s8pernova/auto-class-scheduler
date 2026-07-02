@@ -7,11 +7,33 @@ lives in ``api/v1/routes/``.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.router import router as api_router
+from backend.cache.redis import (
+    close_redis_client,
+    create_redis_client,
+    verify_redis_connection,
+)
 from backend.config import get_settings
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    redis_client = create_redis_client(str(settings.redis_url))
+
+    try:
+        await verify_redis_connection(redis_client)
+    except Exception as e:
+        print("temp error handling: redis connection failed during startup. " + str(e))
+        # TODO: implement error handling for Redis connection failure
+    finally:
+        await close_redis_client(redis_client)
 
 
 def create_app() -> FastAPI:
@@ -24,6 +46,7 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     app.add_middleware(
