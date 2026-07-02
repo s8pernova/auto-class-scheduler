@@ -25,7 +25,7 @@ Evidence:
 - [ ] Remove superseded client-only filter types and paths after the generation
       session flow is complete.
 
-Last checked: 2026-06-24
+Last checked: 2026-07-02
 
 ## Date
 
@@ -71,7 +71,11 @@ explore hundreds of valid options.
 Constraints:
 
 - Generated schedules remain non-durable unless the user favorites one.
-- The API must enforce `maxCandidateCombinations` and `maxResults`.
+- The API must enforce `maxCandidateCombinations`, the complete generation-
+  session result and encoded-size limits, and the result-page size limit.
+- A generation session that exceeds its complete-universe result or encoded-
+  size limit must be rejected with guidance to narrow the request. It must not
+  be silently truncated and then presented as exhaustively filterable.
 - A filter presented as exhaustive must apply to the complete candidate search,
   not only the browser's returned subset.
 - Users must be able to page through the remaining matching schedules without
@@ -236,6 +240,32 @@ result universe, not the authoritative scheduling engine.
   mechanism; stale or missing sessions regenerate or return a clear expired
   session response.
 
+### Initial operational limits
+
+Use these initial values until production measurements justify changing them:
+
+- Generation-session TTL: 30 minutes (`1,800` seconds).
+- Result-page default size: `50` schedules.
+- Result-page maximum size: `100` schedules.
+- Complete generation-session result limit: `10,000` schedules.
+- Maximum encoded generation-session payload: `16 MiB`.
+- Cache namespace and schema version: `course-scheduler:v1`.
+
+The session TTL is fixed from creation and is not refreshed by result-page
+reads. This keeps memory use predictable and prevents abandoned browser tabs
+from retaining sessions indefinitely. An expired or evicted session returns a
+clear expired-session response and can be regenerated.
+
+The complete-session result and byte limits are safety limits, not pagination
+limits. If either is exceeded, the backend rejects the generation request and
+asks the user to narrow the search. It must never cache only the first portion
+of the generated universe because filters and global sorts would no longer be
+authoritative.
+
+The existing request-level `maxResults` field is replaced by `page.limit`.
+`page.limit` controls only the current response size and never limits the
+complete generated universe stored in the session.
+
 ### API / interfaces
 
 `POST /api/v1/schedule-generation-sessions` creates or reuses a cached
@@ -275,7 +305,7 @@ and the first result page. The intended request shape is:
     "direction": "asc"
   },
   "page": {
-    "limit": 100
+    "limit": 50
   }
 }
 ```
@@ -409,8 +439,9 @@ the generated universe reusable for filter, sort, and pagination interactions.
 
 ### Operations
 
-- Configure Redis URL, TTL, max session result count, max page size, and cache
-  namespace per environment.
+- Configure Redis URL, the initial operational limits above, and cache
+  namespace/schema version per environment. Production may override capacity
+  values only from measured workload and available Redis memory.
 - Log generation duration, cache hit/miss, candidate count, generated count,
   filtered count, returned count, active filter names, and page size. Do not
   log entire user catalogs, selected section arrays, or instructor-rating maps.
@@ -454,8 +485,8 @@ Negative:
 
 Follow-ups:
 
-- [ ] Add Redis configuration, local development service wiring, and production
-      deployment documentation.
+- [ ] Add Redis configuration using the initial operational limits, local
+      development service wiring, and production deployment documentation.
 - [ ] Add typed filter, sort, and pagination schemas with validation and
       limits.
 - [ ] Implement session fingerprinting, TTL, ownership/access checks, and
