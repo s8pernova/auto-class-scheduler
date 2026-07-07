@@ -108,7 +108,11 @@ Decision details:
 - Keep normalized candidate sections and saved favorites in PostgreSQL.
 - Keep ordinary generated options transient in Redis with a configured TTL.
 - Store compact cached results, not duplicated catalog payloads: selected
-  section IDs plus computed summary/filter/sort fields.
+  `catalog_section_meetings` IDs plus computed summary/filter/sort fields.
+- Store compact candidate facts once per session, keyed by
+  `catalog_section_meeting_id`, so filters can inspect exact meeting intervals
+  and transient instructor ratings without duplicating those facts in every
+  generated result.
 - Hydrate display details from PostgreSQL section and meeting rows when
   returning a result page.
 - Treat requirement satisfaction and collision detection as base validity.
@@ -223,11 +227,15 @@ result universe, not the authoritative scheduling engine.
   user-selected result.
 - Ordinary generated schedules are not inserted into a permanent results table.
 - Redis stores generation-session metadata and compact result rows with a TTL.
+- A cached generation session contains candidate facts needed to evaluate
+  filters without reloading every candidate from PostgreSQL:
+  - `catalogSectionMeetingId`
+  - exact meeting day/start/end intervals
+  - transient instructor rating, when supplied
 - Cached result rows contain only fields needed to filter, sort, page, and
   later hydrate details:
-  - `generationSessionId`
   - stable result key / index
-  - selected catalog section IDs
+  - selected `catalog_section_meetings` IDs
   - meeting days and day count
   - earliest start and latest end
   - total gap minutes and maximum single gap
@@ -239,6 +247,9 @@ result universe, not the authoritative scheduling engine.
 - Redis TTL must be short-lived and configurable. Expiry is the cleanup
   mechanism; stale or missing sessions regenerate or return a clear expired
   session response.
+- `blockedTimes` is evaluated against the session-level exact meeting
+  intervals. Overall earliest/latest bounds are not sufficient because a
+  blocked range may fall inside an otherwise idle gap.
 
 ### Initial operational limits
 
@@ -384,7 +395,7 @@ For session creation:
 6. Reject duplicate courses or sections.
 7. Reject meeting collisions.
 8. Compute the summary once for each remaining schedule.
-9. Store compact result rows in Redis with TTL.
+9. Store compact candidate facts and result rows in Redis with TTL.
 10. Return the first filtered, sorted page.
 
 For result-page reads:
