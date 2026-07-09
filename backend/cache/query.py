@@ -2,8 +2,8 @@
 
 This module deliberately does not talk to Redis, Supabase, FastAPI, or React.
 Given a typed cached session plus typed view controls, it returns the matching
-cached result rows. Keeping this pure is what makes ADR 18 testable and keeps
-future generator optimizations from changing API semantics.
+cached result rows. Keeping this pure makes the view-control behavior testable
+and keeps future generator optimizations from changing API semantics.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ def query_generation_session(
     sort: GenerationSessionSort,
     page: GenerationSessionPage,
 ) -> GenerationSessionQueryResult:
-    """Apply ADR 18 view controls to a complete cached generation session."""
+    """Apply view controls to a complete cached generation session."""
     candidates_by_id = _index_candidates(session)
     filtered = tuple(
         result

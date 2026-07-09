@@ -2,8 +2,8 @@
 
 Redis stores bytes. The rest of the backend should work with typed
 ``CachedGenerationSession`` objects. This module is the explicit crossing point
-between those two worlds, and it enforces the ADR's safety limits before data
-is written to or trusted from Redis.
+between those two worlds, and it enforces configured safety limits before data is
+written to or trusted from Redis.
 """
 
 from __future__ import annotations

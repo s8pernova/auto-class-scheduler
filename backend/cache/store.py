@@ -1,6 +1,6 @@
 """Redis store for cached generation sessions.
 
-This module owns Redis reads and writes for ADR 18 generation sessions. It does
+This module owns Redis reads and writes for cached generation sessions. It does
 not know how schedules are generated, filtered, sorted, hydrated, or rendered.
 Those concerns live in service/query modules.
 """
