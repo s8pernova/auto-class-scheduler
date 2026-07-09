@@ -8,6 +8,8 @@ import itertools
 import math
 from uuid import UUID
 
+from redis.asyncio import Redis
+
 from backend.api.v1.schemas.schedules import (
     GeneratedMeetingResponse,
     GeneratedScheduleResponse,
@@ -23,6 +25,21 @@ from backend.api.v1.schemas.schedules import (
     Section,
 )
 from backend.api.v1.services import catalogs as catalog_service
+from backend.cache.builders import build_generation_session
+from backend.cache.fingerprints import (
+    build_generation_search_fingerprint,
+    build_owner_scope_hash,
+)
+from backend.cache.models import MeetingDay
+from backend.cache.query import (
+    CachedBlockedTime,
+    GenerationSessionFilters,
+    GenerationSessionPage,
+    GenerationSessionSort,
+    query_generation_session,
+)
+from backend.cache.serialization import GenerationSessionSerializationError
+from backend.cache.store import GenerationSessionCacheMissError, GenerationSessionStore
 from backend.config import get_settings
 from supabase import Client
 
@@ -35,10 +52,22 @@ DAY_CODE_TO_NAME = {
     "S": "Sat",
 }
 
+DAY_CODE_TO_CACHE_DAY = {
+    "M": MeetingDay.MONDAY,
+    "T": MeetingDay.TUESDAY,
+    "W": MeetingDay.WEDNESDAY,
+    "R": MeetingDay.THURSDAY,
+    "F": MeetingDay.FRIDAY,
+    "S": MeetingDay.SATURDAY,
+}
 
-def generate_schedules_from_request(
+
+async def generate_schedules_from_request(
     client: Client,
+    redis: Redis,
     payload: ScheduleGenerateRequest,
+    *,
+    user_id: UUID | None,
 ) -> ScheduleGenerateResponse:
     """Generate transient schedule options from a saved BYOC catalog."""
     settings = get_settings()
@@ -60,6 +89,19 @@ def generate_schedules_from_request(
     if not target_courses:
         raise ValueError("Catalog has no saved candidate sections")
 
+    owner_scope_hash = build_owner_scope_hash(catalog_id=catalog_id, user_id=user_id)
+    search_fingerprint = build_generation_search_fingerprint(
+        payload=payload,
+        sections_by_course=sections_by_course,
+    )
+    store = GenerationSessionStore(
+        client=redis,
+        namespace=settings.generation_cache_namespace,
+        ttl_seconds=settings.generation_session_ttl_seconds,
+        max_results=settings.generation_session_max_results,
+        max_bytes=settings.generation_session_max_bytes,
+    )
+
     requirement_groups = _resolve_requirement_groups(
         payload.requirements.groups,
         catalog_courses=target_courses,
@@ -78,32 +120,67 @@ def generate_schedules_from_request(
             "courses or candidate sections before generating."
         )
 
-    generated = _generate_requirement_group_schedules(
-        requirement_groups,
-        sections_by_course,
+    session = None
+    cached_session_id = await store.find_session_id(
+        owner_scope_hash=owner_scope_hash,
+        search_fingerprint=search_fingerprint,
     )
-    valid = [
-        schedule
-        for schedule in generated
-        if not _schedule_overlaps_blocked_times(
-            schedule,
-            payload.preferences.blocked_times,
+    if cached_session_id is not None:
+        try:
+            session = await store.get_session(cached_session_id)
+        except (GenerationSessionCacheMissError, GenerationSessionSerializationError):
+            session = None
+
+    if session is None:
+        generated = _generate_requirement_group_schedules(
+            requirement_groups,
+            sections_by_course,
         )
-    ]
-    returned = valid[: payload.max_results]
+        session = build_generation_session(
+            catalog_id=catalog_id,
+            sections_by_course=sections_by_course,
+            schedules=generated,
+            candidate_count=candidate_count,
+            owner_scope_hash=owner_scope_hash,
+            search_fingerprint=search_fingerprint,
+            ttl_seconds=settings.generation_session_ttl_seconds,
+        )
+        await store.put_session(session)
+
+    query_result = query_generation_session(
+        session,
+        filters=_build_initial_generation_filters(payload),
+        sort=GenerationSessionSort(),
+        page=GenerationSessionPage(
+            offset=0,
+            limit=min(payload.max_results, settings.generation_page_max),
+        ),
+    )
+    sections_by_meeting_id = _index_sections_by_meeting_id(sections_by_course)
 
     schedules = [
         _build_generated_schedule_response(
             index=index,
-            sections=sections,
+            sections=[
+                sections_by_meeting_id[catalog_section_meeting_id]
+                for catalog_section_meeting_id in (
+                    result.selected_catalog_section_meeting_ids
+                )
+            ],
+            result_id=result.result_id,
         )
-        for index, sections in enumerate(returned, start=1)
+        for index, result in enumerate(query_result.results, start=1)
     ]
 
     return ScheduleGenerateResponse(
-        candidate_count=candidate_count,
-        valid_count=len(valid),
+        session_id=session.session_id,
+        candidate_count=session.candidate_count,
+        generated_count=session.generated_count,
+        filtered_count=query_result.filtered_count,
+        valid_count=query_result.filtered_count,
         returned_count=len(schedules),
+        page_offset=query_result.offset,
+        page_limit=query_result.limit,
         schedules=schedules,
     )
 
@@ -427,6 +504,36 @@ def _schedule_overlaps_blocked_times(
     )
 
 
+def _build_initial_generation_filters(
+    payload: ScheduleGenerateRequest,
+) -> GenerationSessionFilters:
+    return GenerationSessionFilters(
+        blocked_times=tuple(
+            CachedBlockedTime(
+                day=DAY_CODE_TO_CACHE_DAY[day],
+                start_time=blocked_time.start_time,
+                end_time=blocked_time.end_time,
+            )
+            for blocked_time in payload.preferences.blocked_times
+            for day in blocked_time.days
+        )
+    )
+
+
+def _index_sections_by_meeting_id(
+    sections_by_course: dict[str, list[Section]],
+) -> dict[UUID, Section]:
+    sections_by_meeting_id: dict[UUID, Section] = {}
+    for sections in sections_by_course.values():
+        for section in sections:
+            if section.catalog_section_meeting_id is None:
+                raise ValueError(
+                    "Generated sections must include catalogSectionMeetingId"
+                )
+            sections_by_meeting_id[section.catalog_section_meeting_id] = section
+    return sections_by_meeting_id
+
+
 def _meetings_overlap(first: Meeting, second: Meeting) -> bool:
     return first.day == second.day and max(first.start, second.start) < min(
         first.end, second.end
@@ -437,11 +544,12 @@ def _build_generated_schedule_response(
     *,
     index: int,
     sections: list[Section],
+    result_id: str | None = None,
 ) -> GeneratedScheduleResponse:
     summary = compute_schedule_summary(sections)
 
     return GeneratedScheduleResponse(
-        result_id=f"generated-{index}",  # TODO: this should not be happening
+        result_id=result_id or f"generated-{index}",
         total_instructor_score=summary["total_instructor_score"],
         num_sections=summary["num_sections"],
         meets_mon=summary["meets_mon"],

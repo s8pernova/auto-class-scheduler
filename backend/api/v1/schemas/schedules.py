@@ -215,9 +215,14 @@ class GeneratedScheduleResponse(CamelModel):
 class ScheduleGenerateResponse(CamelModel):
     """Transient generation results for a BYOC schedule request."""
 
+    session_id: str | None = None
     candidate_count: int
+    generated_count: int | None = None
+    filtered_count: int | None = None
     valid_count: int
     returned_count: int
+    page_offset: int | None = None
+    page_limit: int | None = None
     schedules: list[GeneratedScheduleResponse] = Field(default_factory=list)
 
 

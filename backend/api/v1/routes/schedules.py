@@ -14,7 +14,7 @@ from backend.api.v1.schemas.schedules import (
 )
 from backend.api.v1.services import schedules as schedule_service
 from backend.config import get_settings
-from backend.dependencies import SupabaseDep
+from backend.dependencies import RedisDep, SupabaseDep, UserIdDep
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
 
@@ -23,10 +23,17 @@ router = APIRouter(prefix="/schedules", tags=["schedules"])
 async def generate_schedules(
     payload: ScheduleGenerateRequest,
     client: SupabaseDep,
+    redis: RedisDep,
+    user_id: UserIdDep,
 ) -> ScheduleGenerateResponse:
     """Generate transient schedules from saved catalog candidate sections."""
     try:
-        return schedule_service.generate_schedules_from_request(client, payload)
+        return await schedule_service.generate_schedules_from_request(
+            client,
+            redis,
+            payload,
+            user_id=user_id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
