@@ -37,10 +37,10 @@ meeting rows. ADR 0010 correctly separated user preference scores from catalog
 section data, but the implementation still lacks a durable instructor entity.
 That creates three problems:
 
-- Instructor ratings can be stored only by name text, not by a stable catalog
-  instructor key.
-- Changing instructor ratings in a draft can look like transient UI state rather
-  than a real persistable change.
+- Instructor preference scores can be stored only by name text, not by a stable
+  catalog instructor key.
+- Changing instructor preferences in a draft can look like transient UI state
+  rather than a real persistable change.
 - Future catalog editing, publishing, forking, and imports cannot distinguish
   "this meeting is taught by the same catalog instructor" from "this string
   happens to match another string."
@@ -56,6 +56,10 @@ Constraints:
 - Existing instructor names stored on meeting rows must be preserved.
 - Instructor preference scores remain user-owned preference data, not objective
   catalog facts.
+- Instructor preference scores do not reintroduce hidden weighted ranking for
+  the MVP. ADR 0004 still controls: the MVP may support explicit filters,
+  one-field sorts, comparison, and favorites, while weighted ranking remains a
+  future optional feature.
 - Published catalog snapshots remain immutable; editing shared catalog
   instructors must follow the existing fork-on-edit model.
 - Supabase tables in `public` need RLS and explicit grants when exposed through
@@ -97,6 +101,9 @@ Decision details:
   `(user_id, instructor_id)`.
 - Keep preference scores optional in the frontend; a missing row means no saved
   preference.
+- Treat preference scores as user-owned inputs that can support explicit
+  instructor-related filtering or sorting in the MVP, not as a hidden weighted
+  ranking formula.
 - Keep the external draft/API shape name-oriented where that is simplest for
   the UI, while resolving names to instructor IDs at the backend/database
   boundary.
@@ -120,6 +127,7 @@ Out of scope:
 
 - Global instructor directory across schools or terms.
 - External professor-rating enrichment.
+- Hidden or weighted schedule ranking for the MVP.
 - Public instructor profile pages.
 - Standalone instructor management for unused instructors.
 - Rich instructor aliases, departments, emails, source-system IDs, or identity
@@ -134,10 +142,17 @@ A global table would imply false precision and create merge problems before the
 product has source data to solve them.
 
 Foreign keys give the database the responsibility it should have: meetings point
-at instructor entities, and preferences point at those same entities. That
-prevents ratings from drifting when display names change, avoids duplicated
-preference rows for whitespace/casing variants, and gives published catalogs a
-stable instructor set alongside stable section rows.
+at instructor entities, and user preferences point at those same entities. That
+prevents preference rows from drifting when display names change, avoids
+duplicated preference rows for whitespace/casing variants, and gives published
+catalogs a stable instructor set alongside stable section rows.
+
+This decision does not depend on weighted ranking being in the MVP. The
+normalization is justified because instructor identity is catalog data while a
+preference score is user data. The same separation is useful whether the MVP
+only displays saved scores, filters by explicit instructor thresholds, sorts by
+one declared instructor field, or later adds an optional explainable ranking
+system.
 
 Keeping the API name-oriented where useful preserves the current editing
 experience. Users think in terms of instructor names while entering catalog
@@ -160,8 +175,8 @@ Tables/columns:
 - `catalog_instructor_preferences.instructor_id`: Foreign key to the instructor
   being rated.
 - `catalog_instructor_preferences.user_id`: User who owns the preference.
-- `catalog_instructor_preferences.preference_score`: User preference score from
-  0 to 5.
+- `catalog_instructor_preferences.preference_score`: User-owned preference score
+  from 0 to 5.
 
 Constraints and indexes:
 
@@ -196,17 +211,18 @@ Endpoints:
 - `PUT /api/v1/catalogs/{catalog_id}/sections`: accepts `instructorName` in
   meeting input and resolves it to `catalog_instructors`.
 - `GET /api/v1/catalogs/{catalog_id}/instructor-preferences`: returns the
-  current user's saved ratings keyed by instructor display name for frontend
+  current user's saved scores keyed by instructor display name for frontend
   ergonomics.
-- `PUT /api/v1/catalogs/{catalog_id}/instructor-preferences`: accepts ratings
+- `PUT /api/v1/catalogs/{catalog_id}/instructor-preferences`: accepts scores
   keyed by instructor display name, validates those names against the catalog
   taxonomy, and persists rows by `instructor_id`.
 
 Backend service behavior:
 
 - Section loaders hydrate instructor names from `catalog_instructors`.
-- Generation loads catalog sections with hydrated instructor names, then applies
-  user ratings by instructor name at the algorithm boundary.
+- Generation loads catalog sections with hydrated instructor names, then passes
+  user preference scores into explicit filter/sort behavior. Weighted ranking
+  remains out of scope for the MVP unless a later ADR changes that.
 - Saved schedule and favorite reconstruction hydrate instructor names through
   `catalog_instructors` instead of reading a meeting text column.
 - Unknown instructor preference names are rejected instead of silently creating
@@ -218,8 +234,8 @@ Frontend behavior:
 - The schedule draft keeps `instructorRatings` as a name-keyed map because that
   matches the user's mental model and avoids exposing database IDs in editable
   draft state.
-- The dirty-state check treats instructor rating changes as real draft changes
-  that should enable saving.
+- The dirty-state check treats instructor preference changes as real draft
+  changes that should enable saving.
 - The inline instructor preference panel derives its visible list from committed
   catalog instructor names.
 - Editing a published/shared catalog's instructors goes through the same
@@ -245,6 +261,8 @@ Data handling:
 - Store user preference scores separately from catalog facts.
 - Do not store external professor-rating data in this taxonomy.
 - Do not expose one user's preferences through a shared catalog link.
+- Do not present preference scores as objective instructor quality or as a
+  hidden overall schedule ranking.
 
 ### Operations
 
@@ -266,6 +284,8 @@ Positive:
 - Catalog edits, publication, forks, generation, and favorites share one
   instructor model.
 - The UI can stay simple while the database becomes properly normalized.
+- ADR 0004 remains intact because this model stores user-owned preference data
+  without requiring weighted ranking in the MVP.
 - Future importer support can enrich catalog instructor rows without changing
   preference ownership.
 
@@ -316,17 +336,19 @@ Follow-ups:
 
 ## Rollout plan
 
-1. Replace the current instructor-preference-only migration with a normalized
-   instructor migration before it is applied anywhere.
-2. Backfill existing meeting instructor names into `catalog_instructors`.
+1. Preserve the already-applied instructor-preference migration as migration
+   history.
+2. Add a follow-up normalization migration that backfills existing meeting
+   instructor names into `catalog_instructors`.
 3. Rewire meeting rows to `instructor_id` and drop the old meeting text column.
-4. Move instructor preferences to `instructor_id` with owner-only RLS.
+4. Move any existing instructor preferences to `instructor_id` with owner-only
+   RLS.
 5. Update `replace_catalog_sections` to upsert instructor rows from committed
    meeting names and clean up unreferenced instructor rows.
 6. Update backend loaders, generation, favorites, and saved schedule
    reconstruction to hydrate instructor names through `catalog_instructors`.
-7. Keep frontend drafts name-keyed, but ensure instructor rating changes are
-   dirty/saveable changes.
+7. Keep frontend drafts name-keyed, but ensure instructor preference changes
+   are dirty/saveable changes.
 8. Regenerate OpenAPI and TypeScript clients.
 9. Run backend and frontend verification without applying the migration.
 10. Review the SQL, then apply it through the normal Supabase migration workflow
