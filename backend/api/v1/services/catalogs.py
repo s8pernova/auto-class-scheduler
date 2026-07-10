@@ -12,12 +12,15 @@ from uuid import UUID
 
 from backend.api.v1.schemas.catalogs import (
     CatalogCreate,
+    CatalogInstructorPreferencesReplaceRequest,
+    CatalogInstructorPreferencesResponse,
     CatalogResponse,
     CatalogSectionInput,
     CatalogSectionMeetingInput,
     CatalogSectionMeetingResponse,
     CatalogSectionResponse,
     CatalogSectionsReplaceRequest,
+    normalize_instructor_name,
 )
 from backend.config import get_settings
 from supabase import Client
@@ -115,6 +118,58 @@ def replace_catalog_sections(
     return list_catalog_sections(client, catalog_id)
 
 
+def list_catalog_instructor_preferences(
+    client: Client,
+    catalog_id: UUID,
+    *,
+    user_id: UUID | None,
+) -> CatalogInstructorPreferencesResponse:
+    """Fetch saved instructor preferences for the current user and catalog."""
+    if user_id is None:
+        return CatalogInstructorPreferencesResponse()
+
+    resp = (
+        client.table("catalog_instructor_preferences")
+        .select("instructor_name, preference_score")
+        .eq("catalog_id", str(catalog_id))
+        .eq("user_id", str(user_id))
+        .order("instructor_name")
+        .execute()
+    )
+    return CatalogInstructorPreferencesResponse(
+        instructor_ratings={
+            row["instructor_name"]: row["preference_score"]
+            for row in resp.data or []
+            if row.get("preference_score") is not None
+        }
+    )
+
+
+def replace_catalog_instructor_preferences(
+    client: Client,
+    catalog_id: UUID,
+    *,
+    user_id: UUID,
+    payload: CatalogInstructorPreferencesReplaceRequest,
+) -> CatalogInstructorPreferencesResponse:
+    """Replace the current user's saved instructor preferences for a catalog."""
+    validate_catalog_instructor_preferences_payload(payload)
+
+    (
+        client.table("catalog_instructor_preferences")
+        .delete()
+        .eq("catalog_id", str(catalog_id))
+        .eq("user_id", str(user_id))
+        .execute()
+    )
+
+    preference_rows = _build_preference_rows(catalog_id, user_id, payload)
+    if preference_rows:
+        client.table("catalog_instructor_preferences").insert(preference_rows).execute()
+
+    return list_catalog_instructor_preferences(client, catalog_id, user_id=user_id)
+
+
 def validate_catalog_sections_payload(payload: CatalogSectionsReplaceRequest) -> None:
     """Enforce configured BYOC catalog size limits before hitting Supabase."""
     settings = get_settings()
@@ -164,6 +219,18 @@ def validate_catalog_sections_payload(payload: CatalogSectionsReplaceRequest) ->
                 "sourceMetadata cannot exceed "
                 f"{settings.max_source_metadata_bytes_per_section} bytes per section"
             )
+
+
+def validate_catalog_instructor_preferences_payload(
+    payload: CatalogInstructorPreferencesReplaceRequest,
+) -> None:
+    """Enforce configured instructor preference input limits."""
+    settings = get_settings()
+    if len(payload.instructor_ratings) > settings.max_instructor_ratings:
+        raise ValueError(
+            "instructorRatings cannot include more than "
+            f"{settings.max_instructor_ratings} entries"
+        )
 
 
 def publish_catalog(
@@ -262,6 +329,7 @@ def fork_catalog(
     forked = CatalogResponse(**inserted.data[0])
 
     replace_catalog_sections(client, forked.id, section_payload)
+    _copy_catalog_instructor_preferences(client, source.id, forked.id, user_id=user_id)
 
     refreshed = get_catalog(client, forked.id)
     if refreshed is None:
@@ -316,3 +384,52 @@ def _build_fork_sections_payload(
             for section in sections
         ],
     )
+
+
+def _copy_catalog_instructor_preferences(
+    client: Client,
+    source_catalog_id: UUID,
+    target_catalog_id: UUID,
+    *,
+    user_id: UUID,
+) -> None:
+    source_preferences = list_catalog_instructor_preferences(
+        client,
+        source_catalog_id,
+        user_id=user_id,
+    )
+    if not source_preferences.instructor_ratings:
+        return
+
+    replace_catalog_instructor_preferences(
+        client,
+        target_catalog_id,
+        user_id=user_id,
+        payload=CatalogInstructorPreferencesReplaceRequest(
+            instructor_ratings=source_preferences.instructor_ratings,
+        ),
+    )
+
+
+def _build_preference_rows(
+    catalog_id: UUID,
+    user_id: UUID,
+    payload: CatalogInstructorPreferencesReplaceRequest,
+) -> list[dict[str, str | float]]:
+    rows: list[dict[str, str | float]] = []
+    for instructor_name, preference_score in payload.instructor_ratings.items():
+        if preference_score is None:
+            continue
+
+        normalized_name = normalize_instructor_name(instructor_name)
+        rows.append(
+            {
+                "catalog_id": str(catalog_id),
+                "user_id": str(user_id),
+                "instructor_name": normalized_name,
+                "normalized_instructor_name": normalized_name.lower(),
+                "preference_score": preference_score,
+            }
+        )
+
+    return rows

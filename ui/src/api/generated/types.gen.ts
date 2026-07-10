@@ -45,6 +45,34 @@ export type CatalogForkRequest = {
 };
 
 /**
+ * CatalogInstructorPreferencesReplaceRequest
+ *
+ * Full replacement payload for a user's saved instructor preferences.
+ */
+export type CatalogInstructorPreferencesReplaceRequest = {
+    /**
+     * Instructorratings
+     */
+    instructorRatings?: {
+        [key: string]: number | null;
+    };
+};
+
+/**
+ * CatalogInstructorPreferencesResponse
+ *
+ * Saved instructor preferences for the current user and catalog.
+ */
+export type CatalogInstructorPreferencesResponse = {
+    /**
+     * Instructorratings
+     */
+    instructorRatings?: {
+        [key: string]: number;
+    };
+};
+
+/**
  * CatalogResponse
  *
  * Catalog returned from the API.
@@ -1004,6 +1032,66 @@ export type ForkCatalogApiV1CatalogsCatalogIdForkPostResponses = {
 };
 
 export type ForkCatalogApiV1CatalogsCatalogIdForkPostResponse = ForkCatalogApiV1CatalogsCatalogIdForkPostResponses[keyof ForkCatalogApiV1CatalogsCatalogIdForkPostResponses];
+
+export type ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetData = {
+    body?: never;
+    path: {
+        /**
+         * Catalog Id
+         */
+        catalog_id: string;
+    };
+    query?: never;
+    url: '/api/v1/catalogs/{catalog_id}/instructor-preferences';
+};
+
+export type ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetError = ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetErrors[keyof ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetErrors];
+
+export type ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: CatalogInstructorPreferencesResponse;
+};
+
+export type ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetResponse = ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetResponses[keyof ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetResponses];
+
+export type ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutData = {
+    body: CatalogInstructorPreferencesReplaceRequest;
+    path: {
+        /**
+         * Catalog Id
+         */
+        catalog_id: string;
+    };
+    query?: never;
+    url: '/api/v1/catalogs/{catalog_id}/instructor-preferences';
+};
+
+export type ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutError = ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutErrors[keyof ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutErrors];
+
+export type ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: CatalogInstructorPreferencesResponse;
+};
+
+export type ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutResponse = ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutResponses[keyof ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutResponses];
 
 export type PublishCatalogApiV1CatalogsCatalogIdPublishPostData = {
     body?: never;

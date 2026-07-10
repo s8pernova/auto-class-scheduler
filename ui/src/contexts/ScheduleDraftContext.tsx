@@ -1,6 +1,7 @@
 import {
     forkCatalog,
     getCatalog,
+    getCatalogInstructorPreferences,
     getCatalogSections,
     publishCatalog,
     type CatalogSectionResponse,
@@ -84,6 +85,7 @@ export interface ScheduleDraftContextType {
     isDraftLoading: boolean;
     draftError: string | null;
     isCatalogDraftDirty: boolean;
+    isInstructorPreferencesDirty: boolean;
     isForkingCatalog: boolean;
     forkError: string | null;
     isPublishingCatalog: boolean;
@@ -97,7 +99,8 @@ export interface ScheduleDraftContextType {
     resetDraft: () => void;
     refreshCatalog: () => Promise<void>;
     refreshDraft: () => Promise<void>;
-    markCatalogDraftClean: () => void;
+    markCatalogDraftClean: (nextDraft?: ScheduleDraft) => void;
+    markInstructorPreferencesClean: (ratings: InstructorRatings) => void;
     ensureEditableCatalog: () => Promise<CatalogResponse>;
     publishCurrentCatalog: (catalogIdOverride?: string) => Promise<CatalogResponse>;
 }
@@ -155,9 +158,44 @@ function formatMeetingTime(value: string): string {
     return `${hours.padStart(2, "0")}:${minutes}`;
 }
 
+function serializeRequirementCourses(courses: RequirementCourse[]): string {
+    return JSON.stringify(
+        courses.map((course) => ({
+            label: course.label.trim(),
+            sections: course.sections.map((section) => ({
+                days: section.days.trim(),
+                time: section.time.trim(),
+                crn: section.crn?.trim() ?? "",
+                instructor: section.instructor?.trim() ?? "",
+            })),
+        })),
+    );
+}
+
+function sanitizeInstructorRatings(
+    ratings: InstructorRatings | undefined,
+): InstructorRatings {
+    const nextRatings: InstructorRatings = {};
+    for (const [name, rating] of Object.entries(ratings ?? {})) {
+        const instructorName = name.trim().replace(/\s+/g, " ");
+        if (!instructorName || rating == null) continue;
+        nextRatings[instructorName] = rating;
+    }
+    return nextRatings;
+}
+
+function serializeInstructorRatings(ratings: InstructorRatings): string {
+    return JSON.stringify(
+        Object.entries(sanitizeInstructorRatings(ratings)).sort(([left], [right]) =>
+            left.localeCompare(right),
+        ),
+    );
+}
+
 function buildDraftFromCatalogSections(
     catalogId: string,
     sections: CatalogSectionResponse[],
+    instructorRatings: InstructorRatings = {},
 ): ScheduleDraft {
     const sortedSections = [...sections].sort(
         (left, right) => left.sortOrder - right.sortOrder,
@@ -191,7 +229,7 @@ function buildDraftFromCatalogSections(
             choose: 1,
         })),
         blockedTimes: [],
-        instructorRatings: {},
+        instructorRatings,
         generationView: buildDefaultGenerationView(),
         generationResult: null,
     };
@@ -258,6 +296,13 @@ export function ScheduleDraftProvider({
     const [draft, setDraft] = useState<ScheduleDraft>(() =>
         initialDraft,
     );
+    const [savedRequirementCourses, setSavedRequirementCourses] = useState<
+        RequirementCourse[]
+    >(() => initialDraft.requirementCourses);
+    const [savedInstructorRatings, setSavedInstructorRatings] =
+        useState<InstructorRatings>(() =>
+            sanitizeInstructorRatings(initialDraft.instructorRatings),
+        );
     const [catalog, setCatalog] = useState<CatalogResponse | null>(
         initialCatalog,
     );
@@ -270,6 +315,8 @@ export function ScheduleDraftProvider({
     );
     const [draftError, setDraftError] = useState<string | null>(null);
     const [isCatalogDraftDirty, setIsCatalogDraftDirty] = useState(false);
+    const [isInstructorPreferencesDirty, setIsInstructorPreferencesDirty] =
+        useState(false);
     const [isForkingCatalog, setIsForkingCatalog] = useState(false);
     const [forkError, setForkError] = useState<string | null>(null);
     const [isPublishingCatalog, setIsPublishingCatalog] = useState(false);
@@ -294,9 +341,23 @@ export function ScheduleDraftProvider({
         setDraftError(null);
 
         try {
-            const sections = await getCatalogSections(catalogId);
-            setDraft(buildDraftFromCatalogSections(catalogId, sections));
+            const [sections, preferences] = await Promise.all([
+                getCatalogSections(catalogId),
+                getCatalogInstructorPreferences(catalogId),
+            ]);
+            const instructorRatings = sanitizeInstructorRatings(
+                preferences.instructorRatings,
+            );
+            const nextDraft = buildDraftFromCatalogSections(
+                catalogId,
+                sections,
+                instructorRatings,
+            );
+            setDraft(nextDraft);
+            setSavedRequirementCourses(nextDraft.requirementCourses);
+            setSavedInstructorRatings(instructorRatings);
             setIsCatalogDraftDirty(false);
+            setIsInstructorPreferencesDirty(false);
         } catch (err) {
             setDraftError(getDraftErrorMessage(err));
         } finally {
@@ -313,23 +374,43 @@ export function ScheduleDraftProvider({
             ? entryDraft
             : null;
 
-        setDraft(seededDraft ?? buildInitialDraft(catalogId));
+        const initialNextDraft = seededDraft ?? buildInitialDraft(catalogId);
+        setDraft(initialNextDraft);
+        setSavedRequirementCourses(initialNextDraft.requirementCourses);
+        setSavedInstructorRatings(
+            sanitizeInstructorRatings(initialNextDraft.instructorRatings),
+        );
         setCatalog(seededCatalog);
         setCatalogError(null);
         setDraftError(null);
         setForkError(null);
         setPublishError(null);
         setIsCatalogDraftDirty(false);
+        setIsInstructorPreferencesDirty(false);
 
         if (seededDraft) {
             setIsDraftLoading(false);
         } else {
             setIsDraftLoading(true);
-            getCatalogSections(catalogId)
-                .then((sections) => {
+            Promise.all([
+                getCatalogSections(catalogId),
+                getCatalogInstructorPreferences(catalogId),
+            ])
+                .then(([sections, preferences]) => {
                     if (!isCurrent) return;
-                    setDraft(buildDraftFromCatalogSections(catalogId, sections));
+                    const instructorRatings = sanitizeInstructorRatings(
+                        preferences.instructorRatings,
+                    );
+                    const nextDraft = buildDraftFromCatalogSections(
+                        catalogId,
+                        sections,
+                        instructorRatings,
+                    );
+                    setDraft(nextDraft);
+                    setSavedRequirementCourses(nextDraft.requirementCourses);
+                    setSavedInstructorRatings(instructorRatings);
                     setIsCatalogDraftDirty(false);
+                    setIsInstructorPreferencesDirty(false);
                 })
                 .catch((err) => {
                     if (!isCurrent) return;
@@ -376,21 +457,36 @@ export function ScheduleDraftProvider({
             }
 
             setDraft((prev) => {
+                const nextRequirementCourses =
+                    patch.requirementCourses ?? prev.requirementCourses;
+                setIsCatalogDraftDirty(
+                    serializeRequirementCourses(nextRequirementCourses) !==
+                        serializeRequirementCourses(savedRequirementCourses),
+                );
+
                 return {
                     ...prev,
                     ...patch,
                     generationResult: null,
                 };
             });
-            setIsCatalogDraftDirty(true);
         },
-        [],
+        [savedRequirementCourses],
     );
 
     const updateScheduleRequest = useCallback(
         (patch: ScheduleRequestPatch) => {
             setDraft((prev) => {
                 const blockedTimes = patch.blockedTimes ?? prev.blockedTimes;
+                if (patchHasKey(patch, "instructorRatings")) {
+                    const nextInstructorRatings =
+                        patch.instructorRatings ?? prev.instructorRatings;
+                    setIsInstructorPreferencesDirty(
+                        serializeInstructorRatings(nextInstructorRatings) !==
+                            serializeInstructorRatings(savedInstructorRatings),
+                    );
+                }
+
                 return {
                     ...prev,
                     ...patch,
@@ -409,7 +505,7 @@ export function ScheduleDraftProvider({
                 };
             });
         },
-        [],
+        [savedInstructorRatings],
     );
 
     const setGenerationView = useCallback((view: GenerationViewState) => {
@@ -430,13 +526,33 @@ export function ScheduleDraftProvider({
     );
 
     const resetDraft = useCallback(() => {
-        setDraft(buildInitialDraft(catalogId));
+        const nextDraft = buildInitialDraft(catalogId);
+        setDraft(nextDraft);
+        setSavedRequirementCourses(nextDraft.requirementCourses);
+        setSavedInstructorRatings(nextDraft.instructorRatings);
         setIsCatalogDraftDirty(false);
+        setIsInstructorPreferencesDirty(false);
     }, [catalogId]);
 
-    const markCatalogDraftClean = useCallback(() => {
+    const markCatalogDraftClean = useCallback((nextDraft?: ScheduleDraft) => {
+        if (nextDraft) {
+            setSavedRequirementCourses(nextDraft.requirementCourses);
+        }
         setIsCatalogDraftDirty(false);
     }, []);
+
+    const markInstructorPreferencesClean = useCallback(
+        (ratings: InstructorRatings) => {
+            const nextRatings = sanitizeInstructorRatings(ratings);
+            setSavedInstructorRatings(nextRatings);
+            setDraft((prev) => ({
+                ...prev,
+                instructorRatings: nextRatings,
+            }));
+            setIsInstructorPreferencesDirty(false);
+        },
+        [],
+    );
 
     const catalogStatus = catalog?.status ?? null;
     const shareSlug = catalog?.share_slug ?? entryShareSlug ?? null;
@@ -508,6 +624,7 @@ export function ScheduleDraftProvider({
             isDraftLoading,
             draftError,
             isCatalogDraftDirty,
+            isInstructorPreferencesDirty,
             isForkingCatalog,
             forkError,
             isPublishingCatalog,
@@ -520,6 +637,7 @@ export function ScheduleDraftProvider({
             refreshCatalog,
             refreshDraft,
             markCatalogDraftClean,
+            markInstructorPreferencesClean,
             ensureEditableCatalog,
             publishCurrentCatalog,
         }),
@@ -536,6 +654,7 @@ export function ScheduleDraftProvider({
             isDraftLoading,
             draftError,
             isCatalogDraftDirty,
+            isInstructorPreferencesDirty,
             isForkingCatalog,
             forkError,
             isPublishingCatalog,
@@ -548,6 +667,7 @@ export function ScheduleDraftProvider({
             refreshCatalog,
             refreshDraft,
             markCatalogDraftClean,
+            markInstructorPreferencesClean,
             ensureEditableCatalog,
             publishCurrentCatalog,
         ],

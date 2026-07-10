@@ -9,6 +9,8 @@ from fastapi import APIRouter, HTTPException, status
 from backend.api.v1.schemas.catalogs import (
     CatalogCreate,
     CatalogForkRequest,
+    CatalogInstructorPreferencesReplaceRequest,
+    CatalogInstructorPreferencesResponse,
     CatalogResponse,
     CatalogSectionResponse,
     CatalogSectionsReplaceRequest,
@@ -113,6 +115,55 @@ async def list_catalog_sections(
         raise HTTPException(status_code=404, detail="Catalog not found")
 
     return catalog_service.list_catalog_sections(client, catalog_id)
+
+
+@router.get(
+    "/{catalog_id}/instructor-preferences",
+    response_model=CatalogInstructorPreferencesResponse,
+)
+async def list_catalog_instructor_preferences(
+    catalog_id: UUID,
+    client: SupabaseDep,
+    user_id: UserIdDep,
+) -> CatalogInstructorPreferencesResponse:
+    """Fetch saved instructor preferences for the current user and catalog."""
+    catalog = catalog_service.get_catalog(client, catalog_id)
+    if catalog is None:
+        raise HTTPException(status_code=404, detail="Catalog not found")
+
+    return catalog_service.list_catalog_instructor_preferences(
+        client,
+        catalog_id,
+        user_id=user_id,
+    )
+
+
+@router.put(
+    "/{catalog_id}/instructor-preferences",
+    response_model=CatalogInstructorPreferencesResponse,
+)
+async def replace_catalog_instructor_preferences(
+    catalog_id: UUID,
+    payload: CatalogInstructorPreferencesReplaceRequest,
+    client: SupabaseDep,
+    user_id: UserIdDep,
+) -> CatalogInstructorPreferencesResponse:
+    """Replace saved instructor preferences for the current user and catalog."""
+    current_user_id = _require_user(user_id)
+
+    catalog = catalog_service.get_catalog(client, catalog_id)
+    if catalog is None:
+        raise HTTPException(status_code=404, detail="Catalog not found")
+
+    try:
+        return catalog_service.replace_catalog_instructor_preferences(
+            client,
+            catalog_id,
+            user_id=current_user_id,
+            payload=payload,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.put("/{catalog_id}/sections", response_model=list[CatalogSectionResponse])
