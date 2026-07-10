@@ -2,9 +2,9 @@ import {
     generateSchedulesApiV1SchedulesGeneratePost,
     getScheduleLimitsApiV1SchedulesLimitsGet,
     getSchedulesApiV1SchedulesGet,
+    queryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPost,
 } from "@/api/generated";
 import type {
-    GenerateSchedulesApiV1SchedulesGeneratePostResponse,
     GetScheduleLimitsApiV1SchedulesLimitsGetResponse,
     GetSchedulesApiV1SchedulesGetResponse,
     GeneratedMeetingResponse as ApiGeneratedMeetingResponse,
@@ -16,6 +16,7 @@ import type {
     ScheduleGeneratePreferences,
     ScheduleGenerateRequest,
     ScheduleGenerateRequirements,
+    ScheduleGenerationSessionQueryRequest,
     ScheduleLimitsResponse,
     ScheduleRequirementGroup,
 } from "@/api/generated";
@@ -35,6 +36,7 @@ export type {
     ScheduleGeneratePreferences,
     ScheduleGenerateRequest,
     ScheduleGenerateRequirements,
+    ScheduleGenerationSessionQueryRequest,
     ScheduleLimitsResponse,
     ScheduleRequirementGroup,
 };
@@ -81,7 +83,7 @@ function normalizeGeneratedSchedule(
 }
 
 function normalizeScheduleGenerateResponse(
-    response: GenerateSchedulesApiV1SchedulesGeneratePostResponse,
+    response: ApiScheduleGenerateResponse,
 ): ScheduleGenerateResponse {
     return {
         ...response,
@@ -120,6 +122,25 @@ export async function generateSchedules(
             body: payload,
         }),
         "Failed to generate schedules",
+    );
+    return normalizeScheduleGenerateResponse(response);
+}
+
+export async function queryGenerationSession(
+    sessionId: string,
+    payload: ScheduleGenerationSessionQueryRequest,
+): Promise<ScheduleGenerateResponse> {
+    const response = await unwrapApiResult(
+        await queryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPost(
+            {
+                auth: getAccessToken,
+                body: payload,
+                path: {
+                    session_id: sessionId,
+                },
+            },
+        ),
+        "Failed to query generated schedules",
     );
     return normalizeScheduleGenerateResponse(response);
 }

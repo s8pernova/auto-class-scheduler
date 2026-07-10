@@ -9,12 +9,17 @@ import {
     type ScheduleDraft,
     useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
-import { favoriteGeneratedSchedule, unfavoriteSchedule } from "@/api";
+import {
+    favoriteGeneratedSchedule,
+    queryGenerationSession,
+    unfavoriteSchedule,
+} from "@/api";
 import type { GeneratedScheduleResponse } from "@/api";
 import ResultsFiltersSidebar from "@/components/schedule/ResultsFiltersSidebar";
 import ResultsGrid from "@/components/schedule/ResultsGrid";
 import ResultsDetailsPanel from "@/components/schedule/ResultsDetailsPanel";
 import {
+    filterSchedulesByExcludedDay,
     sortSchedules,
     type DayFilter,
     type SortKey,
@@ -52,7 +57,8 @@ function getDevFixtureScheduleId(schedule: GeneratedScheduleResponse): number {
 
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
-    const { draft, isDraftLoading, draftError } = useScheduleDraft();
+    const { draft, isDraftLoading, draftError, setGenerationResult } =
+        useScheduleDraft();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [sortKey, setSortKey] = useState<SortKey>("earliestStart");
@@ -65,6 +71,11 @@ export default function ScheduleResultsStep() {
     const [favoriteStates, setFavoriteStates] = useState<
         Record<string, FavoriteState>
     >({});
+    const [hasChangedViewControls, setHasChangedViewControls] = useState(false);
+    const [isQueryingGenerationSession, setIsQueryingGenerationSession] =
+        useState(false);
+    const [generationSessionQueryError, setGenerationSessionQueryError] =
+        useState<string | null>(null);
     const [isLoadingDevFixture, setIsLoadingDevFixture] = useState(false);
     const [didFailDevFixture, setDidFailDevFixture] = useState(false);
     const fixtureName = searchParams.get(DEV_RESULTS_FIXTURE_PARAM);
@@ -116,15 +127,89 @@ export default function ScheduleResultsStep() {
     const generationResult = activeDraft.generationResult;
     const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
     const visibleSchedules = useMemo(() => {
-        const filtered = allSchedules.filter((schedule) => {
-            const matchesDay =
-                dayFilter === "all" ? true : Boolean(schedule[dayFilter]);
+        if (!isUsingDevFixture) {
+            return allSchedules;
+        }
 
-            return matchesDay;
-        });
+        return sortSchedules(
+            filterSchedulesByExcludedDay(allSchedules, dayFilter),
+            sortKey,
+        );
+    }, [allSchedules, dayFilter, isUsingDevFixture, sortKey]);
 
-        return sortSchedules(filtered, sortKey);
-    }, [allSchedules, dayFilter, sortKey]);
+    useEffect(() => {
+        if (
+            isUsingDevFixture ||
+            !hasChangedViewControls ||
+            !generationResult?.sessionId
+        ) {
+            setGenerationSessionQueryError(null);
+            setIsQueryingGenerationSession(false);
+            return;
+        }
+
+        let isCurrent = true;
+        setIsQueryingGenerationSession(true);
+        setGenerationSessionQueryError(null);
+
+        queryGenerationSession(generationResult.sessionId, {
+            filters: {
+                excludedDays: dayFilter === "all" ? [] : [dayFilter],
+            },
+            page: {
+                offset: 0,
+                limit: generationResult.pageLimit ?? 50,
+            },
+            sort: {
+                direction: "asc",
+                field: sortKey,
+            },
+        })
+            .then((nextGenerationResult) => {
+                if (!isCurrent) {
+                    return;
+                }
+                setGenerationResult(nextGenerationResult);
+                setSelectedResultId((currentResultId) => {
+                    if (
+                        currentResultId &&
+                        nextGenerationResult.schedules.some(
+                            (schedule) => schedule.resultId === currentResultId,
+                        )
+                    ) {
+                        return currentResultId;
+                    }
+                    return nextGenerationResult.schedules[0]?.resultId ?? null;
+                });
+            })
+            .catch((err) => {
+                if (!isCurrent) {
+                    return;
+                }
+                setGenerationSessionQueryError(
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to update generated schedules.",
+                );
+            })
+            .finally(() => {
+                if (isCurrent) {
+                    setIsQueryingGenerationSession(false);
+                }
+            });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [
+        dayFilter,
+        generationResult?.pageLimit,
+        generationResult?.sessionId,
+        hasChangedViewControls,
+        isUsingDevFixture,
+        setGenerationResult,
+        sortKey,
+    ]);
     const favoriteStateByResultId = useMemo(
         () =>
             Object.fromEntries(
@@ -180,6 +265,16 @@ export default function ScheduleResultsStep() {
 
     function handleBack() {
         navigate(`/catalogs/${catalogId}/build`);
+    }
+
+    function handleSortKeyChange(nextSortKey: SortKey) {
+        setHasChangedViewControls(true);
+        setSortKey(nextSortKey);
+    }
+
+    function handleDayFilterChange(nextDayFilter: DayFilter) {
+        setHasChangedViewControls(true);
+        setDayFilter(nextDayFilter);
     }
 
     async function handleFavorite(
@@ -292,8 +387,10 @@ export default function ScheduleResultsStep() {
                 dayFilter={dayFilter}
                 validCount={generationResult.validCount}
                 visibleCount={visibleSchedules.length}
-                onSortKeyChange={setSortKey}
-                onDayFilterChange={setDayFilter}
+                isQuerying={isQueryingGenerationSession}
+                queryError={generationSessionQueryError}
+                onSortKeyChange={handleSortKeyChange}
+                onDayFilterChange={handleDayFilterChange}
             />
             <ResultsGrid
                 schedules={visibleSchedules}

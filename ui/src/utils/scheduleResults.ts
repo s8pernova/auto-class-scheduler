@@ -1,30 +1,30 @@
 import type { GeneratedScheduleResponse } from "@/api";
 
-export type SortKey = "earliestStart" | "latestEnd" | "instructorScore";
+export type SortKey =
+    | "earliestStart"
+    | "latestEnd"
+    | "numMeetingDays"
+    | "totalGapMinutes"
+    | "averageInstructorRating";
 
-export type DayFilter =
-    | "all"
-    | "meetsMon"
-    | "meetsTue"
-    | "meetsWed"
-    | "meetsThu"
-    | "meetsFri"
-    | "meetsSat";
+export type DayFilter = "all" | "M" | "T" | "W" | "R" | "F" | "S";
 
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
     { value: "earliestStart", label: "Earliest start" },
     { value: "latestEnd", label: "Earliest finish" },
-    { value: "instructorScore", label: "Instructor score" },
+    { value: "numMeetingDays", label: "Fewest meeting days" },
+    { value: "totalGapMinutes", label: "Least total gap" },
+    { value: "averageInstructorRating", label: "Instructor rating" },
 ];
 
 export const DAY_FILTERS: { value: DayFilter; label: string }[] = [
-    { value: "all", label: "Any day" },
-    { value: "meetsMon", label: "Monday" },
-    { value: "meetsTue", label: "Tuesday" },
-    { value: "meetsWed", label: "Wednesday" },
-    { value: "meetsThu", label: "Thursday" },
-    { value: "meetsFri", label: "Friday" },
-    { value: "meetsSat", label: "Saturday" },
+    { value: "all", label: "No day restriction" },
+    { value: "M", label: "Avoid Monday" },
+    { value: "T", label: "Avoid Tuesday" },
+    { value: "W", label: "Avoid Wednesday" },
+    { value: "R", label: "Avoid Thursday" },
+    { value: "F", label: "Avoid Friday" },
+    { value: "S", label: "Avoid Saturday" },
 ];
 
 export function formatTime(value: string): string {
@@ -61,6 +61,36 @@ function compareNullableScores(
     return second - first;
 }
 
+function doesScheduleMeetOnDay(
+    schedule: GeneratedScheduleResponse,
+    dayFilter: Exclude<DayFilter, "all">,
+): boolean {
+    switch (dayFilter) {
+        case "M":
+            return schedule.meetsMon;
+        case "T":
+            return schedule.meetsTue;
+        case "W":
+            return schedule.meetsWed;
+        case "R":
+            return schedule.meetsThu;
+        case "F":
+            return schedule.meetsFri;
+        case "S":
+            return schedule.meetsSat;
+    }
+}
+
+export function filterSchedulesByExcludedDay(
+    schedules: GeneratedScheduleResponse[],
+    dayFilter: DayFilter,
+): GeneratedScheduleResponse[] {
+    if (dayFilter === "all") {
+        return schedules;
+    }
+    return schedules.filter((schedule) => !doesScheduleMeetOnDay(schedule, dayFilter));
+}
+
 export function sortSchedules(
     schedules: GeneratedScheduleResponse[],
     sortKey: SortKey,
@@ -77,7 +107,14 @@ export function sortSchedules(
                     first.latestEnd.localeCompare(second.latestEnd) ||
                     first.earliestStart.localeCompare(second.earliestStart)
                 );
-            case "instructorScore":
+            case "numMeetingDays":
+                return (
+                    scheduleDayCount(first) - scheduleDayCount(second) ||
+                    first.earliestStart.localeCompare(second.earliestStart)
+                );
+            case "totalGapMinutes":
+                return first.resultId.localeCompare(second.resultId);
+            case "averageInstructorRating":
                 return (
                     compareNullableScores(
                         first.totalInstructorScore,

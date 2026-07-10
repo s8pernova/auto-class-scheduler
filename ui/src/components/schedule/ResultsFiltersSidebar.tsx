@@ -10,6 +10,8 @@ type ResultsFiltersSidebarProps = {
     dayFilter: DayFilter;
     validCount: number;
     visibleCount: number;
+    isQuerying?: boolean;
+    queryError?: string | null;
     onSortKeyChange: (sortKey: SortKey) => void;
     onDayFilterChange: (dayFilter: DayFilter) => void;
 };
@@ -19,6 +21,8 @@ export default function ResultsFiltersSidebar({
     dayFilter,
     validCount,
     visibleCount,
+    isQuerying = false,
+    queryError = null,
     onSortKeyChange,
     onDayFilterChange,
 }: ResultsFiltersSidebarProps) {
@@ -49,7 +53,7 @@ export default function ResultsFiltersSidebar({
 
                 <label className="block">
                     <span className="block text-xs font-semibold text-background/50 uppercase tracking-wide mb-1">
-                        Meets on
+                        Avoid day
                     </span>
                     <select
                         value={dayFilter}
@@ -69,6 +73,10 @@ export default function ResultsFiltersSidebar({
                 <div className="border-t border-background/10 pt-3 space-y-1">
                     <p>{validCount} valid schedules</p>
                     <p>{visibleCount} visible after filters</p>
+                    {isQuerying ? <p>Updating results…</p> : null}
+                    {queryError ? (
+                        <p className="text-red-600">{queryError}</p>
+                    ) : null}
                 </div>
             </div>
         </aside>
