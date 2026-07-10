@@ -79,7 +79,8 @@ export default function ResultsGrid({
                                         </h3>
                                         <p className="text-xs text-background/60 mt-1">
                                             {schedule.summary.numMeetingDays}{" "}
-                                            meeting days · {schedule.summary.totalGapMinutes}{" "}
+                                            meeting days ·{" "}
+                                            {schedule.summary.totalGapMinutes}{" "}
                                             gap minutes
                                         </p>
                                     </div>
@@ -96,7 +97,7 @@ export default function ResultsGrid({
                                         {schedule.summary
                                             .averageInstructorRating != null ? (
                                             <p>
-                                                Rating{" "}
+                                                Avg. Rating{" "}
                                                 {
                                                     schedule.summary
                                                         .averageInstructorRating
