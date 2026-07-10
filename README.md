@@ -115,11 +115,11 @@ docker compose up -d --build
 ```bash
 # Install
 cp .env.example .env  # fill in Supabase creds and stuff
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync
 
 # Run the API
-uvicorn backend.app:app --reload --port 8020
+source .venv/bin/activate
+uvicorn backend.app:app --reload --host 0.0.0.0 --port 8020
 
 # Run the frontend
 cd ui && npm install && npm run dev

@@ -4,9 +4,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from redis.asyncio import Redis
-from starlette.requests import Request
 
 from backend.app import lifespan
 from backend.dependencies import get_redis_client

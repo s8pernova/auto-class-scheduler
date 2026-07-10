@@ -3,6 +3,25 @@ name = "course-scheduler"
 version = "2.0.0"
 description = "Automatically curate possible schedules for you."
 requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.124.4,<1.0.0",
+    "gunicorn>=26.0.0,<27.0.0",
+    "pydantic>=2.12.5,<3.0.0",
+    "pydantic-settings>=2.12.0,<3.0.0",
+    "python-dotenv>=1.2.1,<2.0.0",
+    "redis>=8.0.1,<9.0.0",
+    "supabase>=2.30.0,<3.0.0",
+    "uvicorn[standard]>=0.38.0,<1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3,<10.0.0",
+    "ruff>=0.15.15,<1.0.0",
+]
+
+[tool.uv]
+package = false
 
 [tool.ruff]
 line-length = 88

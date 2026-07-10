@@ -88,7 +88,9 @@ export function filterSchedulesByExcludedDay(
     if (dayFilter === "all") {
         return schedules;
     }
-    return schedules.filter((schedule) => !doesScheduleMeetOnDay(schedule, dayFilter));
+    return schedules.filter(
+        (schedule) => !doesScheduleMeetOnDay(schedule, dayFilter),
+    );
 }
 
 export function sortSchedules(
