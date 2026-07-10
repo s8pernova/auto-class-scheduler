@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateCatalogApiV1CatalogsPostData, CreateCatalogApiV1CatalogsPostErrors, CreateCatalogApiV1CatalogsPostResponses, FavoriteGeneratedScheduleApiV1FavoritesPostData, FavoriteGeneratedScheduleApiV1FavoritesPostErrors, FavoriteGeneratedScheduleApiV1FavoritesPostResponses, ForkCatalogApiV1CatalogsCatalogIdForkPostData, ForkCatalogApiV1CatalogsCatalogIdForkPostErrors, ForkCatalogApiV1CatalogsCatalogIdForkPostResponses, GenerateSchedulesApiV1SchedulesGeneratePostData, GenerateSchedulesApiV1SchedulesGeneratePostErrors, GenerateSchedulesApiV1SchedulesGeneratePostResponses, GetCatalogApiV1CatalogsCatalogIdGetData, GetCatalogApiV1CatalogsCatalogIdGetErrors, GetCatalogApiV1CatalogsCatalogIdGetResponses, GetFavoritesApiV1FavoritesGetData, GetFavoritesApiV1FavoritesGetResponses, GetScheduleLimitsApiV1SchedulesLimitsGetData, GetScheduleLimitsApiV1SchedulesLimitsGetResponses, GetSchedulesApiV1SchedulesGetData, GetSchedulesApiV1SchedulesGetErrors, GetSchedulesApiV1SchedulesGetResponses, GetSharedCatalogApiV1CatalogsSharedShareSlugGetData, GetSharedCatalogApiV1CatalogsSharedShareSlugGetErrors, GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponses, HealthCheckApiV1HealthGetData, HealthCheckApiV1HealthGetResponses, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetData, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetErrors, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetResponses, PublishCatalogApiV1CatalogsCatalogIdPublishPostData, PublishCatalogApiV1CatalogsCatalogIdPublishPostErrors, PublishCatalogApiV1CatalogsCatalogIdPublishPostResponses, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutData, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutErrors, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutResponses, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteData, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteErrors, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses } from './types.gen';
+import type { CreateCatalogApiV1CatalogsPostData, CreateCatalogApiV1CatalogsPostErrors, CreateCatalogApiV1CatalogsPostResponses, FavoriteGeneratedScheduleApiV1FavoritesPostData, FavoriteGeneratedScheduleApiV1FavoritesPostErrors, FavoriteGeneratedScheduleApiV1FavoritesPostResponses, ForkCatalogApiV1CatalogsCatalogIdForkPostData, ForkCatalogApiV1CatalogsCatalogIdForkPostErrors, ForkCatalogApiV1CatalogsCatalogIdForkPostResponses, GenerateSchedulesApiV1SchedulesGeneratePostData, GenerateSchedulesApiV1SchedulesGeneratePostErrors, GenerateSchedulesApiV1SchedulesGeneratePostResponses, GetCatalogApiV1CatalogsCatalogIdGetData, GetCatalogApiV1CatalogsCatalogIdGetErrors, GetCatalogApiV1CatalogsCatalogIdGetResponses, GetFavoritesApiV1FavoritesGetData, GetFavoritesApiV1FavoritesGetResponses, GetScheduleLimitsApiV1SchedulesLimitsGetData, GetScheduleLimitsApiV1SchedulesLimitsGetResponses, GetSchedulesApiV1SchedulesGetData, GetSchedulesApiV1SchedulesGetErrors, GetSchedulesApiV1SchedulesGetResponses, GetSharedCatalogApiV1CatalogsSharedShareSlugGetData, GetSharedCatalogApiV1CatalogsSharedShareSlugGetErrors, GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponses, HealthCheckApiV1HealthGetData, HealthCheckApiV1HealthGetResponses, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetData, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetErrors, ListCatalogSectionsApiV1CatalogsCatalogIdSectionsGetResponses, PublishCatalogApiV1CatalogsCatalogIdPublishPostData, PublishCatalogApiV1CatalogsCatalogIdPublishPostErrors, PublishCatalogApiV1CatalogsCatalogIdPublishPostResponses, QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostData, QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostErrors, QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostResponses, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutData, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutErrors, ReplaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPutResponses, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteData, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteErrors, UnfavoriteScheduleApiV1FavoritesScheduleIdDeleteResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -176,6 +176,21 @@ export const getSchedulesApiV1SchedulesGet = <ThrowOnError extends boolean = fal
 export const generateSchedulesApiV1SchedulesGeneratePost = <ThrowOnError extends boolean = false>(options: Options<GenerateSchedulesApiV1SchedulesGeneratePostData, ThrowOnError>) => (options.client ?? client).post<GenerateSchedulesApiV1SchedulesGeneratePostResponses, GenerateSchedulesApiV1SchedulesGeneratePostErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/schedules/generate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Query Generation Session
+ *
+ * Filter, sort, and page an existing generated-schedule session.
+ */
+export const queryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPost = <ThrowOnError extends boolean = false>(options: Options<QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostData, ThrowOnError>) => (options.client ?? client).post<QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostResponses, QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/schedules/generation-sessions/{session_id}/query',
     ...options,
     headers: {
         'Content-Type': 'application/json',

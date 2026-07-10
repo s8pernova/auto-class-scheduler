@@ -387,6 +387,13 @@ export type GeneratedScheduleResponse = {
 };
 
 /**
+ * GeneratedScheduleSortField
+ *
+ * Public generated-schedule sort keys.
+ */
+export type GeneratedScheduleSortField = 'earliestStart' | 'latestEnd' | 'numMeetingDays' | 'totalGapMinutes' | 'averageInstructorRating';
+
+/**
  * GeneratedSectionResponse
  *
  * Section detail returned for a generated transient schedule.
@@ -552,6 +559,22 @@ export type ScheduleGenerateResponse = {
      */
     candidateCount: number;
     /**
+     * Filteredcount
+     */
+    filteredCount?: number | null;
+    /**
+     * Generatedcount
+     */
+    generatedCount?: number | null;
+    /**
+     * Pagelimit
+     */
+    pageLimit?: number | null;
+    /**
+     * Pageoffset
+     */
+    pageOffset?: number | null;
+    /**
      * Returnedcount
      */
     returnedCount: number;
@@ -560,9 +583,94 @@ export type ScheduleGenerateResponse = {
      */
     schedules?: Array<GeneratedScheduleResponse>;
     /**
+     * Sessionid
+     */
+    sessionId?: string | null;
+    /**
      * Validcount
      */
     validCount: number;
+};
+
+/**
+ * ScheduleGenerationSessionFilters
+ *
+ * View filters for a cached generation session.
+ */
+export type ScheduleGenerationSessionFilters = {
+    /**
+     * Allowunratedinstructors
+     */
+    allowUnratedInstructors?: boolean;
+    /**
+     * Blockedtimes
+     */
+    blockedTimes?: Array<ScheduleGenerateBlockedTimeInput>;
+    /**
+     * Excludeddays
+     */
+    excludedDays?: Array<string>;
+    /**
+     * Maxmeetingdays
+     */
+    maxMeetingDays?: number | null;
+    /**
+     * Maxsinglegapminutes
+     */
+    maxSingleGapMinutes?: number | null;
+    /**
+     * Maxtotalgapminutes
+     */
+    maxTotalGapMinutes?: number | null;
+    /**
+     * Minimuminstructorrating
+     */
+    minimumInstructorRating?: number | null;
+    /**
+     * Notafter
+     */
+    notAfter?: string | null;
+    /**
+     * Notbefore
+     */
+    notBefore?: string | null;
+};
+
+/**
+ * ScheduleGenerationSessionPage
+ *
+ * Offset pagination for a cached generation session.
+ */
+export type ScheduleGenerationSessionPage = {
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Offset
+     */
+    offset?: number;
+};
+
+/**
+ * ScheduleGenerationSessionQueryRequest
+ *
+ * Request body for querying a cached generated-schedule universe.
+ */
+export type ScheduleGenerationSessionQueryRequest = {
+    filters?: ScheduleGenerationSessionFilters;
+    page?: ScheduleGenerationSessionPage;
+    sort?: ScheduleGenerationSessionSort;
+};
+
+/**
+ * ScheduleGenerationSessionSort
+ *
+ * Single-field sort for a cached generation session.
+ */
+export type ScheduleGenerationSessionSort = {
+    direction?: SortDirection;
+    field?: GeneratedScheduleSortField;
 };
 
 /**
@@ -748,6 +856,13 @@ export type ScheduleSummaryResponse = {
      */
     total_instructor_score?: number | null;
 };
+
+/**
+ * SortDirection
+ *
+ * Public sort directions.
+ */
+export type SortDirection = 'asc' | 'desc';
 
 /**
  * ValidationError
@@ -1144,6 +1259,36 @@ export type GenerateSchedulesApiV1SchedulesGeneratePostResponses = {
 };
 
 export type GenerateSchedulesApiV1SchedulesGeneratePostResponse = GenerateSchedulesApiV1SchedulesGeneratePostResponses[keyof GenerateSchedulesApiV1SchedulesGeneratePostResponses];
+
+export type QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostData = {
+    body: ScheduleGenerationSessionQueryRequest;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/schedules/generation-sessions/{session_id}/query';
+};
+
+export type QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostError = QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostErrors[keyof QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostErrors];
+
+export type QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScheduleGenerateResponse;
+};
+
+export type QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostResponse = QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostResponses[keyof QueryGenerationSessionApiV1SchedulesGenerationSessionsSessionIdQueryPostResponses];
 
 export type GetScheduleLimitsApiV1SchedulesLimitsGetData = {
     body?: never;
