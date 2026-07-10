@@ -11,6 +11,8 @@ from backend.api.v1.schemas.schedules import (
     ScheduleGenerateMetadata,
     ScheduleGeneratePreferences,
     ScheduleGenerateRequest,
+    ScheduleGenerationSessionFilters,
+    ScheduleGenerationSessionQueryRequest,
 )
 from backend.api.v1.services import schedules as schedule_service
 
@@ -61,6 +63,38 @@ class ScheduleGenerationCacheTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(redis.write_count, 2)
 
+    async def test_query_generated_session_filters_cached_universe(self) -> None:
+        redis = FakeRedis()
+        with _patched_catalog():
+            generated = await schedule_service.generate_schedules_from_request(
+                Mock(),
+                redis,
+                ScheduleGenerateRequest(
+                    metadata=ScheduleGenerateMetadata(catalog_id=CATALOG_ID),
+                    max_results=10,
+                ),
+                user_id=None,
+            )
+
+        queried = await schedule_service.query_generated_schedule_session(
+            FakeSupabase(),
+            redis,
+            session_id=generated.session_id or "",
+            payload=ScheduleGenerationSessionQueryRequest(
+                filters=ScheduleGenerationSessionFilters(
+                    not_before=time(12),
+                ),
+            ),
+        )
+
+        self.assertEqual(queried.generated_count, 2)
+        self.assertEqual(queried.filtered_count, 1)
+        self.assertEqual(queried.returned_count, 1)
+        self.assertEqual(
+            queried.schedules[0].sections[0].catalog_section_meeting_id,
+            AFTERNOON_MEETING_ID,
+        )
+
 
 def _patched_catalog():
     catalog_section = SimpleNamespace(
@@ -110,6 +144,75 @@ class FakeRedis:
 
     def pipeline(self, *, transaction: bool) -> FakePipeline:
         return FakePipeline(self, transaction=transaction)
+
+
+class FakeSupabase:
+    def table(self, table_name: str) -> FakeTable:
+        return FakeTable(table_name)
+
+
+class FakeTable:
+    def __init__(self, table_name: str) -> None:
+        self.table_name = table_name
+        self.ids: set[str] = set()
+
+    def select(self, fields: str) -> FakeTable:
+        return self
+
+    def in_(self, column: str, values: list[str]) -> FakeTable:
+        self.ids = set(values)
+        return self
+
+    def execute(self) -> SimpleNamespace:
+        if self.table_name == "catalog_section_meetings":
+            return SimpleNamespace(
+                data=[
+                    row
+                    for row in _meeting_rows()
+                    if row["id"] in self.ids
+                ]
+            )
+        if self.table_name == "catalog_sections":
+            return SimpleNamespace(
+                data=[
+                    row
+                    for row in _section_rows()
+                    if row["id"] in self.ids
+                ]
+            )
+        raise AssertionError(f"Unexpected table: {self.table_name}")
+
+
+def _meeting_rows() -> list[dict]:
+    return [
+        {
+            "id": str(MORNING_MEETING_ID),
+            "section_id": str(SECTION_ID),
+            "crn": "1001",
+            "instructor_name": "Professor Morning",
+            "days": "M",
+            "start_time": time(8),
+            "end_time": time(9),
+        },
+        {
+            "id": str(AFTERNOON_MEETING_ID),
+            "section_id": str(SECTION_ID),
+            "crn": "1002",
+            "instructor_name": "Professor Afternoon",
+            "days": "M",
+            "start_time": time(13),
+            "end_time": time(14),
+        },
+    ]
+
+
+def _section_rows() -> list[dict]:
+    return [
+        {
+            "id": str(SECTION_ID),
+            "course_name": "MATH 101",
+        }
+    ]
 
 
 class FakePipeline:

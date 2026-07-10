@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from backend.api.v1.schemas.schedules import (
     ScheduleGenerateRequest,
     ScheduleGenerateResponse,
+    ScheduleGenerationSessionQueryRequest,
     ScheduleLimitsResponse,
     ScheduleSummaryResponse,
 )
@@ -36,6 +37,32 @@ async def generate_schedules(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post(
+    "/generation-sessions/{session_id}/query",
+    response_model=ScheduleGenerateResponse,
+)
+async def query_generation_session(
+    session_id: str,
+    payload: ScheduleGenerationSessionQueryRequest,
+    client: SupabaseDep,
+    redis: RedisDep,
+) -> ScheduleGenerateResponse:
+    """Filter, sort, and page an existing generated-schedule session."""
+    try:
+        return await schedule_service.query_generated_schedule_session(
+            client,
+            redis,
+            session_id=session_id,
+            payload=payload,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail="Generation session expired"
+        ) from exc
 
 
 @router.get("/limits", response_model=ScheduleLimitsResponse)

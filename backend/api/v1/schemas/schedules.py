@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -224,6 +225,89 @@ class ScheduleGenerateResponse(CamelModel):
     page_offset: int | None = None
     page_limit: int | None = None
     schedules: list[GeneratedScheduleResponse] = Field(default_factory=list)
+
+
+class GeneratedScheduleSortField(StrEnum):
+    """Public generated-schedule sort keys."""
+
+    EARLIEST_START = "earliestStart"
+    LATEST_END = "latestEnd"
+    NUM_MEETING_DAYS = "numMeetingDays"
+    TOTAL_GAP_MINUTES = "totalGapMinutes"
+    AVERAGE_INSTRUCTOR_RATING = "averageInstructorRating"
+
+
+class SortDirection(StrEnum):
+    """Public sort directions."""
+
+    ASC = "asc"
+    DESC = "desc"
+
+
+class ScheduleGenerationSessionFilters(CamelModel):
+    """View filters for a cached generation session."""
+
+    excluded_days: list[str] = Field(default_factory=list)
+    blocked_times: list[ScheduleGenerateBlockedTimeInput] = Field(default_factory=list)
+    not_before: time | None = None
+    not_after: time | None = None
+    max_meeting_days: int | None = Field(default=None, ge=1)
+    max_total_gap_minutes: int | None = Field(default=None, ge=0)
+    max_single_gap_minutes: int | None = Field(default=None, ge=0)
+    minimum_instructor_rating: float | None = Field(default=None, ge=0, le=5)
+    allow_unrated_instructors: bool = True
+
+    @field_validator("excluded_days")
+    @classmethod
+    def validate_excluded_days(cls, value: list[str]) -> list[str]:
+        if not value:
+            return []
+        return list(_normalize_days("".join(value)))
+
+    @field_validator("not_before", "not_after", mode="before")
+    @classmethod
+    def validate_optional_time(cls, value: Any) -> time | None:
+        if value is None:
+            return None
+        return _parse_time_input(value)
+
+    @model_validator(mode="after")
+    def validate_time_window(self) -> "ScheduleGenerationSessionFilters":
+        if (
+            self.not_before is not None
+            and self.not_after is not None
+            and self.not_after <= self.not_before
+        ):
+            raise ValueError("notAfter must be after notBefore")
+        return self
+
+
+class ScheduleGenerationSessionSort(CamelModel):
+    """Single-field sort for a cached generation session."""
+
+    field: GeneratedScheduleSortField = GeneratedScheduleSortField.EARLIEST_START
+    direction: SortDirection = SortDirection.ASC
+
+
+class ScheduleGenerationSessionPage(CamelModel):
+    """Offset pagination for a cached generation session."""
+
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1)
+
+
+class ScheduleGenerationSessionQueryRequest(CamelModel):
+    """Request body for querying a cached generated-schedule universe."""
+
+    filters: ScheduleGenerationSessionFilters = Field(
+        default_factory=ScheduleGenerationSessionFilters,
+    )
+    sort: ScheduleGenerationSessionSort = Field(
+        default_factory=ScheduleGenerationSessionSort,
+    )
+    page: ScheduleGenerationSessionPage = Field(
+        default_factory=ScheduleGenerationSessionPage,
+    )
 
 
 # Nested Components

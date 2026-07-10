@@ -13,16 +13,21 @@ from redis.asyncio import Redis
 from backend.api.v1.schemas.schedules import (
     GeneratedMeetingResponse,
     GeneratedScheduleResponse,
+    GeneratedScheduleSortField,
     GeneratedSectionResponse,
     Meeting,
     MeetingResponse,
     ScheduleGenerateBlockedTimeInput,
     ScheduleGenerateRequest,
     ScheduleGenerateResponse,
+    ScheduleGenerationSessionFilters,
+    ScheduleGenerationSessionQueryRequest,
+    ScheduleGenerationSessionSort,
     ScheduleRequirementGroup,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
     Section,
+    SortDirection,
 )
 from backend.api.v1.services import catalogs as catalog_service
 from backend.cache.builders import build_generation_session
@@ -36,7 +41,11 @@ from backend.cache.query import (
     GenerationSessionFilters,
     GenerationSessionPage,
     GenerationSessionSort,
+    GenerationSessionSortField,
     query_generation_session,
+)
+from backend.cache.query import (
+    SortDirection as CacheSortDirection,
 )
 from backend.cache.serialization import GenerationSessionSerializationError
 from backend.cache.store import GenerationSessionCacheMissError, GenerationSessionStore
@@ -59,6 +68,16 @@ DAY_CODE_TO_CACHE_DAY = {
     "R": MeetingDay.THURSDAY,
     "F": MeetingDay.FRIDAY,
     "S": MeetingDay.SATURDAY,
+}
+
+PUBLIC_SORT_FIELD_TO_CACHE_SORT_FIELD = {
+    GeneratedScheduleSortField.EARLIEST_START: GenerationSessionSortField.EARLIEST_START,
+    GeneratedScheduleSortField.LATEST_END: GenerationSessionSortField.LATEST_END,
+    GeneratedScheduleSortField.NUM_MEETING_DAYS: GenerationSessionSortField.NUM_MEETING_DAYS,
+    GeneratedScheduleSortField.TOTAL_GAP_MINUTES: GenerationSessionSortField.TOTAL_GAP_MINUTES,
+    GeneratedScheduleSortField.AVERAGE_INSTRUCTOR_RATING: (
+        GenerationSessionSortField.AVERAGE_INSTRUCTOR_RATING
+    ),
 }
 
 
@@ -228,6 +247,69 @@ def list_schedules(
 
     # 3. Assemble response objects
     return _assemble_responses(schedules_data, classes_lookup)
+
+
+async def query_generated_schedule_session(
+    client: Client,
+    redis: Redis,
+    *,
+    session_id: str,
+    payload: ScheduleGenerationSessionQueryRequest,
+) -> ScheduleGenerateResponse:
+    """Filter, sort, page, and hydrate an existing cached generation session."""
+    settings = get_settings()
+    page_limit = min(payload.page.limit, settings.generation_page_max)
+    store = GenerationSessionStore(
+        client=redis,
+        namespace=settings.generation_cache_namespace,
+        ttl_seconds=settings.generation_session_ttl_seconds,
+        max_results=settings.generation_session_max_results,
+        max_bytes=settings.generation_session_max_bytes,
+    )
+    session = await store.get_session(session_id)
+    query_result = query_generation_session(
+        session,
+        filters=_build_generation_session_filters(payload.filters),
+        sort=_build_generation_session_sort(payload.sort),
+        page=GenerationSessionPage(
+            offset=payload.page.offset,
+            limit=page_limit,
+        ),
+    )
+    sections_by_meeting_id = _hydrate_generated_sections(
+        client,
+        [
+            catalog_section_meeting_id
+            for result in query_result.results
+            for catalog_section_meeting_id in result.selected_catalog_section_meeting_ids
+        ],
+    )
+
+    schedules = [
+        _build_generated_schedule_response(
+            index=index,
+            sections=[
+                sections_by_meeting_id[catalog_section_meeting_id]
+                for catalog_section_meeting_id in (
+                    result.selected_catalog_section_meeting_ids
+                )
+            ],
+            result_id=result.result_id,
+        )
+        for index, result in enumerate(query_result.results, start=1)
+    ]
+
+    return ScheduleGenerateResponse(
+        session_id=session.session_id,
+        candidate_count=session.candidate_count,
+        generated_count=session.generated_count,
+        filtered_count=query_result.filtered_count,
+        valid_count=query_result.filtered_count,
+        returned_count=len(schedules),
+        page_offset=query_result.offset,
+        page_limit=query_result.limit,
+        schedules=schedules,
+    )
 
 
 # Internal Helpers
@@ -508,15 +590,52 @@ def _build_initial_generation_filters(
     payload: ScheduleGenerateRequest,
 ) -> GenerationSessionFilters:
     return GenerationSessionFilters(
-        blocked_times=tuple(
-            CachedBlockedTime(
-                day=DAY_CODE_TO_CACHE_DAY[day],
-                start_time=blocked_time.start_time,
-                end_time=blocked_time.end_time,
-            )
-            for blocked_time in payload.preferences.blocked_times
-            for day in blocked_time.days
+        blocked_times=_build_cached_blocked_times(payload.preferences.blocked_times),
+    )
+
+
+def _build_generation_session_filters(
+    filters: ScheduleGenerationSessionFilters,
+) -> GenerationSessionFilters:
+    return GenerationSessionFilters(
+        blocked_times=tuple(_build_cached_blocked_times(filters.blocked_times)),
+        excluded_days=tuple(
+            DAY_CODE_TO_CACHE_DAY[day] for day in filters.excluded_days
+        ),
+        not_before=filters.not_before,
+        not_after=filters.not_after,
+        max_meeting_days=filters.max_meeting_days,
+        max_total_gap_minutes=filters.max_total_gap_minutes,
+        max_single_gap_minutes=filters.max_single_gap_minutes,
+        minimum_instructor_rating=filters.minimum_instructor_rating,
+        allow_unrated_instructors=filters.allow_unrated_instructors,
+    )
+
+
+def _build_generation_session_sort(
+    sort: ScheduleGenerationSessionSort,
+) -> GenerationSessionSort:
+    return GenerationSessionSort(
+        field=PUBLIC_SORT_FIELD_TO_CACHE_SORT_FIELD[sort.field],
+        direction=(
+            CacheSortDirection.DESC
+            if sort.direction == SortDirection.DESC
+            else CacheSortDirection.ASC
+        ),
+    )
+
+
+def _build_cached_blocked_times(
+    blocked_times: list[ScheduleGenerateBlockedTimeInput],
+) -> tuple[CachedBlockedTime, ...]:
+    return tuple(
+        CachedBlockedTime(
+            day=DAY_CODE_TO_CACHE_DAY[day],
+            start_time=blocked_time.start_time,
+            end_time=blocked_time.end_time,
         )
+        for blocked_time in blocked_times
+        for day in blocked_time.days
     )
 
 
@@ -532,6 +651,65 @@ def _index_sections_by_meeting_id(
                 )
             sections_by_meeting_id[section.catalog_section_meeting_id] = section
     return sections_by_meeting_id
+
+
+def _hydrate_generated_sections(
+    client: Client,
+    catalog_section_meeting_ids: list[UUID],
+) -> dict[UUID, Section]:
+    if not catalog_section_meeting_ids:
+        return {}
+
+    unique_meeting_ids = sorted(set(catalog_section_meeting_ids))
+    meeting_rows = (
+        client.table("catalog_section_meetings")
+        .select("id, section_id, crn, instructor_name, days, start_time, end_time")
+        .in_("id", [str(meeting_id) for meeting_id in unique_meeting_ids])
+        .execute()
+        .data
+        or []
+    )
+    section_ids = sorted({str(row["section_id"]) for row in meeting_rows})
+    section_rows = (
+        client.table("catalog_sections")
+        .select("id, course_name")
+        .in_("id", section_ids)
+        .execute()
+        .data
+        or []
+    )
+    sections_by_id = {str(row["id"]): row for row in section_rows}
+
+    hydrated: dict[UUID, Section] = {}
+    for row in meeting_rows:
+        meeting_id = UUID(str(row["id"]))
+        section_id = UUID(str(row["section_id"]))
+        section_row = sections_by_id.get(str(section_id), {})
+        meetings = [
+            Meeting(
+                day=day,
+                start=row["start_time"],
+                end=row["end_time"],
+                campus="Unspecified",
+            )
+            for day in _expand_meeting_days(row["days"] or "")
+        ]
+        hydrated[meeting_id] = Section(
+            catalog_section_id=section_id,
+            catalog_section_meeting_id=meeting_id,
+            course_name=section_row.get("course_name") or "Unknown course",
+            section_code=row.get("crn") or str(meeting_id),
+            title="",
+            credits=0,
+            instructor=row.get("instructor_name") or "",
+            meetings=meetings,
+        )
+
+    missing_ids = set(unique_meeting_ids).difference(hydrated)
+    if missing_ids:
+        raise ValueError("Cached generation session references missing catalog rows")
+
+    return hydrated
 
 
 def _meetings_overlap(first: Meeting, second: Meeting) -> bool:
