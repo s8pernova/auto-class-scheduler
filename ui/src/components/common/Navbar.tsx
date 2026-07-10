@@ -9,6 +9,9 @@ export default function Navbar({ center }: { center?: ReactNode }) {
     const location = useLocation();
     const returnTo = `${location.pathname}${location.search}${location.hash}`;
     const isKnownUser = status === "signed_in" && !user?.is_anonymous;
+    const isFavoritesView =
+        location.pathname === "/catalogs/new" &&
+        new URLSearchParams(location.search).get("view") === "favorites";
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
@@ -21,10 +24,17 @@ export default function Navbar({ center }: { center?: ReactNode }) {
             <div className="flex gap-4 w-full justify-end">
                 {isKnownUser ? (
                     <>
-                        <button className="text-yellow-500 hover:text-red-700 flex gap-2 items-center">
+                        <Link
+                            className={`flex items-center gap-2 text-sm font-semibold transition-colors ${
+                                isFavoritesView
+                                    ? "text-yellow-500"
+                                    : "text-primary hover:text-yellow-500"
+                            }`}
+                            to="/catalogs/new?view=favorites"
+                        >
                             <FaStar />
                             Favorites
-                        </button>
+                        </Link>
                         <div className="text-end">{user?.email}</div>
                         <button
                             className="text-end text-red-500 hover:text-red-700"

@@ -32,7 +32,6 @@ export const WizardLayout = lazy(
     () => import("@/components/layouts/WizardLayout"),
 );
 
-// Non-wizard routes
 export const authRoutes: Route[] = [
     {
         path: "/login",

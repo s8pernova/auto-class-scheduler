@@ -1,11 +1,16 @@
-import { Outlet, useMatch } from "react-router-dom";
+import { Outlet, useLocation, useMatch } from "react-router-dom";
 import Navbar from "@/components/common/Navbar";
 import WizardStepper from "@/components/wizard/WizardStepper";
 
 export default function WizardLayout() {
+    const location = useLocation();
     const isCatalogCreateRoute = useMatch("/catalogs/new");
     const isBuildRoute = useMatch("/catalogs/:catalogId/build");
-    const isWizardRoute = isCatalogCreateRoute || isBuildRoute;
+    const isFavoritesView =
+        location.pathname === "/catalogs/new" &&
+        new URLSearchParams(location.search).get("view") === "favorites";
+    const isWizardRoute =
+        !isFavoritesView && (isCatalogCreateRoute || isBuildRoute);
 
     return (
         // TODO: these values should be in the css as vars
