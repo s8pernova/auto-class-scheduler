@@ -2,18 +2,22 @@ import type {
     GeneratedScheduleResponse,
     ScheduleGenerateBlockedTimeInput,
 } from "@/api";
-import { formatTime } from "@/utils/scheduleResults";
+import {
+    formatTime,
+    MEETING_DAY_OPTIONS,
+    normalizeMeetingDay,
+    normalizeMeetingDayCodes,
+    type MeetingDayCode,
+} from "@/utils/scheduleResults";
 
 type ScheduleWeekPreviewProps = {
     schedule: GeneratedScheduleResponse;
     blockedTimes?: ScheduleGenerateBlockedTimeInput[];
 };
 
-type DayCode = "M" | "T" | "W" | "R" | "F" | "S";
-
 type CalendarBlock = {
     id: string;
-    day: DayCode;
+    day: MeetingDayCode;
     startMinutes: number;
     endMinutes: number;
     title: string;
@@ -21,20 +25,15 @@ type CalendarBlock = {
     kind: "meeting" | "blocked";
 };
 
-const DAY_COLUMNS: { code: DayCode; label: string }[] = [
-    { code: "M", label: "Mon" },
-    { code: "T", label: "Tue" },
-    { code: "W", label: "Wed" },
-    { code: "R", label: "Thu" },
-    { code: "F", label: "Fri" },
-    { code: "S", label: "Sat" },
-];
+const DAY_COLUMNS = MEETING_DAY_OPTIONS.map((day) => ({
+    code: day.value,
+    label: day.label.slice(0, 3),
+}));
 
 const DEFAULT_START_HOUR = 8;
 const DEFAULT_END_HOUR = 20;
 const HOUR_HEIGHT_PX = 42;
 const MIN_BLOCK_HEIGHT_PX = 18;
-
 function parseTimeMinutes(value: string): number | null {
     const [hoursText, minutesText = "0"] = value.split(":");
     const hours = Number(hoursText);
@@ -54,38 +53,35 @@ function parseTimeMinutes(value: string): number | null {
     return hours * 60 + minutes;
 }
 
-function expandDays(value: string): DayCode[] {
-    const allowedDays = new Set<DayCode>(DAY_COLUMNS.map((day) => day.code));
-    return Array.from(value.toUpperCase()).filter((day): day is DayCode =>
-        allowedDays.has(day as DayCode),
-    );
-}
-
 function buildMeetingBlocks(schedule: GeneratedScheduleResponse): CalendarBlock[] {
     return schedule.sections.flatMap((section) =>
         section.meetings.flatMap((meeting) => {
             const startMinutes = parseTimeMinutes(meeting.startTime);
             const endMinutes = parseTimeMinutes(meeting.endTime);
+            const meetingDay = normalizeMeetingDay(meeting.dayOfWeek);
 
             if (
                 startMinutes === null ||
                 endMinutes === null ||
-                endMinutes <= startMinutes
+                endMinutes <= startMinutes ||
+                meetingDay === null
             ) {
                 return [];
             }
 
-            return expandDays(meeting.dayOfWeek).map((day) => ({
-                id: `meeting-${section.catalogSectionMeetingId}-${day}-${meeting.startTime}-${meeting.endTime}`,
-                day,
-                startMinutes,
-                endMinutes,
-                title: `${section.courseName} ${section.sectionCode}`,
-                subtitle: `${formatTime(meeting.startTime)} - ${formatTime(
-                    meeting.endTime,
-                )}`,
-                kind: "meeting" as const,
-            }));
+            return [
+                {
+                    id: `meeting-${section.catalogSectionMeetingId}-${meeting.dayOfWeek}-${meeting.startTime}-${meeting.endTime}`,
+                    day: meetingDay,
+                    startMinutes,
+                    endMinutes,
+                    title: section.courseName,
+                    subtitle: `${formatTime(meeting.startTime)} - ${formatTime(
+                        meeting.endTime,
+                    )}`,
+                    kind: "meeting" as const,
+                },
+            ];
         }),
     );
 }
@@ -105,7 +101,7 @@ function buildBlockedTimeBlocks(
             return [];
         }
 
-        return expandDays(blockedTime.days).map((day) => ({
+        return normalizeMeetingDayCodes(blockedTime.days).map((day) => ({
             id: `blocked-${index}-${day}-${blockedTime.startTime}-${blockedTime.endTime}`,
             day,
             startMinutes,

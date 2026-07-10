@@ -16,6 +16,7 @@ import {
     buildDefaultGenerationView,
     type GenerationViewState,
 } from "@/utils/generationSession";
+import type { MeetingDayCode } from "@/utils/scheduleResults";
 
 function draftSection(
     days: string,
@@ -74,7 +75,7 @@ const REQUIREMENT_GROUPS: RequirementGroup[] = COURSES.map((course) => ({
 }));
 
 function meeting(
-    dayOfWeek: string,
+    dayOfWeek: MeetingDayCode,
     startTime: string,
     endTime: string,
 ): GeneratedMeetingResponse {
@@ -159,9 +160,9 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "A01",
                     "Avery Chen",
                     [
-                        meeting("Mon", "08:00:00", "08:50:00"),
-                        meeting("Wed", "08:00:00", "08:50:00"),
-                        meeting("Fri", "08:00:00", "08:50:00"),
+                        meeting("M", "08:00:00", "08:50:00"),
+                        meeting("W", "08:00:00", "08:50:00"),
+                        meeting("F", "08:00:00", "08:50:00"),
                     ],
                 ),
                 section(
@@ -170,8 +171,8 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "B03",
                     "Mina Patel",
                     [
-                        meeting("Mon", "10:00:00", "11:15:00"),
-                        meeting("Wed", "10:00:00", "11:15:00"),
+                        meeting("M", "10:00:00", "11:15:00"),
+                        meeting("W", "10:00:00", "11:15:00"),
                     ],
                 ),
                 section(
@@ -179,7 +180,7 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "STAT 3005",
                     "C02",
                     "Jordan Lee",
-                    [meeting("Fri", "09:05:00", "09:55:00")],
+                    [meeting("F", "09:05:00", "09:55:00")],
                 ),
             ],
             { meetsMon: true, meetsWed: true, meetsFri: true },
@@ -196,8 +197,8 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "A02",
                     "Sam Rivera",
                     [
-                        meeting("Tue", "12:30:00", "13:45:00"),
-                        meeting("Thu", "12:30:00", "13:45:00"),
+                        meeting("T", "12:30:00", "13:45:00"),
+                        meeting("R", "12:30:00", "13:45:00"),
                     ],
                 ),
                 section(
@@ -206,8 +207,8 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "B01",
                     "Mina Patel",
                     [
-                        meeting("Tue", "14:00:00", "15:15:00"),
-                        meeting("Thu", "14:00:00", "15:15:00"),
+                        meeting("T", "14:00:00", "15:15:00"),
+                        meeting("R", "14:00:00", "15:15:00"),
                     ],
                 ),
                 section(
@@ -215,7 +216,7 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "STAT 3005",
                     "C01",
                     "Noor Hassan",
-                    [meeting("Thu", "09:30:00", "10:45:00")],
+                    [meeting("R", "09:30:00", "10:45:00")],
                 ),
             ],
             { meetsTue: true, meetsThu: true },
@@ -231,21 +232,21 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "CS 2104",
                     "E01",
                     "Avery Chen",
-                    [meeting("Mon", "17:30:00", "18:45:00")],
+                    [meeting("M", "17:30:00", "18:45:00")],
                 ),
                 section(
                     "88888888-8888-4888-8888-888888888888",
                     "MATH 2114",
                     "E02",
                     "Theo Brooks",
-                    [meeting("Wed", "19:30:00", "20:45:00")],
+                    [meeting("W", "19:30:00", "20:45:00")],
                 ),
                 section(
                     "99999999-9999-4999-8999-999999999999",
                     "STAT 3005",
                     "E01",
                     "Jordan Lee",
-                    [meeting("Fri", "18:00:00", "19:15:00")],
+                    [meeting("F", "18:00:00", "19:15:00")],
                 ),
             ],
             { meetsMon: true, meetsWed: true, meetsFri: true },
@@ -261,21 +262,21 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "CS 2104",
                     "W01",
                     "Instructor TBD",
-                    [meeting("Sat", "09:00:00", "11:30:00")],
+                    [meeting("S", "09:00:00", "11:30:00")],
                 ),
                 section(
                     "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
                     "MATH 2114",
                     "F01",
                     "Theo Brooks",
-                    [meeting("Fri", "12:20:00", "13:20:00")],
+                    [meeting("F", "12:20:00", "13:20:00")],
                 ),
                 section(
                     "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
                     "STAT 3005",
                     "F02",
                     "Noor Hassan",
-                    [meeting("Fri", "10:10:00", "11:00:00")],
+                    [meeting("F", "10:10:00", "11:00:00")],
                 ),
             ],
             { meetsFri: true, meetsSat: true },
@@ -292,8 +293,8 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "B04",
                     "Sam Rivera",
                     [
-                        meeting("Tue", "09:30:00", "10:45:00"),
-                        meeting("Thu", "09:30:00", "10:45:00"),
+                        meeting("T", "09:30:00", "10:45:00"),
+                        meeting("R", "09:30:00", "10:45:00"),
                     ],
                 ),
                 section(
@@ -302,8 +303,8 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "B05",
                     "Mina Patel",
                     [
-                        meeting("Mon", "15:30:00", "16:45:00"),
-                        meeting("Wed", "15:30:00", "16:45:00"),
+                        meeting("M", "15:30:00", "16:45:00"),
+                        meeting("W", "15:30:00", "16:45:00"),
                     ],
                 ),
                 section(
@@ -311,7 +312,7 @@ const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
                     "STAT 3005",
                     "C07",
                     "Jordan Lee",
-                    [meeting("Thu", "12:30:00", "13:45:00")],
+                    [meeting("R", "12:30:00", "13:45:00")],
                 ),
             ],
             { meetsMon: true, meetsTue: true, meetsWed: true, meetsThu: true },

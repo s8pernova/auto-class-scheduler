@@ -1,26 +1,12 @@
 import type { ReactElement } from "react";
-
-type DayOption = {
-    label: string;
-    value: string;
-    name: string;
-};
-
-const DAY_OPTIONS: readonly DayOption[] = [
-    { label: "M", value: "M", name: "Monday" },
-    { label: "T", value: "T", name: "Tuesday" },
-    { label: "W", value: "W", name: "Wednesday" },
-    { label: "R", value: "R", name: "Thursday" },
-    { label: "F", value: "F", name: "Friday" },
-    { label: "S", value: "S", name: "Saturday" },
-] as const;
+import {
+    MEETING_DAY_OPTIONS,
+    normalizeMeetingDayCodes,
+    type MeetingDayCode,
+} from "@/utils/scheduleResults";
 
 function normalizeMeetingDays(value: string): string {
-    const selected = new Set(value.toUpperCase().replace(/\s+/g, "").split(""));
-
-    return DAY_OPTIONS.filter((day) => selected.has(day.value))
-        .map((day) => day.value)
-        .join("");
+    return normalizeMeetingDayCodes(value).join("");
 }
 
 export type DaysInputProps = {
@@ -32,7 +18,7 @@ export function DaysInput({ value, onChange }: DaysInputProps): ReactElement {
     const normalizedValue = normalizeMeetingDays(value);
     const selectedDays = new Set(normalizedValue.split(""));
 
-    function handleToggle(dayValue: string): void {
+    function handleToggle(dayValue: MeetingDayCode): void {
         const nextDays = new Set(selectedDays);
 
         if (nextDays.has(dayValue)) {
@@ -42,7 +28,7 @@ export function DaysInput({ value, onChange }: DaysInputProps): ReactElement {
         }
 
         onChange(
-            DAY_OPTIONS.filter((day) => nextDays.has(day.value))
+            MEETING_DAY_OPTIONS.filter((day) => nextDays.has(day.value))
                 .map((day) => day.value)
                 .join(""),
         );
@@ -54,7 +40,7 @@ export function DaysInput({ value, onChange }: DaysInputProps): ReactElement {
             role="group"
             aria-label="Meeting days"
         >
-            {DAY_OPTIONS.map((day) => {
+            {MEETING_DAY_OPTIONS.map((day) => {
                 const isSelected = selectedDays.has(day.value);
 
                 return (
@@ -62,8 +48,8 @@ export function DaysInput({ value, onChange }: DaysInputProps): ReactElement {
                         key={day.value}
                         type="button"
                         aria-pressed={isSelected}
-                        aria-label={day.name}
-                        title={day.name}
+                        aria-label={day.label}
+                        title={day.label}
                         onClick={() => handleToggle(day.value)}
                         className={
                             isSelected
@@ -71,7 +57,7 @@ export function DaysInput({ value, onChange }: DaysInputProps): ReactElement {
                                 : "min-w-8 px-2 py-1 text-sm text-background/65 hover:text-background hover:bg-background/10"
                         }
                     >
-                        {day.label}
+                        {day.shortLabel}
                     </button>
                 );
             })}

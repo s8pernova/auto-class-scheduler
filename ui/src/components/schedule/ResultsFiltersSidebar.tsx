@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { GenerationViewState } from "@/utils/generationSession";
 import {
-    DAY_OPTIONS,
+    MEETING_DAY_OPTIONS,
     SORT_OPTIONS,
     type MeetingDayCode,
     type SortDirection,
@@ -163,7 +163,7 @@ export default function ResultsFiltersSidebar({
                         Avoid days
                     </legend>
                     <div className="grid grid-cols-2 gap-1">
-                        {DAY_OPTIONS.map((option) => (
+                        {MEETING_DAY_OPTIONS.map((option) => (
                             <label
                                 key={option.value}
                                 className="flex items-center gap-2"
@@ -175,7 +175,7 @@ export default function ResultsFiltersSidebar({
                                         toggleExcludedDay(option.value)
                                     }
                                 />
-                                {option.label.replace("Avoid ", "")}
+                                {option.label}
                             </label>
                         ))}
                     </div>
