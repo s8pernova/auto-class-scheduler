@@ -780,11 +780,19 @@ def _hydrate_generated_sections(
     unique_meeting_ids = sorted(set(catalog_section_meeting_ids))
     meeting_rows = (
         client.table("catalog_section_meetings")
-        .select("id, section_id, crn, instructor_name, days, start_time, end_time")
+        .select("id, section_id, crn, instructor_id, days, start_time, end_time")
         .in_("id", [str(meeting_id) for meeting_id in unique_meeting_ids])
         .execute()
         .data
         or []
+    )
+    instructor_names_by_id = _load_instructor_names_by_id(
+        client,
+        [
+            str(row["instructor_id"])
+            for row in meeting_rows
+            if row.get("instructor_id") is not None
+        ],
     )
     section_ids = sorted({str(row["section_id"]) for row in meeting_rows})
     section_rows = (
@@ -818,7 +826,7 @@ def _hydrate_generated_sections(
             section_code=row.get("crn") or str(meeting_id),
             title="",
             credits=0,
-            instructor=row.get("instructor_name") or "",
+            instructor=instructor_names_by_id.get(str(row.get("instructor_id")), ""),
             meetings=meetings,
         )
 
@@ -920,7 +928,7 @@ def _build_classes_lookup(
             (
                 client.table("catalog_section_meetings")
                 .select(
-                    "id, section_id, crn, instructor_name, days, start_time, end_time"
+                    "id, section_id, crn, instructor_id, days, start_time, end_time"
                 )
                 .in_("id", list(meeting_ids))
                 .execute()
@@ -934,7 +942,7 @@ def _build_classes_lookup(
             (
                 client.table("catalog_section_meetings")
                 .select(
-                    "id, section_id, crn, instructor_name, days, start_time, end_time"
+                    "id, section_id, crn, instructor_id, days, start_time, end_time"
                 )
                 .in_("section_id", list(section_ids))
                 .execute()
@@ -952,6 +960,15 @@ def _build_classes_lookup(
             .execute()
         )
         sections_by_id = {row["id"]: row for row in sections_resp.data or []}
+
+    instructor_names_by_id = _load_instructor_names_by_id(
+        client,
+        [
+            str(row["instructor_id"])
+            for row in meetings_rows
+            if row.get("instructor_id") is not None
+        ],
+    )
 
     lookup: dict[str, dict] = {}
     for row in meetings_rows:
@@ -971,7 +988,9 @@ def _build_classes_lookup(
             "course_name": sect_data.get("course_name"),
             "section_code": row.get("crn") or meeting_id,
             "modality": modality,
-            "instructor_name": row.get("instructor_name")
+            "instructor_name": instructor_names_by_id.get(
+                str(row.get("instructor_id"))
+            )
             or metadata.get("instructor_name"),
             "instructor_rating": instructor_rating,
             "meetings": [],
@@ -999,6 +1018,27 @@ def _build_classes_lookup(
                 )
 
     return lookup
+
+
+def _load_instructor_names_by_id(
+    client: Client,
+    instructor_ids: list[str],
+) -> dict[str, str]:
+    unique_ids = sorted(set(instructor_ids))
+    if not unique_ids:
+        return {}
+
+    resp = (
+        client.table("catalog_instructors")
+        .select("id, name")
+        .in_("id", unique_ids)
+        .execute()
+    )
+    return {
+        str(row["id"]): row["name"]
+        for row in resp.data or []
+        if row.get("id") is not None and row.get("name") is not None
+    }
 
 
 def _assemble_responses(

@@ -31,6 +31,11 @@ def _normalize_days(value: str) -> str:
     return "".join(day for day in "MTWRFS" if day in normalized)
 
 
+def normalize_instructor_name(value: str) -> str:
+    """Normalize instructor names for preference de-duplication."""
+    return " ".join(value.strip().split())
+
+
 class CatalogCreate(BaseModel):
     """Payload for creating a new catalog."""
 
@@ -115,12 +120,62 @@ class CatalogSectionsReplaceRequest(CamelModel):
     sections: list[CatalogSectionInput] = Field(default_factory=list)
 
 
+class CatalogInstructorPreferencesReplaceRequest(CamelModel):
+    """Full replacement payload for a user's saved instructor preferences."""
+
+    instructor_ratings: dict[str, float | None] = Field(default_factory=dict)
+
+    @field_validator("instructor_ratings", mode="before")
+    @classmethod
+    def normalize_instructor_names(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        normalized_ratings: dict[str, Any] = {}
+        normalized_keys: set[str] = set()
+        for raw_name, score in value.items():
+            if not isinstance(raw_name, str):
+                raise ValueError("Instructor names must be strings")
+
+            instructor_name = normalize_instructor_name(raw_name)
+            normalized_key = instructor_name.lower()
+            if not instructor_name:
+                raise ValueError("Instructor names cannot be blank")
+            if normalized_key in normalized_keys:
+                raise ValueError("Instructor preference names must be unique")
+
+            normalized_keys.add(normalized_key)
+            normalized_ratings[instructor_name] = score
+
+        return normalized_ratings
+
+    @field_validator("instructor_ratings")
+    @classmethod
+    def validate_instructor_ratings(
+        cls,
+        value: dict[str, float | None],
+    ) -> dict[str, float | None]:
+        for instructor_name, rating in value.items():
+            if len(instructor_name) > 200:
+                raise ValueError("Instructor names cannot exceed 200 characters")
+            if rating is not None and not 0 <= rating <= 5:
+                raise ValueError("Instructor ratings must be between 0 and 5")
+        return value
+
+
+class CatalogInstructorPreferencesResponse(CamelModel):
+    """Saved instructor preferences for the current user and catalog."""
+
+    instructor_ratings: dict[str, float] = Field(default_factory=dict)
+
+
 class CatalogSectionMeetingResponse(CamelModel):
     """Persisted main-box row for a catalog requirement."""
 
     id: UUID
     section_id: UUID
     crn: str | None = None
+    instructor_id: UUID | None = None
     instructor_name: str | None = None
     days: str
     start_time: time

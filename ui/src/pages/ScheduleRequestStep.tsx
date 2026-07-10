@@ -9,6 +9,7 @@ import { useScheduleDraft } from "@/hooks/useScheduleDraft";
 import {
     createGenerationSession,
     getScheduleLimits,
+    replaceCatalogInstructorPreferences,
     replaceCatalogSections,
     type ScheduleLimitsResponse,
 } from "@/api";
@@ -35,8 +36,10 @@ export default function ScheduleRequestStep() {
         isDraftLoading,
         draftError,
         isCatalogDraftDirty,
+        isInstructorPreferencesDirty,
         ensureEditableCatalog,
         markCatalogDraftClean,
+        markInstructorPreferencesClean,
         publishCurrentCatalog,
     } = useScheduleDraft();
     const navigate = useNavigate();
@@ -93,6 +96,8 @@ export default function ScheduleRequestStep() {
         limits !== null &&
         draft.requirementCourses.length >= limits.maxCatalogCourses;
     const isAddCourseDisabled = limits === null || isCourseLimitReached;
+    const isSavedDraftDirty =
+        isCatalogDraftDirty || isInstructorPreferencesDirty;
     const shareUrl = shareSlug
         ? `${window.location.origin}/c/${shareSlug}`
         : null;
@@ -144,7 +149,7 @@ export default function ScheduleRequestStep() {
         targetCatalog: Awaited<ReturnType<typeof ensureEditableCatalog>> | null;
         targetDraft: typeof draft;
     }> {
-        if (!catalogId || (!force && !isCatalogDraftDirty)) {
+        if (!catalogId || (!force && !isSavedDraftDirty)) {
             return {
                 targetCatalogId: catalogId ?? draft.catalogId,
                 targetCatalog: null,
@@ -152,16 +157,41 @@ export default function ScheduleRequestStep() {
             };
         }
 
-        const targetCatalog = await ensureEditableCatalog();
-        const targetCatalogId = targetCatalog.id;
-        const targetDraft = {
+        let targetCatalog: Awaited<ReturnType<typeof ensureEditableCatalog>> | null =
+            null;
+        let targetCatalogId = catalogId;
+        let targetDraft = {
             ...draft,
             catalogId: targetCatalogId,
         };
 
-        const payload = buildCatalogSectionsReplaceRequest(targetDraft);
-        await replaceCatalogSections(targetCatalogId, payload);
-        markCatalogDraftClean();
+        if (isCatalogDraftDirty) {
+            targetCatalog = await ensureEditableCatalog();
+            targetCatalogId = targetCatalog.id;
+            targetDraft = {
+                ...targetDraft,
+                catalogId: targetCatalogId,
+            };
+
+            const payload = buildCatalogSectionsReplaceRequest(targetDraft);
+            await replaceCatalogSections(targetCatalogId, payload);
+            markCatalogDraftClean(targetDraft);
+        }
+
+        if (isInstructorPreferencesDirty) {
+            const preferences = await replaceCatalogInstructorPreferences(
+                targetCatalogId,
+                {
+                    instructorRatings: targetDraft.instructorRatings,
+                },
+            );
+            const savedRatings = preferences.instructorRatings ?? {};
+            targetDraft = {
+                ...targetDraft,
+                instructorRatings: savedRatings,
+            };
+            markInstructorPreferencesClean(savedRatings);
+        }
 
         return {
             targetCatalogId,
@@ -547,9 +577,9 @@ export default function ScheduleRequestStep() {
                     }
                 }}
                 onSaveDraft={handleSaveDraft}
-                canSaveDraft={isCatalogDraftDirty}
+                canSaveDraft={isSavedDraftDirty}
                 isSavingDraft={isSavingDraft}
-                saveDraftLabel={isCatalogDraftDirty ? "Save Draft" : "Saved"}
+                saveDraftLabel={isSavedDraftDirty ? "Save Draft" : "Saved"}
                 savingDraftLabel="Saving..."
                 onContinue={handleContinue}
                 isContinuing={isGenerating}

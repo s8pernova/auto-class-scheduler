@@ -2,13 +2,17 @@ import {
     createCatalogApiV1CatalogsPost,
     getCatalogApiV1CatalogsCatalogIdGet,
     getSharedCatalogApiV1CatalogsSharedShareSlugGet,
+    listCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGet,
     listCatalogSectionsApiV1CatalogsCatalogIdSectionsGet,
     publishCatalogApiV1CatalogsCatalogIdPublishPost,
+    replaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPut,
     replaceCatalogSectionsApiV1CatalogsCatalogIdSectionsPut,
     forkCatalogApiV1CatalogsCatalogIdForkPost,
 } from "@/api/generated";
 import type {
     CatalogCreate,
+    CatalogInstructorPreferencesReplaceRequest,
+    CatalogInstructorPreferencesResponse,
     CatalogResponse,
     CatalogSectionInput,
     CatalogSectionMeetingInput,
@@ -22,7 +26,9 @@ import type {
     CatalogForkRequest,
     ForkCatalogApiV1CatalogsCatalogIdForkPostResponse,
     GetSharedCatalogApiV1CatalogsSharedShareSlugGetResponse,
+    ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetResponse,
     PublishCatalogApiV1CatalogsCatalogIdPublishPostResponse,
+    ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutResponse,
 } from "@/api/generated";
 import {
     getAccessToken,
@@ -34,6 +40,8 @@ export type CreateCatalogPayload = CatalogCreate;
 
 export type {
     CatalogResponse,
+    CatalogInstructorPreferencesReplaceRequest,
+    CatalogInstructorPreferencesResponse,
     CatalogSectionInput,
     CatalogSectionMeetingInput,
     CatalogSectionMeetingResponse,
@@ -74,6 +82,36 @@ export async function getCatalogSections(
             path: { catalog_id: catalogId },
         }),
         "Failed to fetch catalog sections",
+    );
+}
+
+export async function getCatalogInstructorPreferences(
+    catalogId: string,
+): Promise<ListCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGetResponse> {
+    return unwrapApiResult(
+        await listCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesGet(
+            {
+                auth: getAccessToken,
+                path: { catalog_id: catalogId },
+            },
+        ),
+        "Failed to fetch instructor preferences",
+    );
+}
+
+export async function replaceCatalogInstructorPreferences(
+    catalogId: string,
+    payload: CatalogInstructorPreferencesReplaceRequest,
+): Promise<ReplaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPutResponse> {
+    return unwrapApiResult(
+        await replaceCatalogInstructorPreferencesApiV1CatalogsCatalogIdInstructorPreferencesPut(
+            {
+                auth: getRequiredAccessToken,
+                body: payload,
+                path: { catalog_id: catalogId },
+            },
+        ),
+        "Failed to save instructor preferences",
     );
 }
 

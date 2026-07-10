@@ -4,6 +4,7 @@ import unittest
 from datetime import time
 
 from backend.api.v1.schemas.catalogs import (
+    CatalogInstructorPreferencesReplaceRequest,
     CatalogSectionInput,
     CatalogSectionMeetingInput,
     CatalogSectionsReplaceRequest,
@@ -14,7 +15,10 @@ from backend.api.v1.schemas.schedules import (
     ScheduleGenerationSessionFilters,
     ScheduleRequirementGroup,
 )
-from backend.api.v1.services.catalogs import validate_catalog_sections_payload
+from backend.api.v1.services.catalogs import (
+    validate_catalog_instructor_preferences_payload,
+    validate_catalog_sections_payload,
+)
 from backend.api.v1.services.favorites import _validate_saved_schedule_size
 from backend.api.v1.services.schedules import (
     _validate_generation_request_limits,
@@ -164,6 +168,27 @@ class SafetyLimitTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "instructorRatings"):
             _validate_generation_request_limits(payload)
+
+    def test_saved_preferences_reject_too_many_instructor_ratings(self) -> None:
+        settings = get_settings()
+        payload = CatalogInstructorPreferencesReplaceRequest(
+            instructor_ratings={
+                f"Instructor {index}": 4.0
+                for index in range(settings.max_instructor_ratings + 1)
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "instructorRatings"):
+            validate_catalog_instructor_preferences_payload(payload)
+
+    def test_saved_preferences_reject_duplicate_normalized_names(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unique"):
+            CatalogInstructorPreferencesReplaceRequest(
+                instructor_ratings={
+                    "Professor Example": 4.0,
+                    " professor   example ": 5.0,
+                }
+            )
 
     def test_generation_rejects_too_many_selected_course_buckets(self) -> None:
         settings = get_settings()

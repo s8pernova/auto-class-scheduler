@@ -21,6 +21,8 @@ CATALOG_ID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 SECTION_ID = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 MORNING_MEETING_ID = UUID("11111111-1111-1111-1111-111111111111")
 AFTERNOON_MEETING_ID = UUID("22222222-2222-2222-2222-222222222222")
+MORNING_INSTRUCTOR_ID = UUID("33333333-3333-3333-3333-333333333333")
+AFTERNOON_INSTRUCTOR_ID = UUID("44444444-4444-4444-4444-444444444444")
 USER_ID = UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
 OTHER_USER_ID = UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
 
@@ -238,6 +240,14 @@ class FakeTable:
                     if row["id"] in self.ids
                 ]
             )
+        if self.table_name == "catalog_instructors":
+            return SimpleNamespace(
+                data=[
+                    row
+                    for row in _instructor_rows()
+                    if row["id"] in self.ids
+                ]
+            )
         raise AssertionError(f"Unexpected table: {self.table_name}")
 
 
@@ -247,7 +257,7 @@ def _meeting_rows() -> list[dict]:
             "id": str(MORNING_MEETING_ID),
             "section_id": str(SECTION_ID),
             "crn": "1001",
-            "instructor_name": "Professor Morning",
+            "instructor_id": str(MORNING_INSTRUCTOR_ID),
             "days": "M",
             "start_time": time(8),
             "end_time": time(9),
@@ -256,7 +266,7 @@ def _meeting_rows() -> list[dict]:
             "id": str(AFTERNOON_MEETING_ID),
             "section_id": str(SECTION_ID),
             "crn": "1002",
-            "instructor_name": "Professor Afternoon",
+            "instructor_id": str(AFTERNOON_INSTRUCTOR_ID),
             "days": "M",
             "start_time": time(13),
             "end_time": time(14),
@@ -270,6 +280,19 @@ def _section_rows() -> list[dict]:
             "id": str(SECTION_ID),
             "course_name": "MATH 101",
         }
+    ]
+
+
+def _instructor_rows() -> list[dict]:
+    return [
+        {
+            "id": str(MORNING_INSTRUCTOR_ID),
+            "name": "Professor Morning",
+        },
+        {
+            "id": str(AFTERNOON_INSTRUCTOR_ID),
+            "name": "Professor Afternoon",
+        },
     ]
 
 
