@@ -1,21 +1,27 @@
 import { supabase } from "@/clients/supabaseClient";
+import { ApiError } from "@/api/errors";
+
+export { ApiError } from "@/api/errors";
 
 let anonymousSignInPromise: Promise<string> | null = null;
 
-type ApiResult<T> =
-    | {
-          data: T;
-          error: undefined;
-          response: Response;
-      }
-    | {
-          data: undefined;
-          error: unknown;
-          response?: Response;
-      };
+type ApiResult<T> = {
+    data: T | undefined;
+    error: unknown;
+    response?: Response;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
+}
+
+function getApiErrorCode(body: unknown): string | undefined {
+    if (!isRecord(body) || !isRecord(body.detail)) {
+        return undefined;
+    }
+    return typeof body.detail.code === "string"
+        ? body.detail.code
+        : undefined;
 }
 
 function formatApiErrorDetail(detail: unknown): string | null {
@@ -59,6 +65,14 @@ export async function buildApiErrorMessage(
     body?: unknown,
 ): Promise<string> {
     const detail = isRecord(body) ? formatApiErrorDetail(body.detail) : null;
+
+    if (
+        isRecord(body) &&
+        isRecord(body.detail) &&
+        typeof body.detail.message === "string"
+    ) {
+        return `${fallback}: ${body.detail.message}`;
+    }
 
     if (detail) {
         return `${fallback}: ${detail}`;
@@ -123,11 +137,19 @@ export async function unwrapApiResult<T>(
     result: ApiResult<T>,
     fallback: string,
 ): Promise<T> {
-    if (result.error === undefined) {
-        return result.data as T;
+    if (result.error === undefined && result.data !== undefined) {
+        return result.data;
     }
 
-    throw new Error(
-        await buildApiErrorMessage(result.response, fallback, result.error),
+    throw new ApiError(
+        await buildApiErrorMessage(
+            result.response,
+            fallback,
+            result.error ?? "The API returned an empty response",
+        ),
+        {
+            status: result.response?.status,
+            code: getApiErrorCode(result.error),
+        },
     );
 }

@@ -5,26 +5,62 @@ Schedule query service - Supabase edition.
 from __future__ import annotations
 
 import itertools
+import logging
 import math
+from datetime import UTC, datetime
+from hmac import compare_digest
+from time import perf_counter
 from uuid import UUID
+
+from redis.asyncio import Redis
 
 from backend.api.v1.schemas.schedules import (
     GeneratedMeetingResponse,
     GeneratedScheduleResponse,
+    GeneratedScheduleSortField,
+    GeneratedScheduleSummaryResponse,
     GeneratedSectionResponse,
     Meeting,
     MeetingResponse,
     ScheduleGenerateBlockedTimeInput,
-    ScheduleGenerateRequest,
-    ScheduleGenerateResponse,
+    ScheduleGenerationSessionCreateRequest,
+    ScheduleGenerationSessionFilters,
+    ScheduleGenerationSessionQueryRequest,
+    ScheduleGenerationSessionResponse,
+    ScheduleGenerationSessionSort,
     ScheduleRequirementGroup,
     ScheduleSectionDetailResponse,
     ScheduleSummaryResponse,
     Section,
+    SortDirection,
 )
 from backend.api.v1.services import catalogs as catalog_service
+from backend.cache.builders import build_generation_session
+from backend.cache.cursors import decode_generation_cursor, encode_generation_cursor
+from backend.cache.fingerprints import (
+    build_generation_search_fingerprint,
+    build_owner_scope_hash,
+    stable_sha256,
+)
+from backend.cache.models import CachedScheduleResult, MeetingDay
+from backend.cache.query import (
+    CachedBlockedTime,
+    GenerationSessionFilters,
+    GenerationSessionPage,
+    GenerationSessionQueryResult,
+    GenerationSessionSort,
+    GenerationSessionSortField,
+    query_generation_session,
+)
+from backend.cache.query import (
+    SortDirection as CacheSortDirection,
+)
+from backend.cache.serialization import GenerationSessionSerializationError
+from backend.cache.store import GenerationSessionCacheMissError, GenerationSessionStore
 from backend.config import get_settings
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 DAY_CODE_TO_NAME = {
     "M": "Mon",
@@ -35,12 +71,39 @@ DAY_CODE_TO_NAME = {
     "S": "Sat",
 }
 
+DAY_CODE_TO_CACHE_DAY = {
+    "M": MeetingDay.MONDAY,
+    "T": MeetingDay.TUESDAY,
+    "W": MeetingDay.WEDNESDAY,
+    "R": MeetingDay.THURSDAY,
+    "F": MeetingDay.FRIDAY,
+    "S": MeetingDay.SATURDAY,
+}
 
-def generate_schedules_from_request(
+PUBLIC_SORT_FIELD_TO_CACHE_SORT_FIELD = {
+    GeneratedScheduleSortField.EARLIEST_START: GenerationSessionSortField.EARLIEST_START,
+    GeneratedScheduleSortField.LATEST_END: GenerationSessionSortField.LATEST_END,
+    GeneratedScheduleSortField.NUM_MEETING_DAYS: GenerationSessionSortField.NUM_MEETING_DAYS,
+    GeneratedScheduleSortField.TOTAL_GAP_MINUTES: GenerationSessionSortField.TOTAL_GAP_MINUTES,
+    GeneratedScheduleSortField.AVERAGE_INSTRUCTOR_RATING: (
+        GenerationSessionSortField.AVERAGE_INSTRUCTOR_RATING
+    ),
+}
+
+
+class GenerationSessionAccessDeniedError(PermissionError):
+    """A generation session does not belong to the current access scope."""
+
+
+async def generate_schedules_from_request(
     client: Client,
-    payload: ScheduleGenerateRequest,
-) -> ScheduleGenerateResponse:
-    """Generate transient schedule options from a saved BYOC catalog."""
+    redis: Redis,
+    payload: ScheduleGenerationSessionCreateRequest,
+    *,
+    user_id: UUID,
+) -> ScheduleGenerationSessionResponse:
+    """Create or reuse a transient schedule-generation session."""
+    started_at = perf_counter()
     settings = get_settings()
     _validate_generation_request_limits(payload)
 
@@ -55,10 +118,23 @@ def generate_schedules_from_request(
     sections_by_course, target_courses = _load_catalog_generation_sections(
         client,
         catalog_id,
-        instructor_ratings=payload.preferences.instructor_ratings,
+        instructor_ratings=payload.instructor_ratings,
     )
     if not target_courses:
         raise ValueError("Catalog has no saved candidate sections")
+
+    owner_scope_hash = build_owner_scope_hash(catalog_id=catalog_id, user_id=user_id)
+    search_fingerprint = build_generation_search_fingerprint(
+        payload=payload,
+        sections_by_course=sections_by_course,
+    )
+    store = GenerationSessionStore(
+        client=redis,
+        namespace=settings.generation_cache_namespace,
+        ttl_seconds=settings.generation_session_ttl_seconds,
+        max_results=settings.generation_session_max_results,
+        max_bytes=settings.generation_session_max_bytes,
+    )
 
     requirement_groups = _resolve_requirement_groups(
         payload.requirements.groups,
@@ -78,34 +154,84 @@ def generate_schedules_from_request(
             "courses or candidate sections before generating."
         )
 
-    generated = _generate_requirement_group_schedules(
-        requirement_groups,
-        sections_by_course,
+    session = None
+    cache_hit = False
+    cached_session_id = await store.find_session_id(
+        owner_scope_hash=owner_scope_hash,
+        search_fingerprint=search_fingerprint,
     )
-    valid = [
-        schedule
-        for schedule in generated
-        if not _schedule_overlaps_blocked_times(
-            schedule,
-            payload.preferences.blocked_times,
+    if cached_session_id is not None:
+        try:
+            session = await store.get_session(cached_session_id)
+            cache_hit = True
+        except (GenerationSessionCacheMissError, GenerationSessionSerializationError):
+            session = None
+
+    if session is None:
+        generated = _generate_requirement_group_schedules(
+            requirement_groups,
+            sections_by_course,
         )
-    ]
-    returned = valid[: payload.max_results]
+        session = build_generation_session(
+            catalog_id=catalog_id,
+            sections_by_course=sections_by_course,
+            schedules=generated,
+            candidate_count=candidate_count,
+            owner_scope_hash=owner_scope_hash,
+            search_fingerprint=search_fingerprint,
+            ttl_seconds=settings.generation_session_ttl_seconds,
+        )
+        await store.put_session(session)
+
+    filters = _build_generation_session_filters(payload.filters)
+    sort = _build_generation_session_sort(payload.sort)
+    query_fingerprint = _build_view_query_fingerprint(filters=filters, sort=sort)
+    query_result = query_generation_session(
+        session,
+        filters=filters,
+        sort=sort,
+        page=GenerationSessionPage(
+            offset=0,
+            limit=payload.page.limit,
+        ),
+    )
+    sections_by_meeting_id = _index_sections_by_meeting_id(sections_by_course)
 
     schedules = [
         _build_generated_schedule_response(
-            index=index,
-            sections=sections,
+            sections=[
+                sections_by_meeting_id[catalog_section_meeting_id]
+                for catalog_section_meeting_id in (
+                    result.selected_catalog_section_meeting_ids
+                )
+            ],
+            result=result,
         )
-        for index, sections in enumerate(returned, start=1)
+        for result in query_result.results
     ]
 
-    return ScheduleGenerateResponse(
-        candidate_count=candidate_count,
-        valid_count=len(valid),
+    response = ScheduleGenerationSessionResponse(
+        session_id=session.session_id,
+        expires_at=session.expires_at,
+        candidate_count=session.candidate_count,
+        generated_count=session.generated_count,
+        filtered_count=query_result.filtered_count,
         returned_count=len(schedules),
+        next_cursor=_build_next_cursor(
+            query_result=query_result,
+            query_fingerprint=query_fingerprint,
+        ),
         schedules=schedules,
     )
+    _log_generation_session_event(
+        event="generation_session_created",
+        response=response,
+        filters=filters,
+        page_size=payload.page.limit,
+        duration_seconds=perf_counter() - started_at,
+        cache_hit=cache_hit,
+    )
+    return response
 
 
 def list_schedules(
@@ -153,6 +279,97 @@ def list_schedules(
     return _assemble_responses(schedules_data, classes_lookup)
 
 
+async def query_generated_schedule_session(
+    client: Client,
+    redis: Redis,
+    *,
+    session_id: str,
+    payload: ScheduleGenerationSessionQueryRequest,
+    user_id: UUID,
+) -> ScheduleGenerationSessionResponse:
+    """Filter, sort, page, and hydrate an existing cached generation session."""
+    started_at = perf_counter()
+    settings = get_settings()
+    _validate_generation_session_query_limits(payload)
+    store = GenerationSessionStore(
+        client=redis,
+        namespace=settings.generation_cache_namespace,
+        ttl_seconds=settings.generation_session_ttl_seconds,
+        max_results=settings.generation_session_max_results,
+        max_bytes=settings.generation_session_max_bytes,
+    )
+    session = await store.get_session(session_id)
+    if session.expires_at <= datetime.now(UTC):
+        raise GenerationSessionCacheMissError(session_id)
+    expected_owner_scope_hash = build_owner_scope_hash(
+        catalog_id=session.catalog_id,
+        user_id=user_id,
+    )
+    if not compare_digest(session.owner_scope_hash, expected_owner_scope_hash):
+        raise GenerationSessionAccessDeniedError(session_id)
+
+    filters = _build_generation_session_filters(payload.filters)
+    sort = _build_generation_session_sort(payload.sort)
+    query_fingerprint = _build_view_query_fingerprint(filters=filters, sort=sort)
+    offset = decode_generation_cursor(
+        payload.page.cursor,
+        expected_query_fingerprint=query_fingerprint,
+    )
+    query_result = query_generation_session(
+        session,
+        filters=filters,
+        sort=sort,
+        page=GenerationSessionPage(
+            offset=offset,
+            limit=payload.page.limit,
+        ),
+    )
+    sections_by_meeting_id = _hydrate_generated_sections(
+        client,
+        [
+            catalog_section_meeting_id
+            for result in query_result.results
+            for catalog_section_meeting_id in result.selected_catalog_section_meeting_ids
+        ],
+    )
+
+    schedules = [
+        _build_generated_schedule_response(
+            sections=[
+                sections_by_meeting_id[catalog_section_meeting_id]
+                for catalog_section_meeting_id in (
+                    result.selected_catalog_section_meeting_ids
+                )
+            ],
+            result=result,
+        )
+        for result in query_result.results
+    ]
+
+    response = ScheduleGenerationSessionResponse(
+        session_id=session.session_id,
+        expires_at=session.expires_at,
+        candidate_count=session.candidate_count,
+        generated_count=session.generated_count,
+        filtered_count=query_result.filtered_count,
+        returned_count=len(schedules),
+        next_cursor=_build_next_cursor(
+            query_result=query_result,
+            query_fingerprint=query_fingerprint,
+        ),
+        schedules=schedules,
+    )
+    _log_generation_session_event(
+        event="generation_session_queried",
+        response=response,
+        filters=filters,
+        page_size=payload.page.limit,
+        duration_seconds=perf_counter() - started_at,
+        cache_hit=True,
+    )
+    return response
+
+
 # Internal Helpers
 
 
@@ -191,19 +408,37 @@ def compute_schedule_summary(sections: list[Section]) -> dict:
     }
 
 
-def _validate_generation_request_limits(payload: ScheduleGenerateRequest) -> None:
+def _validate_generation_request_limits(
+    payload: ScheduleGenerationSessionCreateRequest,
+) -> None:
     settings = get_settings()
-    if payload.max_results > settings.max_results:
-        raise ValueError(f"maxResults cannot be greater than {settings.max_results}")
-    if len(payload.preferences.blocked_times) > settings.max_blocked_times:
+    _validate_generation_page_limit(payload.page.limit)
+    if len(payload.filters.blocked_times) > settings.max_blocked_times:
         raise ValueError(
             f"blockedTimes cannot include more than {settings.max_blocked_times} items"
         )
-    if len(payload.preferences.instructor_ratings) > settings.max_instructor_ratings:
+    if len(payload.instructor_ratings) > settings.max_instructor_ratings:
         raise ValueError(
             "instructorRatings cannot include more than "
             f"{settings.max_instructor_ratings} entries"
         )
+
+
+def _validate_generation_session_query_limits(
+    payload: ScheduleGenerationSessionQueryRequest,
+) -> None:
+    settings = get_settings()
+    _validate_generation_page_limit(payload.page.limit)
+    if len(payload.filters.blocked_times) > settings.max_blocked_times:
+        raise ValueError(
+            f"blockedTimes cannot include more than {settings.max_blocked_times} items"
+        )
+
+
+def _validate_generation_page_limit(limit: int) -> None:
+    maximum = get_settings().generation_page_max
+    if limit > maximum:
+        raise ValueError(f"page.limit cannot be greater than {maximum}")
 
 
 def _validate_requirement_group_limits(
@@ -401,30 +636,197 @@ def _expand_meeting_days(days: str) -> list[str]:
         ) from exc
 
 
-def _schedule_overlaps_blocked_times(
-    sections: list[Section],
-    blocked_times: list[ScheduleGenerateBlockedTimeInput],
-) -> bool:
-    if not blocked_times:
-        return False
+def _build_generation_session_filters(
+    filters: ScheduleGenerationSessionFilters,
+) -> GenerationSessionFilters:
+    return GenerationSessionFilters(
+        blocked_times=tuple(_build_cached_blocked_times(filters.blocked_times)),
+        excluded_days=tuple(
+            DAY_CODE_TO_CACHE_DAY[day] for day in filters.excluded_days
+        ),
+        not_before=filters.not_before,
+        not_after=filters.not_after,
+        max_meeting_days=filters.max_meeting_days,
+        max_total_gap_minutes=filters.max_total_gap_minutes,
+        max_single_gap_minutes=filters.max_single_gap_minutes,
+        minimum_instructor_rating=filters.minimum_instructor_rating,
+        allow_unrated_instructors=filters.allow_unrated_instructors,
+    )
 
-    meetings = [meeting for section in sections for meeting in section.meetings]
-    blocked_meetings = [
-        Meeting(
-            day=day,
-            start=blocked_time.start_time,
-            end=blocked_time.end_time,
-            campus="Blocked",
+
+def _build_generation_session_sort(
+    sort: ScheduleGenerationSessionSort,
+) -> GenerationSessionSort:
+    return GenerationSessionSort(
+        field=PUBLIC_SORT_FIELD_TO_CACHE_SORT_FIELD[sort.field],
+        direction=(
+            CacheSortDirection.DESC
+            if sort.direction == SortDirection.DESC
+            else CacheSortDirection.ASC
+        ),
+    )
+
+
+def _build_view_query_fingerprint(
+    *,
+    filters: GenerationSessionFilters,
+    sort: GenerationSessionSort,
+) -> str:
+    return stable_sha256(
+        {
+            "filters": filters.model_dump(mode="json"),
+            "sort": sort.model_dump(mode="json"),
+        }
+    )
+
+
+def _build_next_cursor(
+    *,
+    query_result: GenerationSessionQueryResult,
+    query_fingerprint: str,
+) -> str | None:
+    next_offset = query_result.offset + query_result.returned_count
+    if next_offset >= query_result.filtered_count:
+        return None
+    return encode_generation_cursor(
+        offset=next_offset,
+        query_fingerprint=query_fingerprint,
+    )
+
+
+def _log_generation_session_event(
+    *,
+    event: str,
+    response: ScheduleGenerationSessionResponse,
+    filters: GenerationSessionFilters,
+    page_size: int,
+    duration_seconds: float,
+    cache_hit: bool,
+) -> None:
+    logger.info(
+        event,
+        extra={
+            "cache_hit": cache_hit,
+            "candidate_count": response.candidate_count,
+            "generated_count": response.generated_count,
+            "filtered_count": response.filtered_count,
+            "returned_count": response.returned_count,
+            "active_filters": _active_generation_filter_names(filters),
+            "page_size": page_size,
+            "duration_ms": round(duration_seconds * 1000, 2),
+        },
+    )
+
+
+def _active_generation_filter_names(
+    filters: GenerationSessionFilters,
+) -> list[str]:
+    active = [
+        name
+        for name, enabled in {
+            "excluded_days": bool(filters.excluded_days),
+            "blocked_times": bool(filters.blocked_times),
+            "not_before": filters.not_before is not None,
+            "not_after": filters.not_after is not None,
+            "max_meeting_days": filters.max_meeting_days is not None,
+            "max_total_gap_minutes": filters.max_total_gap_minutes is not None,
+            "max_single_gap_minutes": filters.max_single_gap_minutes is not None,
+            "minimum_instructor_rating": (
+                filters.minimum_instructor_rating is not None
+            ),
+        }.items()
+        if enabled
+    ]
+    if not filters.allow_unrated_instructors:
+        active.append("allow_unrated_instructors")
+    return active
+
+
+def _build_cached_blocked_times(
+    blocked_times: list[ScheduleGenerateBlockedTimeInput],
+) -> tuple[CachedBlockedTime, ...]:
+    return tuple(
+        CachedBlockedTime(
+            day=DAY_CODE_TO_CACHE_DAY[day],
+            start_time=blocked_time.start_time,
+            end_time=blocked_time.end_time,
         )
         for blocked_time in blocked_times
-        for day in _expand_meeting_days(blocked_time.days)
-    ]
-
-    return any(
-        _meetings_overlap(meeting, blocked)
-        for meeting in meetings
-        for blocked in blocked_meetings
+        for day in blocked_time.days
     )
+
+
+def _index_sections_by_meeting_id(
+    sections_by_course: dict[str, list[Section]],
+) -> dict[UUID, Section]:
+    sections_by_meeting_id: dict[UUID, Section] = {}
+    for sections in sections_by_course.values():
+        for section in sections:
+            if section.catalog_section_meeting_id is None:
+                raise ValueError(
+                    "Generated sections must include catalogSectionMeetingId"
+                )
+            sections_by_meeting_id[section.catalog_section_meeting_id] = section
+    return sections_by_meeting_id
+
+
+def _hydrate_generated_sections(
+    client: Client,
+    catalog_section_meeting_ids: list[UUID],
+) -> dict[UUID, Section]:
+    if not catalog_section_meeting_ids:
+        return {}
+
+    unique_meeting_ids = sorted(set(catalog_section_meeting_ids))
+    meeting_rows = (
+        client.table("catalog_section_meetings")
+        .select("id, section_id, crn, instructor_name, days, start_time, end_time")
+        .in_("id", [str(meeting_id) for meeting_id in unique_meeting_ids])
+        .execute()
+        .data
+        or []
+    )
+    section_ids = sorted({str(row["section_id"]) for row in meeting_rows})
+    section_rows = (
+        client.table("catalog_sections")
+        .select("id, course_name")
+        .in_("id", section_ids)
+        .execute()
+        .data
+        or []
+    )
+    sections_by_id = {str(row["id"]): row for row in section_rows}
+
+    hydrated: dict[UUID, Section] = {}
+    for row in meeting_rows:
+        meeting_id = UUID(str(row["id"]))
+        section_id = UUID(str(row["section_id"]))
+        section_row = sections_by_id.get(str(section_id), {})
+        meetings = [
+            Meeting(
+                day=day,
+                start=row["start_time"],
+                end=row["end_time"],
+                campus="Unspecified",
+            )
+            for day in _expand_meeting_days(row["days"] or "")
+        ]
+        hydrated[meeting_id] = Section(
+            catalog_section_id=section_id,
+            catalog_section_meeting_id=meeting_id,
+            course_name=section_row.get("course_name") or "Unknown course",
+            section_code=row.get("crn") or str(meeting_id),
+            title="",
+            credits=0,
+            instructor=row.get("instructor_name") or "",
+            meetings=meetings,
+        )
+
+    missing_ids = set(unique_meeting_ids).difference(hydrated)
+    if missing_ids:
+        raise ValueError("Cached generation session references missing catalog rows")
+
+    return hydrated
 
 
 def _meetings_overlap(first: Meeting, second: Meeting) -> bool:
@@ -435,23 +837,22 @@ def _meetings_overlap(first: Meeting, second: Meeting) -> bool:
 
 def _build_generated_schedule_response(
     *,
-    index: int,
     sections: list[Section],
+    result: CachedScheduleResult,
 ) -> GeneratedScheduleResponse:
-    summary = compute_schedule_summary(sections)
-
     return GeneratedScheduleResponse(
-        result_id=f"generated-{index}",  # TODO: this should not be happening
-        total_instructor_score=summary["total_instructor_score"],
-        num_sections=summary["num_sections"],
-        meets_mon=summary["meets_mon"],
-        meets_tue=summary["meets_tue"],
-        meets_wed=summary["meets_wed"],
-        meets_thu=summary["meets_thu"],
-        meets_fri=summary["meets_fri"],
-        meets_sat=summary["meets_sat"],
-        earliest_start=summary["earliest_start"],
-        latest_end=summary["latest_end"],
+        result_id=result.result_id,
+        summary=GeneratedScheduleSummaryResponse(
+            meeting_days=[day.value for day in result.summary.meeting_days],
+            num_meeting_days=result.summary.num_meeting_days,
+            earliest_start=result.summary.earliest_start,
+            latest_end=result.summary.latest_end,
+            total_gap_minutes=result.summary.total_gap_minutes,
+            max_single_gap_minutes=result.summary.max_single_gap_minutes,
+            average_instructor_rating=result.summary.average_instructor_rating,
+            rated_instructor_count=result.summary.rated_instructor_count,
+            unrated_instructor_count=result.summary.unrated_instructor_count,
+        ),
         sections=[_build_generated_section_response(section) for section in sections],
     )
 

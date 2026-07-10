@@ -337,6 +337,34 @@ export type GeneratedMeetingResponse = {
  */
 export type GeneratedScheduleResponse = {
     /**
+     * Resultid
+     */
+    resultId: string;
+    /**
+     * Sections
+     */
+    sections?: Array<GeneratedSectionResponse>;
+    summary: GeneratedScheduleSummaryResponse;
+};
+
+/**
+ * GeneratedScheduleSortField
+ *
+ * Public generated-schedule sort keys.
+ */
+export type GeneratedScheduleSortField = 'earliestStart' | 'latestEnd' | 'numMeetingDays' | 'totalGapMinutes' | 'averageInstructorRating';
+
+/**
+ * GeneratedScheduleSummaryResponse
+ *
+ * Authoritative filter and sort metrics for one generated schedule.
+ */
+export type GeneratedScheduleSummaryResponse = {
+    /**
+     * Averageinstructorrating
+     */
+    averageInstructorRating?: number | null;
+    /**
      * Earlieststart
      */
     earliestStart: string;
@@ -345,45 +373,29 @@ export type GeneratedScheduleResponse = {
      */
     latestEnd: string;
     /**
-     * Meetsfri
+     * Maxsinglegapminutes
      */
-    meetsFri: boolean;
+    maxSingleGapMinutes: number;
     /**
-     * Meetsmon
+     * Meetingdays
      */
-    meetsMon: boolean;
+    meetingDays: Array<string>;
     /**
-     * Meetssat
+     * Nummeetingdays
      */
-    meetsSat: boolean;
+    numMeetingDays: number;
     /**
-     * Meetsthu
+     * Ratedinstructorcount
      */
-    meetsThu: boolean;
+    ratedInstructorCount: number;
     /**
-     * Meetstue
+     * Totalgapminutes
      */
-    meetsTue: boolean;
+    totalGapMinutes: number;
     /**
-     * Meetswed
+     * Unratedinstructorcount
      */
-    meetsWed: boolean;
-    /**
-     * Numsections
-     */
-    numSections: number;
-    /**
-     * Resultid
-     */
-    resultId: string;
-    /**
-     * Sections
-     */
-    sections?: Array<GeneratedSectionResponse>;
-    /**
-     * Totalinstructorscore
-     */
-    totalInstructorScore?: number | null;
+    unratedInstructorCount: number;
 };
 
 /**
@@ -497,39 +509,6 @@ export type ScheduleGenerateMetadata = {
 };
 
 /**
- * ScheduleGeneratePreferences
- *
- * Preferences and hard filters supplied with a generation request.
- */
-export type ScheduleGeneratePreferences = {
-    /**
-     * Blockedtimes
-     */
-    blockedTimes?: Array<ScheduleGenerateBlockedTimeInput>;
-    /**
-     * Instructorratings
-     */
-    instructorRatings?: {
-        [key: string]: number | null;
-    };
-};
-
-/**
- * ScheduleGenerateRequest
- *
- * Request body for generating schedules from saved catalog sections.
- */
-export type ScheduleGenerateRequest = {
-    /**
-     * Maxresults
-     */
-    maxResults?: number;
-    metadata?: ScheduleGenerateMetadata;
-    preferences?: ScheduleGeneratePreferences;
-    requirements?: ScheduleGenerateRequirements;
-};
-
-/**
  * ScheduleGenerateRequirements
  *
  * Optional CNF-style requirements for generation.
@@ -542,15 +521,133 @@ export type ScheduleGenerateRequirements = {
 };
 
 /**
- * ScheduleGenerateResponse
+ * ScheduleGenerationSessionCreateRequest
  *
- * Transient generation results for a BYOC schedule request.
+ * Create or reuse a generation session and return its first result page.
  */
-export type ScheduleGenerateResponse = {
+export type ScheduleGenerationSessionCreateRequest = {
+    filters?: ScheduleGenerationSessionFilters;
+    /**
+     * Instructorratings
+     */
+    instructorRatings?: {
+        [key: string]: number | null;
+    };
+    metadata?: ScheduleGenerateMetadata;
+    page?: ScheduleGenerationSessionInitialPage;
+    requirements?: ScheduleGenerateRequirements;
+    sort?: ScheduleGenerationSessionSort;
+};
+
+/**
+ * ScheduleGenerationSessionFilters
+ *
+ * View filters for a cached generation session.
+ */
+export type ScheduleGenerationSessionFilters = {
+    /**
+     * Allowunratedinstructors
+     */
+    allowUnratedInstructors?: boolean;
+    /**
+     * Blockedtimes
+     */
+    blockedTimes?: Array<ScheduleGenerateBlockedTimeInput>;
+    /**
+     * Excludeddays
+     */
+    excludedDays?: Array<string>;
+    /**
+     * Maxmeetingdays
+     */
+    maxMeetingDays?: number | null;
+    /**
+     * Maxsinglegapminutes
+     */
+    maxSingleGapMinutes?: number | null;
+    /**
+     * Maxtotalgapminutes
+     */
+    maxTotalGapMinutes?: number | null;
+    /**
+     * Minimuminstructorrating
+     */
+    minimumInstructorRating?: number | null;
+    /**
+     * Notafter
+     */
+    notAfter?: string | null;
+    /**
+     * Notbefore
+     */
+    notBefore?: string | null;
+};
+
+/**
+ * ScheduleGenerationSessionInitialPage
+ *
+ * Initial page controls for a newly created generation session.
+ */
+export type ScheduleGenerationSessionInitialPage = {
+    /**
+     * Limit
+     */
+    limit?: number;
+};
+
+/**
+ * ScheduleGenerationSessionPage
+ *
+ * Opaque cursor pagination for a cached generation session.
+ */
+export type ScheduleGenerationSessionPage = {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+};
+
+/**
+ * ScheduleGenerationSessionQueryRequest
+ *
+ * Request body for querying a cached generated-schedule universe.
+ */
+export type ScheduleGenerationSessionQueryRequest = {
+    filters?: ScheduleGenerationSessionFilters;
+    page?: ScheduleGenerationSessionPage;
+    sort?: ScheduleGenerationSessionSort;
+};
+
+/**
+ * ScheduleGenerationSessionResponse
+ *
+ * One filtered, sorted page from a transient generation session.
+ */
+export type ScheduleGenerationSessionResponse = {
     /**
      * Candidatecount
      */
     candidateCount: number;
+    /**
+     * Expiresat
+     */
+    expiresAt: string;
+    /**
+     * Filteredcount
+     */
+    filteredCount: number;
+    /**
+     * Generatedcount
+     */
+    generatedCount: number;
+    /**
+     * Nextcursor
+     */
+    nextCursor?: string | null;
     /**
      * Returnedcount
      */
@@ -560,9 +657,19 @@ export type ScheduleGenerateResponse = {
      */
     schedules?: Array<GeneratedScheduleResponse>;
     /**
-     * Validcount
+     * Sessionid
      */
-    validCount: number;
+    sessionId: string;
+};
+
+/**
+ * ScheduleGenerationSessionSort
+ *
+ * Single-field sort for a cached generation session.
+ */
+export type ScheduleGenerationSessionSort = {
+    direction?: SortDirection;
+    field?: GeneratedScheduleSortField;
 };
 
 /**
@@ -591,10 +698,6 @@ export type ScheduleLimitsResponse = {
      * Maxinstructorratings
      */
     maxInstructorRatings: number;
-    /**
-     * Maxresults
-     */
-    maxResults: number;
     /**
      * Maxsectionspercourse
      */
@@ -750,9 +853,26 @@ export type ScheduleSummaryResponse = {
 };
 
 /**
+ * SortDirection
+ *
+ * Public sort directions.
+ */
+export type SortDirection = 'asc' | 'desc';
+
+/**
  * ValidationError
  */
 export type ValidationError = {
+    /**
+     * Context
+     */
+    ctx?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Input
+     */
+    input?: unknown;
     /**
      * Location
      */
@@ -1072,6 +1192,61 @@ export type HealthCheckApiV1HealthGetResponses = {
 
 export type HealthCheckApiV1HealthGetResponse = HealthCheckApiV1HealthGetResponses[keyof HealthCheckApiV1HealthGetResponses];
 
+export type CreateGenerationSessionApiV1ScheduleGenerationSessionsPostData = {
+    body: ScheduleGenerationSessionCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/schedule-generation-sessions';
+};
+
+export type CreateGenerationSessionApiV1ScheduleGenerationSessionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateGenerationSessionApiV1ScheduleGenerationSessionsPostError = CreateGenerationSessionApiV1ScheduleGenerationSessionsPostErrors[keyof CreateGenerationSessionApiV1ScheduleGenerationSessionsPostErrors];
+
+export type CreateGenerationSessionApiV1ScheduleGenerationSessionsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ScheduleGenerationSessionResponse;
+};
+
+export type CreateGenerationSessionApiV1ScheduleGenerationSessionsPostResponse = CreateGenerationSessionApiV1ScheduleGenerationSessionsPostResponses[keyof CreateGenerationSessionApiV1ScheduleGenerationSessionsPostResponses];
+
+export type QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostData = {
+    body: ScheduleGenerationSessionQueryRequest;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/schedule-generation-sessions/{session_id}/results';
+};
+
+export type QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostError = QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostErrors[keyof QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostErrors];
+
+export type QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScheduleGenerationSessionResponse;
+};
+
+export type QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostResponse = QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostResponses[keyof QueryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPostResponses];
+
 export type GetSchedulesApiV1SchedulesGetData = {
     body?: never;
     path?: never;
@@ -1119,31 +1294,6 @@ export type GetSchedulesApiV1SchedulesGetResponses = {
 };
 
 export type GetSchedulesApiV1SchedulesGetResponse = GetSchedulesApiV1SchedulesGetResponses[keyof GetSchedulesApiV1SchedulesGetResponses];
-
-export type GenerateSchedulesApiV1SchedulesGeneratePostData = {
-    body: ScheduleGenerateRequest;
-    path?: never;
-    query?: never;
-    url: '/api/v1/schedules/generate';
-};
-
-export type GenerateSchedulesApiV1SchedulesGeneratePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GenerateSchedulesApiV1SchedulesGeneratePostError = GenerateSchedulesApiV1SchedulesGeneratePostErrors[keyof GenerateSchedulesApiV1SchedulesGeneratePostErrors];
-
-export type GenerateSchedulesApiV1SchedulesGeneratePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: ScheduleGenerateResponse;
-};
-
-export type GenerateSchedulesApiV1SchedulesGeneratePostResponse = GenerateSchedulesApiV1SchedulesGeneratePostResponses[keyof GenerateSchedulesApiV1SchedulesGeneratePostResponses];
 
 export type GetScheduleLimitsApiV1SchedulesLimitsGetData = {
     body?: never;

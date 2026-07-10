@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { FaStar } from "react-icons/fa";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/clients/supabaseClient";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Navbar({ center }: { center?: ReactNode }) {
     const { status, user } = useAuth();

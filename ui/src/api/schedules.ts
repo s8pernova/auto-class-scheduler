@@ -1,25 +1,31 @@
 import {
-    generateSchedulesApiV1SchedulesGeneratePost,
+    createGenerationSessionApiV1ScheduleGenerationSessionsPost,
     getScheduleLimitsApiV1SchedulesLimitsGet,
     getSchedulesApiV1SchedulesGet,
+    queryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPost,
 } from "@/api/generated";
 import type {
-    GenerateSchedulesApiV1SchedulesGeneratePostResponse,
     GetScheduleLimitsApiV1SchedulesLimitsGetResponse,
     GetSchedulesApiV1SchedulesGetResponse,
     GeneratedMeetingResponse as ApiGeneratedMeetingResponse,
     GeneratedScheduleResponse as ApiGeneratedScheduleResponse,
     GeneratedSectionResponse as ApiGeneratedSectionResponse,
-    ScheduleGenerateResponse as ApiScheduleGenerateResponse,
+    ScheduleGenerationSessionResponse as ApiScheduleGenerationSessionResponse,
     ScheduleGenerateBlockedTimeInput,
     ScheduleGenerateMetadata,
-    ScheduleGeneratePreferences,
-    ScheduleGenerateRequest,
     ScheduleGenerateRequirements,
+    ScheduleGenerationSessionCreateRequest,
+    ScheduleGenerationSessionFilters,
+    ScheduleGenerationSessionQueryRequest,
+    ScheduleGenerationSessionSort,
     ScheduleLimitsResponse,
     ScheduleRequirementGroup,
 } from "@/api/generated";
-import { getAccessToken, unwrapApiResult } from "@/api/http";
+import {
+    getAccessToken,
+    getRequiredAccessToken,
+    unwrapApiResult,
+} from "@/api/http";
 
 interface GetSchedulesOptions {
     favoritesOnly?: boolean;
@@ -32,9 +38,11 @@ interface GetSchedulesOptions {
 export type {
     ScheduleGenerateBlockedTimeInput,
     ScheduleGenerateMetadata,
-    ScheduleGeneratePreferences,
-    ScheduleGenerateRequest,
     ScheduleGenerateRequirements,
+    ScheduleGenerationSessionCreateRequest,
+    ScheduleGenerationSessionFilters,
+    ScheduleGenerationSessionQueryRequest,
+    ScheduleGenerationSessionSort,
     ScheduleLimitsResponse,
     ScheduleRequirementGroup,
 };
@@ -55,8 +63,8 @@ export type GeneratedScheduleResponse = Omit<
     sections: GeneratedSectionResponse[];
 };
 
-export type ScheduleGenerateResponse = Omit<
-    ApiScheduleGenerateResponse,
+export type ScheduleGenerationSessionResponse = Omit<
+    ApiScheduleGenerationSessionResponse,
     "schedules"
 > & {
     schedules: GeneratedScheduleResponse[];
@@ -80,9 +88,9 @@ function normalizeGeneratedSchedule(
     };
 }
 
-function normalizeScheduleGenerateResponse(
-    response: GenerateSchedulesApiV1SchedulesGeneratePostResponse,
-): ScheduleGenerateResponse {
+function normalizeGenerationSessionResponse(
+    response: ApiScheduleGenerationSessionResponse,
+): ScheduleGenerationSessionResponse {
     return {
         ...response,
         schedules: (response.schedules ?? []).map(normalizeGeneratedSchedule),
@@ -111,17 +119,36 @@ export async function getSchedules({
     );
 }
 
-export async function generateSchedules(
-    payload: ScheduleGenerateRequest,
-): Promise<ScheduleGenerateResponse> {
+export async function createGenerationSession(
+    payload: ScheduleGenerationSessionCreateRequest,
+): Promise<ScheduleGenerationSessionResponse> {
     const response = await unwrapApiResult(
-        await generateSchedulesApiV1SchedulesGeneratePost({
-            auth: getAccessToken,
+        await createGenerationSessionApiV1ScheduleGenerationSessionsPost({
+            auth: getRequiredAccessToken,
             body: payload,
         }),
         "Failed to generate schedules",
     );
-    return normalizeScheduleGenerateResponse(response);
+    return normalizeGenerationSessionResponse(response);
+}
+
+export async function queryGenerationSessionResults(
+    sessionId: string,
+    payload: ScheduleGenerationSessionQueryRequest,
+): Promise<ScheduleGenerationSessionResponse> {
+    const response = await unwrapApiResult(
+        await queryGenerationSessionResultsApiV1ScheduleGenerationSessionsSessionIdResultsPost(
+            {
+                auth: getRequiredAccessToken,
+                body: payload,
+                path: {
+                    session_id: sessionId,
+                },
+            },
+        ),
+        "Failed to query generated schedules",
+    );
+    return normalizeGenerationSessionResponse(response);
 }
 
 export async function getScheduleLimits(): Promise<GetScheduleLimitsApiV1SchedulesLimitsGetResponse> {

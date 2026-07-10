@@ -1,8 +1,8 @@
 import type {
     CatalogSectionsReplaceRequest,
     ScheduleGenerateMetadata,
-    ScheduleGenerateRequest,
     ScheduleGenerateRequirements,
+    ScheduleGenerationSessionCreateRequest,
 } from "@/api";
 import type {
     ScheduleDraft,
@@ -108,24 +108,21 @@ export function buildCatalogSectionsReplaceRequest(
     };
 }
 
-export function buildScheduleGenerateRequest(
+export function buildGenerationSessionRequest(
     draft: ScheduleDraft,
     metadata: Partial<ScheduleGenerateMetadata> = {},
-): ScheduleGenerateRequest {
+): ScheduleGenerationSessionCreateRequest {
     return {
         metadata: {
             catalogId: draft.catalogId,
             ...metadata,
         },
-        preferences: {
-            blockedTimes: draft.blockedTimes.map((blockedTime) => ({
-                days: blockedTime.dayOfWeek,
-                startTime: blockedTime.startTime,
-                endTime: blockedTime.endTime,
-            })),
-            instructorRatings: draft.instructorRatings,
-        },
+        filters: draft.generationView.filters,
+        instructorRatings: draft.instructorRatings,
         requirements: buildScheduleRequirements(draft),
-        maxResults: 100,
+        sort: draft.generationView.sort,
+        page: {
+            limit: draft.generationView.pageLimit,
+        },
     };
 }

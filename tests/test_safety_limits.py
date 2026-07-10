@@ -10,8 +10,8 @@ from backend.api.v1.schemas.catalogs import (
 )
 from backend.api.v1.schemas.schedules import (
     ScheduleGenerateBlockedTimeInput,
-    ScheduleGeneratePreferences,
-    ScheduleGenerateRequest,
+    ScheduleGenerationSessionCreateRequest,
+    ScheduleGenerationSessionFilters,
     ScheduleRequirementGroup,
 )
 from backend.api.v1.services.catalogs import validate_catalog_sections_payload
@@ -137,8 +137,8 @@ class SafetyLimitTests(unittest.TestCase):
 
     def test_generation_rejects_too_many_blocked_times(self) -> None:
         settings = get_settings()
-        payload = ScheduleGenerateRequest(
-            preferences=ScheduleGeneratePreferences(
+        payload = ScheduleGenerationSessionCreateRequest(
+            filters=ScheduleGenerationSessionFilters(
                 blocked_times=[
                     ScheduleGenerateBlockedTimeInput(
                         days="M",
@@ -155,13 +155,11 @@ class SafetyLimitTests(unittest.TestCase):
 
     def test_generation_rejects_too_many_instructor_ratings(self) -> None:
         settings = get_settings()
-        payload = ScheduleGenerateRequest(
-            preferences=ScheduleGeneratePreferences(
-                instructor_ratings={
-                    f"Instructor {index}": 4.0
-                    for index in range(settings.max_instructor_ratings + 1)
-                }
-            )
+        payload = ScheduleGenerationSessionCreateRequest(
+            instructor_ratings={
+                f"Instructor {index}": 4.0
+                for index in range(settings.max_instructor_ratings + 1)
+            }
         )
 
         with self.assertRaisesRegex(ValueError, "instructorRatings"):

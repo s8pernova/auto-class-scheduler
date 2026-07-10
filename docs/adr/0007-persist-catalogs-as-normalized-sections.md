@@ -168,8 +168,8 @@ Initial endpoints:
   meetings for editing or generation.
 - `PUT /api/v1/catalogs/{catalog_id}/sections`: replace the saved candidate
   section set for the catalog from a validated draft.
-- `POST /api/v1/schedules/generate`: generate transient results from saved
-  catalog rows plus current request preferences.
+- `POST /api/v1/schedule-generation-sessions`: generate transient results from
+  saved catalog rows and create or reuse an expiring result session.
 
 The first implementation may use a full replace endpoint for catalog sections.
 That keeps the frontend simple and avoids complex row-level patch semantics

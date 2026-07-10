@@ -171,7 +171,7 @@ user_favorites
 
 Generation stays transient:
 
-- `POST /api/v1/schedules/generate`
+- `POST /api/v1/schedule-generation-sessions`
 
 Catalog APIs stay catalog-scoped:
 

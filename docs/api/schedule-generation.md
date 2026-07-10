@@ -1,7 +1,8 @@
 # Schedule Generation API
 
-`POST /api/v1/schedules/generate` accepts a saved catalog ID plus transient
-preferences and returns transient, unsaved schedule options.
+`POST /api/v1/schedule-generation-sessions` accepts a saved catalog ID plus
+transient generation inputs and view controls. It creates or reuses a bounded
+Redis session and returns the first filtered, sorted result page.
 
 Candidate sections are persisted first through
 `PUT /api/v1/catalogs/{catalogId}/sections`. Generation then loads those
@@ -28,7 +29,10 @@ The backend also enforces bounded BYOC input sizes. Defaults are:
 - 20 blocked-time filters per generation request.
 - 200 instructor ratings per generation request.
 - 2,048 bytes of `sourceMetadata` per catalog section.
-- 500 generated results per request.
+- 10,000 generated results in one complete cached session.
+- 16 MiB maximum encoded session payload.
+- 50 schedules per result page by default and 100 maximum.
+- 30-minute fixed session lifetime by default.
 
 Section replacement is a full replace operation:
 
@@ -71,13 +75,23 @@ buckets from its `courseNames` alternatives.
   "metadata": {
     "catalogId": "00000000-0000-0000-0000-000000000000"
   },
-  "preferences": {
+  "filters": {
     "blockedTimes": [],
-    "instructorRatings": {
-      "Smith": 4.6
-    }
+    "excludedDays": ["F"],
+    "notBefore": "09:00",
+    "notAfter": "18:00",
+    "allowUnratedInstructors": true
   },
-  "maxResults": 100
+  "instructorRatings": {
+    "Smith": 4.6
+  },
+  "sort": {
+    "field": "totalGapMinutes",
+    "direction": "asc"
+  },
+  "page": {
+    "limit": 50
+  }
 }
 ```
 
@@ -103,33 +117,87 @@ For example, this asks for CS 2505, MATH 2114, and one humanities elective:
       }
     ]
   },
-  "preferences": {
+  "filters": {
     "blockedTimes": []
   },
-  "maxResults": 100
+  "page": {
+    "limit": 50
+  }
 }
 ```
 
 `choose` defaults to `1`. A group with `"choose": 2` means choose two distinct
 course buckets from that group's `courseNames`.
 
-Generated schedule responses include stable `catalogSectionId` values for the
-requirement bucket and `catalogSectionMeetingId` values for the selected
-main-box row:
+The creation response distinguishes the complete generated universe, the
+filtered matches, and the returned page. Each schedule exposes one
+authoritative summary plus stable `catalogSectionId` and
+`catalogSectionMeetingId` values:
 
 ```json
 {
-  "resultId": "generated-1",
-  "sections": [
+  "sessionId": "schedgen_...",
+  "expiresAt": "2026-07-10T18:30:00Z",
+  "candidateCount": 2400,
+  "generatedCount": 516,
+  "filteredCount": 430,
+  "returnedCount": 50,
+  "nextCursor": "eyJvIjo1MCwicSI6Ii4uLiIsInYiOjF9",
+  "schedules": [
     {
-      "catalogSectionId": "00000000-0000-0000-0000-000000000000",
-      "catalogSectionMeetingId": "11111111-1111-1111-1111-111111111111",
-      "courseName": "PHYS 241",
-      "sectionCode": "12345"
+      "resultId": "result_00001_...",
+      "summary": {
+        "meetingDays": ["M", "W", "R"],
+        "numMeetingDays": 3,
+        "earliestStart": "09:30:00",
+        "latestEnd": "16:15:00",
+        "totalGapMinutes": 75,
+        "maxSingleGapMinutes": 45,
+        "averageInstructorRating": 4.2,
+        "ratedInstructorCount": 3,
+        "unratedInstructorCount": 1
+      },
+      "sections": [
+        {
+          "catalogSectionId": "00000000-0000-0000-0000-000000000000",
+          "catalogSectionMeetingId": "11111111-1111-1111-1111-111111111111",
+          "courseName": "PHYS 241",
+          "sectionCode": "12345"
+        }
+      ]
     }
   ]
 }
 ```
+
+Request the next page or apply different view controls with
+`POST /api/v1/schedule-generation-sessions/{sessionId}/results`:
+
+```json
+{
+  "filters": {
+    "excludedDays": ["F"],
+    "maxMeetingDays": 4,
+    "maxTotalGapMinutes": 180,
+    "maxSingleGapMinutes": 90,
+    "minimumInstructorRating": 3.0,
+    "allowUnratedInstructors": true
+  },
+  "sort": {
+    "field": "averageInstructorRating",
+    "direction": "desc"
+  },
+  "page": {
+    "cursor": "eyJvIjo1MCwicSI6Ii4uLiIsInYiOjF9",
+    "limit": 50
+  }
+}
+```
+
+Cursors are opaque and bound to the exact filters and sort. Start a changed
+view with a null cursor. A session owned by another user is returned as not
+found. An expired session returns `410 Gone` with code
+`generation_session_expired`; clients should offer regeneration.
 
 To favorite one generated result from a published catalog, `POST /api/v1/favorites`
 with only the selected catalog section row IDs:

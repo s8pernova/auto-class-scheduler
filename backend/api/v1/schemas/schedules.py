@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -58,7 +59,6 @@ class ScheduleLimitsResponse(CamelModel):
     """Public scheduler and BYOC input limits used by clients."""
 
     max_candidate_combinations: int
-    max_results: int
     max_catalog_courses: int
     max_catalog_sections: int
     max_sections_per_course: int
@@ -111,26 +111,6 @@ class ScheduleGenerateBlockedTimeInput(CamelModel):
         return self
 
 
-class ScheduleGeneratePreferences(CamelModel):
-    """Preferences and hard filters supplied with a generation request."""
-
-    blocked_times: list[ScheduleGenerateBlockedTimeInput] = Field(
-        default_factory=list,
-    )
-    instructor_ratings: dict[str, float | None] = Field(default_factory=dict)
-
-    @field_validator("instructor_ratings")
-    @classmethod
-    def validate_instructor_ratings(
-        cls,
-        value: dict[str, float | None],
-    ) -> dict[str, float | None]:
-        for rating in value.values():
-            if rating is not None and not 0 <= rating <= 5:
-                raise ValueError("Instructor ratings must be between 0 and 5")
-        return value
-
-
 class ScheduleRequirementGroup(CamelModel):
     """One requirement clause: choose N course buckets from a set of options."""
 
@@ -161,21 +141,6 @@ class ScheduleGenerateRequirements(CamelModel):
     groups: list[ScheduleRequirementGroup] = Field(default_factory=list)
 
 
-class ScheduleGenerateRequest(CamelModel):
-    """Request body for generating schedules from saved catalog sections."""
-
-    metadata: ScheduleGenerateMetadata = Field(
-        default_factory=ScheduleGenerateMetadata,
-    )
-    preferences: ScheduleGeneratePreferences = Field(
-        default_factory=ScheduleGeneratePreferences,
-    )
-    requirements: ScheduleGenerateRequirements = Field(
-        default_factory=ScheduleGenerateRequirements,
-    )
-    max_results: int = Field(default=100, ge=1, le=500)
-
-
 class GeneratedMeetingResponse(CamelModel):
     """Meeting detail returned for a generated transient schedule."""
 
@@ -195,29 +160,159 @@ class GeneratedSectionResponse(CamelModel):
     meetings: list[GeneratedMeetingResponse] = Field(default_factory=list)
 
 
+class GeneratedScheduleSortField(StrEnum):
+    """Public generated-schedule sort keys."""
+
+    EARLIEST_START = "earliestStart"
+    LATEST_END = "latestEnd"
+    NUM_MEETING_DAYS = "numMeetingDays"
+    TOTAL_GAP_MINUTES = "totalGapMinutes"
+    AVERAGE_INSTRUCTOR_RATING = "averageInstructorRating"
+
+
+class SortDirection(StrEnum):
+    """Public sort directions."""
+
+    ASC = "asc"
+    DESC = "desc"
+
+
+class ScheduleGenerationSessionFilters(CamelModel):
+    """View filters for a cached generation session."""
+
+    excluded_days: list[str] = Field(default_factory=list)
+    blocked_times: list[ScheduleGenerateBlockedTimeInput] = Field(default_factory=list)
+    not_before: time | None = None
+    not_after: time | None = None
+    max_meeting_days: int | None = Field(default=None, ge=1, le=6)
+    max_total_gap_minutes: int | None = Field(default=None, ge=0)
+    max_single_gap_minutes: int | None = Field(default=None, ge=0)
+    minimum_instructor_rating: float | None = Field(default=None, ge=0, le=5)
+    allow_unrated_instructors: bool = True
+
+    @field_validator("excluded_days")
+    @classmethod
+    def validate_excluded_days(cls, value: list[str]) -> list[str]:
+        if not value:
+            return []
+        return list(_normalize_days("".join(value)))
+
+    @field_validator("not_before", "not_after", mode="before")
+    @classmethod
+    def validate_optional_time(cls, value: Any) -> time | None:
+        if value is None:
+            return None
+        return _parse_time_input(value)
+
+    @model_validator(mode="after")
+    def validate_time_window(self) -> "ScheduleGenerationSessionFilters":
+        if (
+            self.not_before is not None
+            and self.not_after is not None
+            and self.not_after <= self.not_before
+        ):
+            raise ValueError("notAfter must be after notBefore")
+        return self
+
+
+class ScheduleGenerationSessionSort(CamelModel):
+    """Single-field sort for a cached generation session."""
+
+    field: GeneratedScheduleSortField = GeneratedScheduleSortField.EARLIEST_START
+    direction: SortDirection = SortDirection.ASC
+
+
+class ScheduleGenerationSessionInitialPage(CamelModel):
+    """Initial page controls for a newly created generation session."""
+
+    limit: int = Field(default=50, ge=1, le=100)
+
+
+class ScheduleGenerationSessionPage(CamelModel):
+    """Opaque cursor pagination for a cached generation session."""
+
+    cursor: str | None = Field(default=None, max_length=512)
+    limit: int = Field(default=50, ge=1, le=100)
+
+
+class ScheduleGenerationSessionQueryRequest(CamelModel):
+    """Request body for querying a cached generated-schedule universe."""
+
+    filters: ScheduleGenerationSessionFilters = Field(
+        default_factory=ScheduleGenerationSessionFilters,
+    )
+    sort: ScheduleGenerationSessionSort = Field(
+        default_factory=ScheduleGenerationSessionSort,
+    )
+    page: ScheduleGenerationSessionPage = Field(
+        default_factory=ScheduleGenerationSessionPage,
+    )
+
+
+class ScheduleGenerationSessionCreateRequest(CamelModel):
+    """Create or reuse a generation session and return its first result page."""
+
+    metadata: ScheduleGenerateMetadata = Field(
+        default_factory=ScheduleGenerateMetadata,
+    )
+    requirements: ScheduleGenerateRequirements = Field(
+        default_factory=ScheduleGenerateRequirements,
+    )
+    filters: ScheduleGenerationSessionFilters = Field(
+        default_factory=ScheduleGenerationSessionFilters,
+    )
+    instructor_ratings: dict[str, float | None] = Field(default_factory=dict)
+    sort: ScheduleGenerationSessionSort = Field(
+        default_factory=ScheduleGenerationSessionSort,
+    )
+    page: ScheduleGenerationSessionInitialPage = Field(
+        default_factory=ScheduleGenerationSessionInitialPage,
+    )
+
+    @field_validator("instructor_ratings")
+    @classmethod
+    def validate_instructor_ratings(
+        cls,
+        value: dict[str, float | None],
+    ) -> dict[str, float | None]:
+        for rating in value.values():
+            if rating is not None and not 0 <= rating <= 5:
+                raise ValueError("Instructor ratings must be between 0 and 5")
+        return value
+
+
+class GeneratedScheduleSummaryResponse(CamelModel):
+    """Authoritative filter and sort metrics for one generated schedule."""
+
+    meeting_days: list[str]
+    num_meeting_days: int
+    earliest_start: time
+    latest_end: time
+    total_gap_minutes: int
+    max_single_gap_minutes: int
+    average_instructor_rating: float | None = None
+    rated_instructor_count: int
+    unrated_instructor_count: int
+
+
 class GeneratedScheduleResponse(CamelModel):
     """One generated, unsaved schedule option."""
 
     result_id: str
-    total_instructor_score: float | None = None
-    num_sections: int
-    meets_mon: bool
-    meets_tue: bool
-    meets_wed: bool
-    meets_thu: bool
-    meets_fri: bool
-    meets_sat: bool
-    earliest_start: time
-    latest_end: time
+    summary: GeneratedScheduleSummaryResponse
     sections: list[GeneratedSectionResponse] = Field(default_factory=list)
 
 
-class ScheduleGenerateResponse(CamelModel):
-    """Transient generation results for a BYOC schedule request."""
+class ScheduleGenerationSessionResponse(CamelModel):
+    """One filtered, sorted page from a transient generation session."""
 
+    session_id: str
+    expires_at: datetime
     candidate_count: int
-    valid_count: int
+    generated_count: int
+    filtered_count: int
     returned_count: int
+    next_cursor: str | None = None
     schedules: list[GeneratedScheduleResponse] = Field(default_factory=list)
 
 

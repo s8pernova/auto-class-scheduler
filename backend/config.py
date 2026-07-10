@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from pydantic import RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -42,8 +43,6 @@ class Settings(BaseSettings):
 
     # Solver limits
     max_candidate_combinations: int = 250_000
-    max_results: int = 500
-
     # Catalog input limits
     max_catalog_courses: int = 8
     max_catalog_sections: int = 150
@@ -53,6 +52,14 @@ class Settings(BaseSettings):
     # User input limits
     max_blocked_times: int = 20
     max_instructor_ratings: int = 200
+
+    # Redis generation sessions
+    redis_url: RedisDsn
+    generation_session_ttl_seconds: int = 1_800
+    generation_session_max_results: int = 10_000
+    generation_session_max_bytes: int = 16 * 1024 * 1024
+    generation_page_max: int = 100
+    generation_cache_namespace: str = "course-scheduler:v1"
 
 
 @lru_cache(maxsize=1)

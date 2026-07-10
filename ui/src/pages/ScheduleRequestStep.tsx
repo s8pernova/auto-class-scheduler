@@ -4,18 +4,18 @@ import {
     type RequirementCourse,
     type InstructorRatings as InstructorRatingsMap,
     type SectionRef,
-    useScheduleDraft,
 } from "@/contexts/ScheduleDraftContext";
+import { useScheduleDraft } from "@/hooks/useScheduleDraft";
 import {
-    generateSchedules,
+    createGenerationSession,
     getScheduleLimits,
     replaceCatalogSections,
     type ScheduleLimitsResponse,
 } from "@/api";
 import {
     buildCatalogSectionsReplaceRequest,
-    buildScheduleGenerateRequest,
-} from "@/utils/buildScheduleGenerateRequest";
+    buildGenerationSessionRequest,
+} from "@/utils/buildGenerationSessionRequest";
 import { parseCourseInput } from "@/utils/parseCourseInput";
 import RequirementsSidebar from "@/components/schedule/RequirementsSidebar";
 import CourseDetailPanel from "@/components/schedule/CourseDetailPanel";
@@ -227,8 +227,10 @@ export default function ScheduleRequestStep() {
                 targetCatalog,
             });
 
-            const generationPayload = buildScheduleGenerateRequest(targetDraft);
-            const generationResult = await generateSchedules(generationPayload);
+            const generationPayload =
+                buildGenerationSessionRequest(targetDraft);
+            const generationResult =
+                await createGenerationSession(generationPayload);
             const draftWithResults = {
                 ...targetDraft,
                 generationResult,

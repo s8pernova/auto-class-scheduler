@@ -5,20 +5,26 @@ import {
     Navigate,
     useSearchParams,
 } from "react-router-dom";
+import { type ScheduleDraft } from "@/contexts/ScheduleDraftContext";
+import { useScheduleDraft } from "@/hooks/useScheduleDraft";
 import {
-    type ScheduleDraft,
-    useScheduleDraft,
-} from "@/contexts/ScheduleDraftContext";
-import { favoriteGeneratedSchedule, unfavoriteSchedule } from "@/api";
+    createGenerationSession,
+    favoriteGeneratedSchedule,
+    queryGenerationSessionResults,
+    unfavoriteSchedule,
+} from "@/api";
 import type { GeneratedScheduleResponse } from "@/api";
 import ResultsFiltersSidebar from "@/components/schedule/ResultsFiltersSidebar";
 import ResultsGrid from "@/components/schedule/ResultsGrid";
 import ResultsDetailsPanel from "@/components/schedule/ResultsDetailsPanel";
+import { buildGenerationSessionRequest } from "@/utils/buildGenerationSessionRequest";
 import {
-    sortSchedules,
-    type DayFilter,
-    type SortKey,
-} from "@/utils/scheduleResults";
+    buildGenerationSessionQueryRequest,
+    getGenerationSessionErrorMessage,
+    isGenerationSessionExpiredError,
+    mergeGenerationSessionPages,
+    type GenerationViewState,
+} from "@/utils/generationSession";
 
 const EMPTY_SCHEDULES: GeneratedScheduleResponse[] = [];
 const DEV_RESULTS_FIXTURE_PARAM = "fixture";
@@ -52,11 +58,15 @@ function getDevFixtureScheduleId(schedule: GeneratedScheduleResponse): number {
 
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
-    const { draft, isDraftLoading, draftError } = useScheduleDraft();
+    const {
+        draft,
+        isDraftLoading,
+        draftError,
+        setGenerationResult,
+        setGenerationView,
+    } = useScheduleDraft();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const [sortKey, setSortKey] = useState<SortKey>("earliestStart");
-    const [dayFilter, setDayFilter] = useState<DayFilter>("all");
     const [selectedResultId, setSelectedResultId] = useState<string | null>(
         null,
     );
@@ -65,6 +75,12 @@ export default function ScheduleResultsStep() {
     const [favoriteStates, setFavoriteStates] = useState<
         Record<string, FavoriteState>
     >({});
+    const [isQueryingGenerationSession, setIsQueryingGenerationSession] =
+        useState(false);
+    const [generationSessionQueryError, setGenerationSessionQueryError] =
+        useState<string | null>(null);
+    const [isGenerationSessionExpired, setIsGenerationSessionExpired] =
+        useState(false);
     const [isLoadingDevFixture, setIsLoadingDevFixture] = useState(false);
     const [didFailDevFixture, setDidFailDevFixture] = useState(false);
     const fixtureName = searchParams.get(DEV_RESULTS_FIXTURE_PARAM);
@@ -115,16 +131,7 @@ export default function ScheduleResultsStep() {
     const isUsingDevFixture = devFixtureDraft !== null;
     const generationResult = activeDraft.generationResult;
     const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
-    const visibleSchedules = useMemo(() => {
-        const filtered = allSchedules.filter((schedule) => {
-            const matchesDay =
-                dayFilter === "all" ? true : Boolean(schedule[dayFilter]);
-
-            return matchesDay;
-        });
-
-        return sortSchedules(filtered, sortKey);
-    }, [allSchedules, dayFilter, sortKey]);
+    const visibleSchedules = allSchedules;
     const favoriteStateByResultId = useMemo(
         () =>
             Object.fromEntries(
@@ -180,6 +187,118 @@ export default function ScheduleResultsStep() {
 
     function handleBack() {
         navigate(`/catalogs/${catalogId}/build`);
+    }
+
+    function handleGenerationSessionError(
+        err: unknown,
+        fallback: string,
+    ): void {
+        const expired = isGenerationSessionExpiredError(err);
+        setIsGenerationSessionExpired(expired);
+        setGenerationSessionQueryError(
+            getGenerationSessionErrorMessage(err, fallback),
+        );
+    }
+
+    function selectFirstAvailableSchedule(
+        schedules: GeneratedScheduleResponse[],
+    ): void {
+        setSelectedResultId((currentResultId) => {
+            if (
+                currentResultId &&
+                schedules.some(
+                    (schedule) => schedule.resultId === currentResultId,
+                )
+            ) {
+                return currentResultId;
+            }
+            return schedules[0]?.resultId ?? null;
+        });
+    }
+
+    async function handleApplyView(nextView: GenerationViewState) {
+        if (isUsingDevFixture || !generationResult?.sessionId) {
+            return;
+        }
+
+        setIsQueryingGenerationSession(true);
+        setGenerationSessionQueryError(null);
+        setIsGenerationSessionExpired(false);
+
+        try {
+            const nextResult = await queryGenerationSessionResults(
+                generationResult.sessionId,
+                buildGenerationSessionQueryRequest(nextView, null),
+            );
+            setGenerationView(nextView);
+            setGenerationResult(nextResult);
+            selectFirstAvailableSchedule(nextResult.schedules);
+        } catch (err) {
+            handleGenerationSessionError(
+                err,
+                "Failed to update generated schedules.",
+            );
+        } finally {
+            setIsQueryingGenerationSession(false);
+        }
+    }
+
+    async function handleLoadMore() {
+        if (
+            isUsingDevFixture ||
+            !generationResult?.sessionId ||
+            !generationResult.nextCursor
+        ) {
+            return;
+        }
+
+        setIsQueryingGenerationSession(true);
+        setGenerationSessionQueryError(null);
+
+        try {
+            const nextPage = await queryGenerationSessionResults(
+                generationResult.sessionId,
+                buildGenerationSessionQueryRequest(
+                    draft.generationView,
+                    generationResult.nextCursor,
+                ),
+            );
+            setGenerationResult(
+                mergeGenerationSessionPages(generationResult, nextPage),
+            );
+        } catch (err) {
+            handleGenerationSessionError(
+                err,
+                "Failed to load more generated schedules.",
+            );
+        } finally {
+            setIsQueryingGenerationSession(false);
+        }
+    }
+
+    async function handleRegenerate() {
+        if (isUsingDevFixture) {
+            return;
+        }
+
+        setIsQueryingGenerationSession(true);
+        setGenerationSessionQueryError(null);
+
+        try {
+            const nextResult = await createGenerationSession(
+                buildGenerationSessionRequest(draft),
+            );
+            setGenerationResult(nextResult);
+            setIsGenerationSessionExpired(false);
+            selectFirstAvailableSchedule(nextResult.schedules);
+        } catch (err) {
+            handleGenerationSessionError(
+                err,
+                "Failed to regenerate schedules.",
+            );
+        } finally {
+            setIsQueryingGenerationSession(false);
+        }
     }
 
     async function handleFavorite(
@@ -288,12 +407,18 @@ export default function ScheduleResultsStep() {
     return (
         <>
             <ResultsFiltersSidebar
-                sortKey={sortKey}
-                dayFilter={dayFilter}
-                validCount={generationResult.validCount}
-                visibleCount={visibleSchedules.length}
-                onSortKeyChange={setSortKey}
-                onDayFilterChange={setDayFilter}
+                view={activeDraft.generationView}
+                generatedCount={generationResult.generatedCount}
+                filteredCount={generationResult.filteredCount}
+                loadedCount={visibleSchedules.length}
+                hasMore={generationResult.nextCursor != null}
+                isQuerying={isQueryingGenerationSession}
+                queryError={generationSessionQueryError}
+                isExpired={isGenerationSessionExpired}
+                isFixture={isUsingDevFixture}
+                onApply={handleApplyView}
+                onLoadMore={handleLoadMore}
+                onRegenerate={handleRegenerate}
             />
             <ResultsGrid
                 schedules={visibleSchedules}
