@@ -227,6 +227,10 @@ export type CatalogSectionMeetingResponse = {
      */
     id: string;
     /**
+     * Instructorid
+     */
+    instructorId?: string | null;
+    /**
      * Instructorname
      */
     instructorName?: string | null;

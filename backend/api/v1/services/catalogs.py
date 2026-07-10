@@ -81,9 +81,22 @@ def list_catalog_sections(
         .order("sort_order")
         .execute()
     )
+    meeting_rows = meetings_resp.data or []
+    instructor_ids = [
+        str(row["instructor_id"])
+        for row in meeting_rows
+        if row.get("instructor_id") is not None
+    ]
+    instructor_names_by_id = _load_instructor_names_by_id(client, instructor_ids)
 
     meetings_by_section: dict[str, list[CatalogSectionMeetingResponse]] = {}
-    for meeting_row in meetings_resp.data or []:
+    for meeting_row in meeting_rows:
+        instructor_id = meeting_row.get("instructor_id")
+        meeting_row["instructor_name"] = (
+            instructor_names_by_id.get(str(instructor_id))
+            if instructor_id is not None
+            else None
+        )
         section_id = meeting_row["section_id"]
         meetings_by_section.setdefault(section_id, []).append(
             CatalogSectionMeetingResponse(**meeting_row)
@@ -128,19 +141,31 @@ def list_catalog_instructor_preferences(
     if user_id is None:
         return CatalogInstructorPreferencesResponse()
 
+    instructors_by_normalized_name = _load_catalog_instructors_by_normalized_name(
+        client,
+        catalog_id,
+    )
+    if not instructors_by_normalized_name:
+        return CatalogInstructorPreferencesResponse()
+
+    instructors_by_id = {
+        str(row["id"]): row for row in instructors_by_normalized_name.values()
+    }
     resp = (
         client.table("catalog_instructor_preferences")
-        .select("instructor_name, preference_score")
-        .eq("catalog_id", str(catalog_id))
+        .select("instructor_id, preference_score")
         .eq("user_id", str(user_id))
-        .order("instructor_name")
+        .in_("instructor_id", list(instructors_by_id))
         .execute()
     )
     return CatalogInstructorPreferencesResponse(
         instructor_ratings={
-            row["instructor_name"]: row["preference_score"]
+            instructors_by_id[str(row["instructor_id"])]["name"]: row[
+                "preference_score"
+            ]
             for row in resp.data or []
             if row.get("preference_score") is not None
+            and str(row.get("instructor_id")) in instructors_by_id
         }
     )
 
@@ -154,16 +179,28 @@ def replace_catalog_instructor_preferences(
 ) -> CatalogInstructorPreferencesResponse:
     """Replace the current user's saved instructor preferences for a catalog."""
     validate_catalog_instructor_preferences_payload(payload)
-
-    (
-        client.table("catalog_instructor_preferences")
-        .delete()
-        .eq("catalog_id", str(catalog_id))
-        .eq("user_id", str(user_id))
-        .execute()
+    instructors_by_normalized_name = _load_catalog_instructors_by_normalized_name(
+        client,
+        catalog_id,
     )
+    instructor_ids = [
+        str(row["id"]) for row in instructors_by_normalized_name.values()
+    ]
 
-    preference_rows = _build_preference_rows(catalog_id, user_id, payload)
+    preference_rows = _build_preference_rows(
+        user_id,
+        payload,
+        instructors_by_normalized_name,
+    )
+    if instructor_ids:
+        (
+            client.table("catalog_instructor_preferences")
+            .delete()
+            .eq("user_id", str(user_id))
+            .in_("instructor_id", instructor_ids)
+            .execute()
+        )
+
     if preference_rows:
         client.table("catalog_instructor_preferences").insert(preference_rows).execute()
 
@@ -412,24 +449,73 @@ def _copy_catalog_instructor_preferences(
 
 
 def _build_preference_rows(
-    catalog_id: UUID,
     user_id: UUID,
     payload: CatalogInstructorPreferencesReplaceRequest,
+    instructors_by_normalized_name: dict[str, dict[str, str]],
 ) -> list[dict[str, str | float]]:
     rows: list[dict[str, str | float]] = []
+    unknown_instructors: list[str] = []
     for instructor_name, preference_score in payload.instructor_ratings.items():
         if preference_score is None:
             continue
 
         normalized_name = normalize_instructor_name(instructor_name)
+        instructor = instructors_by_normalized_name.get(normalized_name.lower())
+        if instructor is None:
+            unknown_instructors.append(normalized_name)
+            continue
+
         rows.append(
             {
-                "catalog_id": str(catalog_id),
+                "instructor_id": str(instructor["id"]),
                 "user_id": str(user_id),
-                "instructor_name": normalized_name,
-                "normalized_instructor_name": normalized_name.lower(),
                 "preference_score": preference_score,
             }
         )
 
+    if unknown_instructors:
+        raise ValueError(
+            "Instructor preferences reference unknown instructor(s): "
+            + ", ".join(unknown_instructors)
+        )
+
     return rows
+
+
+def _load_catalog_instructors_by_normalized_name(
+    client: Client,
+    catalog_id: UUID,
+) -> dict[str, dict[str, str]]:
+    resp = (
+        client.table("catalog_instructors")
+        .select("id, name, normalized_name")
+        .eq("catalog_id", str(catalog_id))
+        .order("name")
+        .execute()
+    )
+    return {
+        row["normalized_name"]: row
+        for row in resp.data or []
+        if row.get("normalized_name")
+    }
+
+
+def _load_instructor_names_by_id(
+    client: Client,
+    instructor_ids: list[str],
+) -> dict[str, str]:
+    unique_ids = sorted(set(instructor_ids))
+    if not unique_ids:
+        return {}
+
+    resp = (
+        client.table("catalog_instructors")
+        .select("id, name")
+        .in_("id", unique_ids)
+        .execute()
+    )
+    return {
+        str(row["id"]): row["name"]
+        for row in resp.data or []
+        if row.get("id") is not None and row.get("name") is not None
+    }

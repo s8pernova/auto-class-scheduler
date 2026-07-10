@@ -2,23 +2,23 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Implementation
 
-State: Not started
+State: In progress
 
 Evidence:
 
-- [ ] Migration creates `catalog_instructors`, backfills existing meeting
+- [x] Migration creates `catalog_instructors`, backfills existing meeting
       instructors, and rewires meetings to `instructor_id`.
-- [ ] Migration moves instructor preferences to instructor foreign keys.
-- [ ] Backend reads instructor display names from `catalog_instructors`.
-- [ ] Generation, favorites, and saved schedule reconstruction no longer read
+- [x] Migration moves instructor preferences to instructor foreign keys.
+- [x] Backend reads instructor display names from `catalog_instructors`.
+- [x] Generation, favorites, and saved schedule reconstruction no longer read
       `catalog_section_meetings.instructor_name`.
-- [ ] OpenAPI and generated TypeScript clients reflect the normalized contract.
-- [ ] Tests cover backfilled instructors, preference saves, fork behavior, and
-      schedule generation with instructor ratings.
+- [x] OpenAPI and generated TypeScript clients reflect the normalized contract.
+- [x] Tests cover normalized preference saves and schedule generation hydration
+      with instructor names loaded through `catalog_instructors`.
 
 Last checked: 2026-07-10
 

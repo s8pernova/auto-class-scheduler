@@ -175,6 +175,7 @@ class CatalogSectionMeetingResponse(CamelModel):
     id: UUID
     section_id: UUID
     crn: str | None = None
+    instructor_id: UUID | None = None
     instructor_name: str | None = None
     days: str
     start_time: time
