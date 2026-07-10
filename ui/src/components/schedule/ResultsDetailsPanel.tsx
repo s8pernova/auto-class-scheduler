@@ -1,18 +1,22 @@
 import type {
     GeneratedScheduleResponse,
+    ScheduleGenerateBlockedTimeInput,
     ScheduleGenerationSessionResponse,
 } from "@/api";
+import ScheduleWeekPreview from "@/components/schedule/ScheduleWeekPreview";
 import { formatTime } from "@/utils/scheduleResults";
 
 type ResultsDetailsPanelProps = {
     generationResult: ScheduleGenerationSessionResponse;
     selectedSchedule: GeneratedScheduleResponse | null;
+    blockedTimes?: ScheduleGenerateBlockedTimeInput[];
     onBack: () => void;
 };
 
 export default function ResultsDetailsPanel({
     generationResult,
     selectedSchedule,
+    blockedTimes = [],
     onBack,
 }: ResultsDetailsPanelProps) {
     return (
@@ -58,6 +62,12 @@ export default function ResultsDetailsPanel({
                             {selectedSchedule.summary.unratedInstructorCount}{" "}
                             unrated
                         </p>
+                    </div>
+                    <div className="mb-4">
+                        <ScheduleWeekPreview
+                            schedule={selectedSchedule}
+                            blockedTimes={blockedTimes}
+                        />
                     </div>
                     <div className="flex flex-col gap-3">
                         {selectedSchedule.sections.map((section) => (

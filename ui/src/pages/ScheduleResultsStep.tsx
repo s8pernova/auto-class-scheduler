@@ -430,6 +430,7 @@ export default function ScheduleResultsStep() {
             <ResultsDetailsPanel
                 generationResult={generationResult}
                 selectedSchedule={selectedSchedule}
+                blockedTimes={activeDraft.generationView.filters.blockedTimes}
                 onBack={handleBack}
             />
         </>
