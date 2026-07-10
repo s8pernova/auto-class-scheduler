@@ -5,17 +5,21 @@ import {
     publishCatalog,
     type CatalogSectionResponse,
     type CatalogResponse,
-    type ScheduleGenerateResponse,
+    type ScheduleGenerationSessionResponse,
 } from "@/api";
 import {
-    createContext,
     useCallback,
-    useContext,
     useEffect,
     useMemo,
     useState,
     type ReactNode,
 } from "react";
+import { ScheduleDraftContext } from "@/contexts/scheduleDraftContextValue";
+import {
+    buildDefaultGenerationView,
+    type GenerationViewState,
+    withGenerationBlockedTimes,
+} from "@/utils/generationSession";
 
 // Types
 
@@ -55,7 +59,8 @@ export interface ScheduleDraft {
     requirementGroups: RequirementGroup[];
     blockedTimes: BlockedTime[];
     instructorRatings: InstructorRatings;
-    generationResult: ScheduleGenerateResponse | null;
+    generationView: GenerationViewState;
+    generationResult: ScheduleGenerationSessionResponse | null;
 }
 
 type CatalogDraftPatch = Partial<Pick<ScheduleDraft, "requirementCourses">>;
@@ -66,7 +71,7 @@ type ScheduleRequestPatch = Partial<
     >
 >;
 
-interface ScheduleDraftContextType {
+export interface ScheduleDraftContextType {
     draft: ScheduleDraft;
     catalog: CatalogResponse | null;
     catalogStatus: CatalogStatus | null;
@@ -85,7 +90,10 @@ interface ScheduleDraftContextType {
     publishError: string | null;
     updateCatalogDraft: (patch: CatalogDraftPatch) => void;
     updateScheduleRequest: (patch: ScheduleRequestPatch) => void;
-    setGenerationResult: (result: ScheduleGenerateResponse | null) => void;
+    setGenerationView: (view: GenerationViewState) => void;
+    setGenerationResult: (
+        result: ScheduleGenerationSessionResponse | null,
+    ) => void;
     resetDraft: () => void;
     refreshCatalog: () => Promise<void>;
     refreshDraft: () => Promise<void>;
@@ -93,12 +101,6 @@ interface ScheduleDraftContextType {
     ensureEditableCatalog: () => Promise<CatalogResponse>;
     publishCurrentCatalog: (catalogIdOverride?: string) => Promise<CatalogResponse>;
 }
-
-// Context
-
-const ScheduleDraftContext = createContext<ScheduleDraftContextType | null>(
-    null,
-);
 
 const SCHEDULE_REQUEST_KEYS = [
     "requirementGroups",
@@ -129,6 +131,7 @@ function buildInitialDraft(catalogId: string): ScheduleDraft {
         requirementGroups: [],
         blockedTimes: [],
         instructorRatings: {},
+        generationView: buildDefaultGenerationView(),
         generationResult: null,
     };
 }
@@ -189,6 +192,7 @@ function buildDraftFromCatalogSections(
         })),
         blockedTimes: [],
         instructorRatings: {},
+        generationView: buildDefaultGenerationView(),
         generationResult: null,
     };
 }
@@ -385,22 +389,38 @@ export function ScheduleDraftProvider({
 
     const updateScheduleRequest = useCallback(
         (patch: ScheduleRequestPatch) => {
-            setDraft((prev) => ({
-                ...prev,
-                ...patch,
-                generationResult: patchHasAnyKey(
-                    patch,
-                    SCHEDULE_REQUEST_KEYS,
-                )
-                    ? null
-                    : prev.generationResult,
-            }));
+            setDraft((prev) => {
+                const blockedTimes = patch.blockedTimes ?? prev.blockedTimes;
+                return {
+                    ...prev,
+                    ...patch,
+                    generationView: patchHasKey(patch, "blockedTimes")
+                        ? withGenerationBlockedTimes(
+                              prev.generationView,
+                              blockedTimes,
+                          )
+                        : prev.generationView,
+                    generationResult: patchHasAnyKey(
+                        patch,
+                        SCHEDULE_REQUEST_KEYS,
+                    )
+                        ? null
+                        : prev.generationResult,
+                };
+            });
         },
         [],
     );
 
+    const setGenerationView = useCallback((view: GenerationViewState) => {
+        setDraft((prev) => ({
+            ...prev,
+            generationView: view,
+        }));
+    }, []);
+
     const setGenerationResult = useCallback(
-        (result: ScheduleGenerateResponse | null) => {
+        (result: ScheduleGenerationSessionResponse | null) => {
             setDraft((prev) => ({
                 ...prev,
                 generationResult: result,
@@ -494,6 +514,7 @@ export function ScheduleDraftProvider({
             publishError,
             updateCatalogDraft,
             updateScheduleRequest,
+            setGenerationView,
             setGenerationResult,
             resetDraft,
             refreshCatalog,
@@ -521,6 +542,7 @@ export function ScheduleDraftProvider({
             publishError,
             updateCatalogDraft,
             updateScheduleRequest,
+            setGenerationView,
             setGenerationResult,
             resetDraft,
             refreshCatalog,
@@ -536,16 +558,4 @@ export function ScheduleDraftProvider({
             {children}
         </ScheduleDraftContext.Provider>
     );
-}
-
-// Hook
-
-export function useScheduleDraft(): ScheduleDraftContextType {
-    const context = useContext(ScheduleDraftContext);
-    if (!context) {
-        throw new Error(
-            "useScheduleDraft must be used within a ScheduleDraftProvider",
-        );
-    }
-    return context;
 }

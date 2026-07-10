@@ -3,12 +3,24 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { getSharedCatalog } from "@/api";
 
 type LoadState = "loading" | "not_found" | "error";
+type LoadResult = {
+    shareSlug: string | undefined;
+    state: LoadState;
+    errorMessage: string | null;
+};
 
 export default function SharedCatalogPage() {
     const { shareSlug } = useParams<{ shareSlug: string }>();
     const navigate = useNavigate();
-    const [loadState, setLoadState] = useState<LoadState>("loading");
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [loadResult, setLoadResult] = useState<LoadResult>({
+        shareSlug,
+        state: "loading",
+        errorMessage: null,
+    });
+    const currentLoadResult =
+        loadResult.shareSlug === shareSlug
+            ? loadResult
+            : { shareSlug, state: "loading" as const, errorMessage: null };
 
     useEffect(() => {
         if (!shareSlug) {
@@ -16,8 +28,6 @@ export default function SharedCatalogPage() {
         }
 
         let isCurrent = true;
-        setLoadState("loading");
-        setErrorMessage(null);
 
         getSharedCatalog(shareSlug)
             .then((catalog) => {
@@ -40,12 +50,13 @@ export default function SharedCatalogPage() {
                         ? err.message
                         : "Failed to load shared catalog";
 
-                setErrorMessage(message);
-                setLoadState(
-                    message.toLowerCase().includes("not found")
+                setLoadResult({
+                    shareSlug,
+                    errorMessage: message,
+                    state: message.toLowerCase().includes("not found")
                         ? "not_found"
                         : "error",
-                );
+                });
             });
 
         return () => {
@@ -54,11 +65,11 @@ export default function SharedCatalogPage() {
     }, [navigate, shareSlug]);
 
     // TODO: maybe make a separate `if (loadState === "not_found")` statement to return <SharedCatalogUnavailable />
-    if (!shareSlug || loadState === "not_found") {
+    if (!shareSlug || currentLoadResult.state === "not_found") {
         return <Navigate to="/catalogs/new" replace />;
     }
 
-    if (loadState === "error") {
+    if (currentLoadResult.state === "error") {
         return (
             <div className="flex h-full col-span-full items-center justify-center">
                 <div className="bg-surface rounded-[10px] p-8 flex flex-col gap-3 w-full max-w-md">
@@ -66,7 +77,7 @@ export default function SharedCatalogPage() {
                         Shared catalog unavailable
                     </h1>
                     <p className="text-sm text-background/60">
-                        {errorMessage ??
+                        {currentLoadResult.errorMessage ??
                             "This shared catalog could not be loaded."}
                     </p>
                     <button

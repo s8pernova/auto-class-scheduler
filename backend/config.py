@@ -43,8 +43,6 @@ class Settings(BaseSettings):
 
     # Solver limits
     max_candidate_combinations: int = 250_000
-    max_results: int = 500
-
     # Catalog input limits
     max_catalog_courses: int = 8
     max_catalog_sections: int = 150
@@ -60,7 +58,6 @@ class Settings(BaseSettings):
     generation_session_ttl_seconds: int = 1_800
     generation_session_max_results: int = 10_000
     generation_session_max_bytes: int = 16 * 1024 * 1024
-    generation_page_default: int = 50
     generation_page_max: int = 100
     generation_cache_namespace: str = "course-scheduler:v1"
 

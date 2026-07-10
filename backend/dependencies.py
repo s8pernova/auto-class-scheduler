@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
 
@@ -51,6 +51,18 @@ def get_current_user_id(
     return None
 
 
+def get_required_current_user_id(
+    user_id: Optional[UUID] = Depends(get_current_user_id),
+) -> UUID:
+    """Require a valid authenticated or anonymous Supabase user."""
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+    return user_id
+
+
 def get_redis_client(request: Request) -> Redis:
     """Provide the shared Redis client owned by the application lifespan."""
     return request.app.state.redis
@@ -59,4 +71,5 @@ def get_redis_client(request: Request) -> Redis:
 # Type aliases for route signatures.
 SupabaseDep = Annotated[Client, Depends(get_supabase)]
 UserIdDep = Annotated[Optional[UUID], Depends(get_current_user_id)]
+RequiredUserIdDep = Annotated[UUID, Depends(get_required_current_user_id)]
 RedisDep = Annotated[Redis, Depends(get_redis_client)]

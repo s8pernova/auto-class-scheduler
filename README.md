@@ -115,15 +115,23 @@ docker compose up -d --build
 ```bash
 # Install
 cp .env.example .env  # fill in Supabase creds and stuff
+nvm use
 uv sync
+cd ui && npm install && cd ..
+
+# Start transient generation-session storage
+docker compose up -d redis
 
 # Run the API
-source .venv/bin/activate
-uvicorn backend.app:app --reload --host 0.0.0.0 --port 8020
+uv run uvicorn backend.app:app --reload --host 0.0.0.0 --port 8020
 
-# Run the frontend
-cd ui && npm install && npm run dev
+# Run the frontend in another terminal
+cd ui && npm run dev
 ```
+
+Redis is required for generated-schedule sessions. Local sessions expire after
+30 minutes by default and are intentionally non-durable. Inspect local keys
+with `docker compose exec redis redis-cli --scan --pattern 'course-scheduler:v1:*'`.
 
 > [!NOTE]
 > When developing the results step, use the route `/catalogs/dev-catalog/results?fixture=generated-results`.

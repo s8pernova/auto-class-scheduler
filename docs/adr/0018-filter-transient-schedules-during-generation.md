@@ -6,26 +6,32 @@ Accepted
 
 ## Implementation
 
-State: Partially implemented
+State: Implemented
 
 Evidence:
 
-- [x] `POST /api/v1/schedules/generate` returns transient schedules without
-      persisting every generated option.
-- [x] `preferences.blockedTimes` is evaluated by the backend before
-      `maxResults` truncates the response.
-- [x] Generated responses expose basic day, time, and instructor summary
-      fields.
-- [ ] Replace the prototype client-only weekday filter with typed server-side
-      filters over cached generation sessions.
-- [ ] Apply user-visible sort keys across all matching schedules in the cached
-      session before paginating the response.
-- [ ] Add the remaining schedule metrics, request validation, frontend
-      controls, and automated tests described here.
-- [ ] Remove superseded client-only filter types and paths after the generation
-      session flow is complete.
+- [x] Redis-backed sessions store the complete bounded generated universe with
+      fixed TTL, payload-size, result-count, namespace, and schema-version
+      controls.
+- [x] Session creation and result queries require a Supabase user scope and
+      reject cross-scope access without disclosing session existence.
+- [x] Typed day, blocked-time, time-window, meeting-day, gap, and instructor-
+      rating filters run across the complete cached universe.
+- [x] Every declared sort runs deterministically before opaque-cursor
+      pagination, with missing ratings last and a stable section-ID tie-breaker.
+- [x] Responses expose expiry, candidate/generated/filtered/returned counts,
+      next cursor, authoritative summary metrics, and hydrated catalog rows.
+- [x] The results UI retains view state, applies server-side controls, keeps
+      successful results visible while loading, loads additional pages, and
+      offers one-click regeneration after expiry.
+- [x] Backend and frontend tests cover filters, boundaries, gap calculations,
+      rating policy, sorts, cursors, ownership, request construction, state
+      retention, pagination, counts, and expiry messaging.
+- [x] The superseded `preferences`, `maxResults`, `validCount`, offset paging,
+      `/schedules/generate`, and client-only production filter/sort paths were
+      removed from code, generated contracts, tests, and current documentation.
 
-Last checked: 2026-07-02
+Last checked: 2026-07-10
 
 ## Date
 
@@ -321,11 +327,25 @@ and the first result page. The intended request shape is:
 }
 ```
 
-`GET /api/v1/schedule-generation-sessions/{sessionId}/results` returns
-additional filtered, sorted, paginated results from the cached session:
+`POST /api/v1/schedule-generation-sessions/{sessionId}/results` returns
+additional filtered, sorted, paginated results from the cached session. A POST
+body keeps structured blocked-time filters typed and avoids encoding nested
+ranges into a query string:
 
-```text
-GET /api/v1/schedule-generation-sessions/{sessionId}/results?excludedDays=F&sort=totalGapMinutes:asc&limit=100&cursor=...
+```json
+{
+  "filters": {
+    "excludedDays": ["F"]
+  },
+  "sort": {
+    "field": "totalGapMinutes",
+    "direction": "asc"
+  },
+  "page": {
+    "limit": 100,
+    "cursor": "opaque-cursor"
+  }
+}
 ```
 
 During implementation, replace the current broad `preferences` container with
@@ -496,29 +516,30 @@ Negative:
 
 Follow-ups:
 
-- [ ] Add Redis configuration using the initial operational limits, local
+- [x] Add Redis configuration using the initial operational limits, local
       development service wiring, and production deployment documentation.
-- [ ] Add typed filter, sort, and pagination schemas with validation and
+- [x] Add typed filter, sort, and pagination schemas with validation and
       limits.
-- [ ] Implement session fingerprinting, TTL, ownership/access checks, and
+- [x] Implement session fingerprinting, TTL, ownership/access checks, and
       cache-version invalidation.
-- [ ] Implement pure summary-metric and filter-predicate functions.
-- [ ] Store compact generated result summaries in Redis and hydrate returned
+- [x] Implement pure summary-metric and filter-predicate functions.
+- [x] Store compact generated result summaries in Redis and hydrate returned
       pages from PostgreSQL.
-- [ ] Apply filters and sorting before pagination.
-- [ ] Add `sessionId`, `expiresAt`, `generatedCount`, `filteredCount`,
+- [x] Apply filters and sorting before pagination.
+- [x] Add `sessionId`, `expiresAt`, `generatedCount`, `filteredCount`,
       `returnedCount`, `nextCursor`, and the authoritative summary object to
       generated responses.
-- [ ] Regenerate the OpenAPI TypeScript client and update all consumers.
-- [ ] Replace the prototype `dayFilter` with server-side filter controls.
-- [ ] Add backend unit tests for every filter, boundary time, gap
+- [x] Regenerate the OpenAPI TypeScript client and update all consumers.
+- [x] Replace the prototype `dayFilter` with server-side filter controls.
+- [x] Add backend unit tests for every filter, boundary time, gap
       calculation, missing rating policy, sorting tie-breaker, session expiry,
       and pagination.
-- [ ] Add frontend tests for request construction, counts, expired-session
+- [x] Add frontend tests for request construction, counts, expired-session
       messaging, pagination, and filter state retention.
-- [ ] Update `docs/api/schedule-generation.md` when implementation begins.
+- [x] Update `docs/api/schedule-generation.md` with the final implementation.
 - [ ] Profile generation before selecting backtracking, top-k selection, or a
-      constraint solver.
+      constraint solver. This remains a separate performance follow-up and does
+      not change the implemented API semantics.
 
 ## Alternatives considered
 
@@ -583,19 +604,14 @@ Follow-ups:
     measurements justify backtracking, solver, or background-job
     infrastructure.
 
-## Open questions
+## Resolved implementation questions
 
-- Should `validCount` mean base collision-free schedules or schedules remaining
-  after requested filters? This ADR avoids the overloaded name and uses
-  `generatedCount` for base collision-free schedules and `filteredCount` for
-  the filter result.
-- Should time constraints eventually vary by weekday, or are explicit
-  `blockedTimes` sufficient for exceptions around one global `notBefore` and
-  `notAfter` window?
-- Should minimum instructor rating reject a schedule when any section is
-  unrated, or should `allowUnratedInstructors` remain a separate required
-  choice in the UI?
-- What TTL should balance user convenience, Redis memory pressure, and stale
-  catalog risk?
-- Should initial session creation be synchronous for bounded catalogs, or move
-  to an asynchronous job if generation time becomes noticeable?
+- `generatedCount` means base collision-free schedules and `filteredCount`
+  means schedules remaining after the requested filters; `validCount` was
+  removed.
+- Global `notBefore` and `notAfter` bounds coexist with day-specific
+  `blockedTimes` for exceptions.
+- `allowUnratedInstructors` remains an explicit filter and defaults to `true`.
+- The initial TTL is 30 minutes with fixed, non-refreshing expiration.
+- Session creation remains synchronous under the candidate and payload limits;
+  background generation requires separate measured justification.

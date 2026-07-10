@@ -15,7 +15,10 @@ from hashlib import sha256
 from typing import Any
 from uuid import UUID
 
-from backend.api.v1.schemas.schedules import ScheduleGenerateRequest, Section
+from backend.api.v1.schemas.schedules import (
+    ScheduleGenerationSessionCreateRequest,
+    Section,
+)
 from backend.cache.builders import DEFAULT_GENERATION_ALGORITHM_VERSION
 
 
@@ -35,7 +38,7 @@ def build_owner_scope_hash(
 
 def build_generation_search_fingerprint(
     *,
-    payload: ScheduleGenerateRequest,
+    payload: ScheduleGenerationSessionCreateRequest,
     sections_by_course: Mapping[str, Sequence[Section]],
     algorithm_version: str = DEFAULT_GENERATION_ALGORITHM_VERSION,
 ) -> str:
@@ -69,7 +72,9 @@ def stable_sha256(value: Any) -> str:
     return sha256(encoded).hexdigest()
 
 
-def _normalize_requirements(payload: ScheduleGenerateRequest) -> list[dict[str, Any]]:
+def _normalize_requirements(
+    payload: ScheduleGenerationSessionCreateRequest,
+) -> list[dict[str, Any]]:
     groups = []
     for group in payload.requirements.groups:
         groups.append(

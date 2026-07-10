@@ -4,14 +4,18 @@ import type {
     GeneratedMeetingResponse,
     GeneratedScheduleResponse,
     GeneratedSectionResponse,
-    ScheduleGenerateResponse,
+    ScheduleGenerationSessionResponse,
 } from "@/api";
-import type {
-    RequirementCourse,
-    RequirementGroup,
-    ScheduleDraft,
-    SectionRef,
+import {
+    type RequirementCourse,
+    type RequirementGroup,
+    type ScheduleDraft,
+    type SectionRef,
 } from "@/contexts/ScheduleDraftContext";
+import {
+    buildDefaultGenerationView,
+    type GenerationViewState,
+} from "@/utils/generationSession";
 
 function draftSection(
     days: string,
@@ -104,38 +108,44 @@ function schedule(
     latestEnd: string,
     totalInstructorScore: number | null,
     sections: GeneratedSectionResponse[],
-    days: Partial<
-        Pick<
-            GeneratedScheduleResponse,
-            | "meetsMon"
-            | "meetsTue"
-            | "meetsWed"
-            | "meetsThu"
-            | "meetsFri"
-            | "meetsSat"
-        >
-    >,
+    days: Partial<Record<"meetsMon" | "meetsTue" | "meetsWed" | "meetsThu" | "meetsFri" | "meetsSat", boolean>>,
 ): GeneratedScheduleResponse {
+    const meetingDays = [
+        ["M", days.meetsMon],
+        ["T", days.meetsTue],
+        ["W", days.meetsWed],
+        ["R", days.meetsThu],
+        ["F", days.meetsFri],
+        ["S", days.meetsSat],
+    ].flatMap(([day, meets]) => (meets ? [day as string] : []));
+
     return {
         resultId,
-        earliestStart,
-        latestEnd,
-        totalInstructorScore,
-        numSections: sections.length,
-        meetsMon: days.meetsMon ?? false,
-        meetsTue: days.meetsTue ?? false,
-        meetsWed: days.meetsWed ?? false,
-        meetsThu: days.meetsThu ?? false,
-        meetsFri: days.meetsFri ?? false,
-        meetsSat: days.meetsSat ?? false,
+        summary: {
+            meetingDays,
+            numMeetingDays: meetingDays.length,
+            earliestStart,
+            latestEnd,
+            totalGapMinutes: 0,
+            maxSingleGapMinutes: 0,
+            averageInstructorRating: totalInstructorScore,
+            ratedInstructorCount:
+                totalInstructorScore == null ? 0 : sections.length,
+            unratedInstructorCount:
+                totalInstructorScore == null ? sections.length : 0,
+        },
         sections,
     };
 }
 
-const GENERATED_RESULTS: ScheduleGenerateResponse = {
+const GENERATED_RESULTS: ScheduleGenerationSessionResponse = {
+    sessionId: "schedgen_fixture_generated_results",
+    expiresAt: "2099-01-01T00:00:00Z",
     candidateCount: 18,
-    validCount: 5,
+    generatedCount: 5,
+    filteredCount: 5,
     returnedCount: 5,
+    nextCursor: null,
     schedules: [
         schedule(
             "fixture-early-mwf",
@@ -317,6 +327,8 @@ export function getScheduleResultsDevFixture(
         return null;
     }
 
+    const generationView: GenerationViewState = buildDefaultGenerationView();
+
     return {
         catalogId,
         requirementCourses: COURSES,
@@ -327,6 +339,7 @@ export function getScheduleResultsDevFixture(
             "Mina Patel": 4,
             "Noor Hassan": 5,
         },
+        generationView,
         generationResult: GENERATED_RESULTS,
     };
 }

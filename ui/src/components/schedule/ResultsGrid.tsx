@@ -1,7 +1,7 @@
 import { FaStar } from "react-icons/fa";
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { GeneratedScheduleResponse } from "@/api";
-import { formatTime, scheduleDayCount } from "@/utils/scheduleResults";
+import { formatTime } from "@/utils/scheduleResults";
 
 type ResultFavoriteState = {
     scheduleId: number | null;
@@ -78,20 +78,29 @@ export default function ResultsGrid({
                                             Schedule {schedule.resultId}
                                         </h3>
                                         <p className="text-xs text-background/60 mt-1">
-                                            {scheduleDayCount(schedule)} meeting
-                                            days
+                                            {schedule.summary.numMeetingDays}{" "}
+                                            meeting days · {schedule.summary.totalGapMinutes}{" "}
+                                            gap minutes
                                         </p>
                                     </div>
                                     <div className="text-right text-sm text-background/70">
                                         <p>
-                                            {formatTime(schedule.earliestStart)}{" "}
-                                            - {formatTime(schedule.latestEnd)}
+                                            {formatTime(
+                                                schedule.summary.earliestStart,
+                                            )}{" "}
+                                            -{" "}
+                                            {formatTime(
+                                                schedule.summary.latestEnd,
+                                            )}
                                         </p>
-                                        {schedule.totalInstructorScore !=
-                                        null ? (
+                                        {schedule.summary
+                                            .averageInstructorRating != null ? (
                                             <p>
-                                                Score{" "}
-                                                {schedule.totalInstructorScore}
+                                                Rating{" "}
+                                                {
+                                                    schedule.summary
+                                                        .averageInstructorRating
+                                                }
                                             </p>
                                         ) : null}
                                     </div>

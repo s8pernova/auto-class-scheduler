@@ -1,11 +1,11 @@
 import type {
     GeneratedScheduleResponse,
-    ScheduleGenerateResponse,
+    ScheduleGenerationSessionResponse,
 } from "@/api";
 import { formatTime } from "@/utils/scheduleResults";
 
 type ResultsDetailsPanelProps = {
-    generationResult: ScheduleGenerateResponse;
+    generationResult: ScheduleGenerationSessionResponse;
     selectedSchedule: GeneratedScheduleResponse | null;
     onBack: () => void;
 };
@@ -22,7 +22,8 @@ export default function ResultsDetailsPanel({
             </h2>
             <div className="text-sm text-background/70 space-y-2">
                 <p>{generationResult.candidateCount} total combinations</p>
-                <p>{generationResult.validCount} passed filters</p>
+                <p>{generationResult.generatedCount} valid schedules</p>
+                <p>{generationResult.filteredCount} passed filters</p>
             </div>
             {selectedSchedule ? (
                 <div className="min-h-0 overflow-y-auto border-t border-background/10 pt-4">
@@ -31,15 +32,32 @@ export default function ResultsDetailsPanel({
                     </h3>
                     <div className="text-sm text-background/70 space-y-1 mb-4">
                         <p>
-                            {formatTime(selectedSchedule.earliestStart)} -{" "}
-                            {formatTime(selectedSchedule.latestEnd)}
+                            {formatTime(
+                                selectedSchedule.summary.earliestStart,
+                            )}{" "}
+                            -{" "}
+                            {formatTime(selectedSchedule.summary.latestEnd)}
                         </p>
-                        {selectedSchedule.totalInstructorScore != null ? (
+                        <p>
+                            {selectedSchedule.summary.totalGapMinutes} total gap
+                            minutes; {selectedSchedule.summary.maxSingleGapMinutes}{" "}
+                            maximum single gap
+                        </p>
+                        {selectedSchedule.summary.averageInstructorRating !=
+                        null ? (
                             <p>
-                                Instructor score{" "}
-                                {selectedSchedule.totalInstructorScore}
+                                Average instructor rating{" "}
+                                {
+                                    selectedSchedule.summary
+                                        .averageInstructorRating
+                                }
                             </p>
                         ) : null}
+                        <p>
+                            {selectedSchedule.summary.ratedInstructorCount} rated,{" "}
+                            {selectedSchedule.summary.unratedInstructorCount}{" "}
+                            unrated
+                        </p>
                     </div>
                     <div className="flex flex-col gap-3">
                         {selectedSchedule.sections.map((section) => (

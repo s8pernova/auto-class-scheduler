@@ -8,9 +8,10 @@ from backend.api.v1.schemas.schedules import (
     Meeting,
     ScheduleGenerateBlockedTimeInput,
     ScheduleGenerateMetadata,
-    ScheduleGeneratePreferences,
-    ScheduleGenerateRequest,
     ScheduleGenerateRequirements,
+    ScheduleGenerationSessionCreateRequest,
+    ScheduleGenerationSessionFilters,
+    ScheduleGenerationSessionInitialPage,
     ScheduleRequirementGroup,
     Section,
 )
@@ -59,18 +60,18 @@ class CacheFingerprintTests(unittest.TestCase):
         }
 
         first = build_generation_search_fingerprint(
-            payload=_request(max_results=25, blocked_day="M"),
+            payload=_request(page_limit=25, blocked_day="M"),
             sections_by_course=sections_by_course,
         )
         second = build_generation_search_fingerprint(
-            payload=_request(max_results=100, blocked_day="F"),
+            payload=_request(page_limit=100, blocked_day="F"),
             sections_by_course=dict(reversed(sections_by_course.items())),
         )
 
         self.assertEqual(first, second)
 
     def test_search_fingerprint_changes_when_candidate_facts_change(self) -> None:
-        payload = _request(max_results=25, blocked_day="M")
+        payload = _request(page_limit=25, blocked_day="M")
         first = build_generation_search_fingerprint(
             payload=payload,
             sections_by_course={
@@ -105,10 +106,12 @@ class CacheFingerprintTests(unittest.TestCase):
         self.assertNotEqual(first, second)
 
 
-def _request(*, max_results: int, blocked_day: str) -> ScheduleGenerateRequest:
-    return ScheduleGenerateRequest(
+def _request(
+    *, page_limit: int, blocked_day: str
+) -> ScheduleGenerationSessionCreateRequest:
+    return ScheduleGenerationSessionCreateRequest(
         metadata=ScheduleGenerateMetadata(catalog_id=CATALOG_ID),
-        preferences=ScheduleGeneratePreferences(
+        filters=ScheduleGenerationSessionFilters(
             blocked_times=[
                 ScheduleGenerateBlockedTimeInput(
                     days=blocked_day,
@@ -126,7 +129,7 @@ def _request(*, max_results: int, blocked_day: str) -> ScheduleGenerateRequest:
                 )
             ],
         ),
-        max_results=max_results,
+        page=ScheduleGenerationSessionInitialPage(limit=page_limit),
     )
 
 
