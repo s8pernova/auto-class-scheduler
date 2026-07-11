@@ -30,6 +30,7 @@ import {
 
 interface GetSchedulesOptions {
     favoritesOnly?: boolean;
+    catalogId?: string | null;
     limit?: number;
     offset?: number;
     campusPatterns?: string[] | null;
@@ -101,6 +102,7 @@ function normalizeGenerationSessionResponse(
 
 export async function getSchedules({
     favoritesOnly = false,
+    catalogId = null,
     limit = 50,
     offset = 0,
     campusPatterns = null,
@@ -110,6 +112,7 @@ export async function getSchedules({
         await getSchedulesApiV1SchedulesGet({
             auth: getAccessToken,
             query: {
+                catalog_id: catalogId,
                 campusPatterns,
                 favorites_only: favoritesOnly,
                 limit,
@@ -121,15 +124,16 @@ export async function getSchedules({
     );
 }
 
-export async function getFavoriteSchedules(): Promise<
-    ScheduleSummaryResponse[]
-> {
+export async function getFavoriteSchedules(
+    catalogId: string,
+): Promise<ScheduleSummaryResponse[]> {
     const pageSize = 100;
     const schedules: ScheduleSummaryResponse[] = [];
 
     while (true) {
         const page = await getSchedules({
             favoritesOnly: true,
+            catalogId,
             limit: pageSize,
             offset: schedules.length,
         });

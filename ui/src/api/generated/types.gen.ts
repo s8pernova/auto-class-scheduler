@@ -1348,6 +1348,10 @@ export type GetSchedulesApiV1SchedulesGetData = {
          */
         favorites_only?: boolean;
         /**
+         * Catalog Id
+         */
+        catalog_id?: string | null;
+        /**
          * Limit
          */
         limit?: number;

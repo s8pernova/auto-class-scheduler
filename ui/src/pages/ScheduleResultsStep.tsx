@@ -160,7 +160,9 @@ export default function ScheduleResultsStep() {
             setFavoriteLoadError(null);
 
             try {
-                const savedSchedules = await getFavoriteSchedules();
+                const savedSchedules = await getFavoriteSchedules(
+                    activeDraft.catalogId,
+                );
                 if (!isCurrent) {
                     return;
                 }
@@ -298,7 +300,10 @@ export default function ScheduleResultsStep() {
     const visibleSchedules = useMemo(
         () =>
             showFavoritesOnly
-                ? filterGeneratedSchedulesByFavorites(allSchedules, favoriteKeys)
+                ? filterGeneratedSchedulesByFavorites(
+                      allSchedules,
+                      favoriteKeys,
+                  )
                 : allSchedules,
         [allSchedules, favoriteKeys, showFavoritesOnly],
     );

@@ -238,6 +238,8 @@ def list_schedules(
     client: Client,
     *,
     favorites_only: bool = False,
+    user_id: UUID | None = None,
+    catalog_id: UUID | None = None,
     limit: int = 50,
     offset: int = 0,
     campus_patterns: list[str] | None = None,
@@ -249,8 +251,16 @@ def list_schedules(
     if favorites_only:
         # !inner turns the LEFT JOIN into an INNER JOIN - only
         # schedules that appear in `user_favorites` are returned.
-        query = client.table("saved_schedules").select(
-            "*, user_favorites!inner(favorited_at), saved_schedule_sections(*)"
+        if user_id is None:
+            raise ValueError("user_id is required when favorites_only is true")
+        if catalog_id is None:
+            raise ValueError("catalog_id is required when favorites_only is true")
+        query = (
+            client.table("saved_schedules")
+            .select("*, user_favorites!inner(favorited_at), saved_schedule_sections(*)")
+            .eq("user_id", str(user_id))
+            .eq("catalog_id", str(catalog_id))
+            .eq("user_favorites.user_id", str(user_id))
         )
     else:
         query = client.table("saved_schedules").select("*, saved_schedule_sections(*)")
