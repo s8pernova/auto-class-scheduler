@@ -4,6 +4,7 @@ import type {
     ScheduleSummaryResponse,
 } from "@/api";
 import {
+    filterGeneratedSchedulesByFavorites,
     getGeneratedScheduleFavoriteKey,
     getSavedScheduleFavoriteKey,
 } from "@/utils/scheduleFavorites";
@@ -78,5 +79,20 @@ describe("schedule favorite keys", () => {
         expect(getGeneratedScheduleFavoriteKey(generatedSchedule("fallback", []))).toBe(
             "fallback",
         );
+    });
+
+    it("filters generated results without changing their order", () => {
+        const schedules = [
+            generatedSchedule("first", ["a"]),
+            generatedSchedule("second", ["b"]),
+            generatedSchedule("third", ["c"]),
+        ];
+
+        expect(
+            filterGeneratedSchedulesByFavorites(
+                schedules,
+                new Set(["a", "c"]),
+            ).map((schedule) => schedule.resultId),
+        ).toEqual(["first", "third"]);
     });
 });

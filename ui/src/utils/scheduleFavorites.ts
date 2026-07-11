@@ -30,3 +30,12 @@ export function getSavedScheduleFavoriteKey(
 
     return sectionRowIds.join("|");
 }
+
+export function filterGeneratedSchedulesByFavorites(
+    schedules: GeneratedScheduleResponse[],
+    favoriteKeys: ReadonlySet<string>,
+): GeneratedScheduleResponse[] {
+    return schedules.filter((schedule) =>
+        favoriteKeys.has(getGeneratedScheduleFavoriteKey(schedule)),
+    );
+}
