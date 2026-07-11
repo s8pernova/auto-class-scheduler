@@ -18,6 +18,7 @@ type ResultsGridProps = {
         schedule: GeneratedScheduleResponse,
     ) => void;
     favoriteStates?: Record<string, ResultFavoriteState | undefined>;
+    emptyMessage?: string;
 };
 
 export default function ResultsGrid({
@@ -26,6 +27,7 @@ export default function ResultsGrid({
     onSelectSchedule,
     onFavorite,
     favoriteStates = {},
+    emptyMessage = "No valid schedules matched these constraints.",
 }: ResultsGridProps) {
     function handleCardKeyDown(
         event: KeyboardEvent<HTMLElement>,
@@ -43,7 +45,7 @@ export default function ResultsGrid({
         <main className="bg-surface rounded-[10px] p-[10px] overflow-y-auto">
             {schedules.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-background/50 text-sm">
-                    No valid schedules matched these constraints.
+                    {emptyMessage}
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-[10px]">

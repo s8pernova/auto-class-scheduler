@@ -10,6 +10,7 @@ import { useScheduleDraft } from "@/hooks/useScheduleDraft";
 import {
     createGenerationSession,
     favoriteGeneratedSchedule,
+    getFavoriteSchedules,
     queryGenerationSessionResults,
     unfavoriteSchedule,
 } from "@/api";
@@ -17,7 +18,13 @@ import type { GeneratedScheduleResponse } from "@/api";
 import ResultsFiltersSidebar from "@/components/schedule/ResultsFiltersSidebar";
 import ResultsGrid from "@/components/schedule/ResultsGrid";
 import ResultsDetailsPanel from "@/components/schedule/ResultsDetailsPanel";
+import { useAuth } from "@/hooks/useAuth";
 import { buildGenerationSessionRequest } from "@/utils/buildGenerationSessionRequest";
+import {
+    filterGeneratedSchedulesByFavorites,
+    getGeneratedScheduleFavoriteKey,
+    getSavedScheduleFavoriteKey,
+} from "@/utils/scheduleFavorites";
 import {
     buildGenerationSessionQueryRequest,
     getGenerationSessionErrorMessage,
@@ -35,17 +42,7 @@ type FavoriteState = {
     error: string | null;
 };
 
-function getGeneratedScheduleFavoriteKey(
-    schedule: GeneratedScheduleResponse,
-): string {
-    const sectionRowIds = schedule.sections
-        .map((section) => section.catalogSectionMeetingId)
-        .sort();
-
-    return sectionRowIds.length > 0
-        ? sectionRowIds.join("|")
-        : schedule.resultId;
-}
+type FavoriteLoadState = "idle" | "loading" | "success" | "error";
 
 function getDevFixtureScheduleId(schedule: GeneratedScheduleResponse): number {
     return Math.abs(
@@ -58,6 +55,7 @@ function getDevFixtureScheduleId(schedule: GeneratedScheduleResponse): number {
 
 export default function ScheduleResultsStep() {
     const { catalogId } = useParams<{ catalogId: string }>();
+    const { status: authStatus, user } = useAuth();
     const {
         draft,
         isDraftLoading,
@@ -75,6 +73,11 @@ export default function ScheduleResultsStep() {
     const [favoriteStates, setFavoriteStates] = useState<
         Record<string, FavoriteState>
     >({});
+    const [favoriteLoadState, setFavoriteLoadState] =
+        useState<FavoriteLoadState>("idle");
+    const [favoriteLoadError, setFavoriteLoadError] = useState<string | null>(
+        null,
+    );
     const [isQueryingGenerationSession, setIsQueryingGenerationSession] =
         useState(false);
     const [generationSessionQueryError, setGenerationSessionQueryError] =
@@ -84,7 +87,9 @@ export default function ScheduleResultsStep() {
     const [isLoadingDevFixture, setIsLoadingDevFixture] = useState(false);
     const [didFailDevFixture, setDidFailDevFixture] = useState(false);
     const fixtureName = searchParams.get(DEV_RESULTS_FIXTURE_PARAM);
+    const showFavoritesOnly = searchParams.get("favorites") === "true";
     const shouldLoadDevFixture = import.meta.env.DEV && fixtureName !== null;
+    const isKnownUser = authStatus === "signed_in" && !user?.is_anonymous;
 
     useEffect(() => {
         if (!shouldLoadDevFixture) {
@@ -131,7 +136,104 @@ export default function ScheduleResultsStep() {
     const isUsingDevFixture = devFixtureDraft !== null;
     const generationResult = activeDraft.generationResult;
     const allSchedules = generationResult?.schedules ?? EMPTY_SCHEDULES;
-    const visibleSchedules = allSchedules;
+
+    useEffect(() => {
+        let isCurrent = true;
+
+        async function loadPersistedFavorites() {
+            await Promise.resolve();
+            if (!isCurrent) {
+                return;
+            }
+
+            if (!isKnownUser || isUsingDevFixture) {
+                if (!isUsingDevFixture) {
+                    setFavoriteStates({});
+                }
+                setFavoriteLoadState("idle");
+                setFavoriteLoadError(null);
+                return;
+            }
+
+            setFavoriteStates({});
+            setFavoriteLoadState("loading");
+            setFavoriteLoadError(null);
+
+            try {
+                const savedSchedules = await getFavoriteSchedules();
+                if (!isCurrent) {
+                    return;
+                }
+
+                const loadedStates: Record<string, FavoriteState> =
+                    Object.fromEntries(
+                        savedSchedules.flatMap((schedule) => {
+                            const favoriteKey =
+                                getSavedScheduleFavoriteKey(schedule);
+                            return favoriteKey
+                                ? [
+                                      [
+                                          favoriteKey,
+                                          {
+                                              scheduleId: schedule.schedule_id,
+                                              isSaving: false,
+                                              error: null,
+                                          } satisfies FavoriteState,
+                                      ] as const,
+                                  ]
+                                : [];
+                        }),
+                    );
+
+                setFavoriteStates((currentStates) => {
+                    const nextStates = { ...loadedStates };
+                    for (const [key, state] of Object.entries(currentStates)) {
+                        if (state.isSaving || state.scheduleId !== null) {
+                            nextStates[key] = state;
+                        }
+                    }
+                    return nextStates;
+                });
+                setFavoriteLoadState("success");
+            } catch (err) {
+                if (!isCurrent) {
+                    return;
+                }
+                setFavoriteLoadState("error");
+                setFavoriteLoadError(
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to load favorite schedules.",
+                );
+            }
+        }
+
+        void loadPersistedFavorites();
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [activeDraft.catalogId, isKnownUser, isUsingDevFixture]);
+
+    const favoriteKeys = useMemo(
+        () =>
+            new Set(
+                Object.entries(favoriteStates)
+                    .filter(([, state]) => state.scheduleId !== null)
+                    .map(([key]) => key),
+            ),
+        [favoriteStates],
+    );
+    const visibleSchedules = useMemo(
+        () =>
+            showFavoritesOnly
+                ? filterGeneratedSchedulesByFavorites(
+                      allSchedules,
+                      favoriteKeys,
+                  )
+                : allSchedules,
+        [allSchedules, favoriteKeys, showFavoritesOnly],
+    );
     const favoriteStateByResultId = useMemo(
         () =>
             Object.fromEntries(
@@ -148,6 +250,19 @@ export default function ScheduleResultsStep() {
         ) ??
         visibleSchedules[0] ??
         null;
+    const isFavoriteDataLoading =
+        !isUsingDevFixture &&
+        (authStatus === "booting" ||
+            (isKnownUser &&
+                (favoriteLoadState === "idle" ||
+                    favoriteLoadState === "loading")));
+    const emptyResultsMessage = showFavoritesOnly
+        ? isFavoriteDataLoading
+            ? "Loading favorite schedules."
+            : favoriteLoadState === "error"
+              ? (favoriteLoadError ?? "Failed to load favorite schedules.")
+              : "No favorite schedules in these results."
+        : undefined;
 
     if (
         shouldLoadDevFixture &&
@@ -426,6 +541,7 @@ export default function ScheduleResultsStep() {
                 onSelectSchedule={setSelectedResultId}
                 onFavorite={handleFavorite}
                 favoriteStates={favoriteStateByResultId}
+                emptyMessage={emptyResultsMessage}
             />
             <ResultsDetailsPanel
                 generationResult={generationResult}

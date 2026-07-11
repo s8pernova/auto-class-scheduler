@@ -20,6 +20,7 @@ import type {
     ScheduleGenerationSessionSort,
     ScheduleLimitsResponse,
     ScheduleRequirementGroup,
+    ScheduleSummaryResponse,
 } from "@/api/generated";
 import {
     getAccessToken,
@@ -45,6 +46,7 @@ export type {
     ScheduleGenerationSessionSort,
     ScheduleLimitsResponse,
     ScheduleRequirementGroup,
+    ScheduleSummaryResponse,
 };
 
 export type GeneratedMeetingResponse = ApiGeneratedMeetingResponse;
@@ -117,6 +119,27 @@ export async function getSchedules({
         }),
         "Failed to fetch schedules",
     );
+}
+
+export async function getFavoriteSchedules(): Promise<
+    ScheduleSummaryResponse[]
+> {
+    // This is probably smelly code
+    const pageSize = 100;
+    const schedules: ScheduleSummaryResponse[] = [];
+
+    while (true) {
+        const page = await getSchedules({
+            favoritesOnly: true,
+            limit: pageSize,
+            offset: schedules.length,
+        });
+        schedules.push(...page);
+
+        if (page.length < pageSize) {
+            return schedules;
+        }
+    }
 }
 
 export async function createGenerationSession(

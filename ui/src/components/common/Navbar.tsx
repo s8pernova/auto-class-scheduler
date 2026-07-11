@@ -1,20 +1,41 @@
 import type { ReactNode } from "react";
 import { FaStar } from "react-icons/fa";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useMatch, useNavigate } from "react-router-dom";
 import { supabase } from "@/clients/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Navbar({ center }: { center?: ReactNode }) {
     const { status, user } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
+    const isResultsView = useMatch("/catalogs/:catalogId/results") !== null;
     const returnTo = `${location.pathname}${location.search}${location.hash}`;
     const isKnownUser = status === "signed_in" && !user?.is_anonymous;
     const isFavoritesView =
-        location.pathname === "/catalogs/new" &&
-        new URLSearchParams(location.search).get("view") === "favorites";
+        new URLSearchParams(location.search).get("favorites") === "true";
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
+    };
+
+    const handleFavoritesToggle = () => {
+        const nextSearchParams = new URLSearchParams(location.search);
+
+        if (isFavoritesView) {
+            nextSearchParams.delete("favorites");
+        } else {
+            nextSearchParams.set("favorites", "true");
+        }
+
+        const search = nextSearchParams.toString();
+        navigate(
+            {
+                pathname: location.pathname,
+                search: search ? `?${search}` : "",
+                hash: location.hash,
+            },
+            { replace: true },
+        );
     };
 
     return (
@@ -24,17 +45,21 @@ export default function Navbar({ center }: { center?: ReactNode }) {
             <div className="flex gap-4 w-full justify-end">
                 {isKnownUser ? (
                     <>
-                        <Link
-                            className={`flex items-center gap-2 text-sm font-semibold transition-colors ${
-                                isFavoritesView
-                                    ? "text-yellow-500"
-                                    : "text-primary hover:text-yellow-500"
-                            }`}
-                            to="/catalogs/new?view=favorites"
-                        >
-                            <FaStar />
-                            Favorites
-                        </Link>
+                        {isResultsView ? (
+                            <button
+                                type="button"
+                                aria-pressed={isFavoritesView}
+                                onClick={handleFavoritesToggle}
+                                className={`flex items-center gap-2 text-sm font-semibold transition-colors ${
+                                    isFavoritesView
+                                        ? "text-yellow-500"
+                                        : "text-primary hover:text-yellow-500"
+                                }`}
+                            >
+                                <FaStar />
+                                Favorites
+                            </button>
+                        ) : null}
                         <div className="text-end">{user?.email}</div>
                         <button
                             className="text-end text-red-500 hover:text-red-700"
