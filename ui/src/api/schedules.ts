@@ -124,7 +124,6 @@ export async function getSchedules({
 export async function getFavoriteSchedules(): Promise<
     ScheduleSummaryResponse[]
 > {
-    // This is probably smelly code
     const pageSize = 100;
     const schedules: ScheduleSummaryResponse[] = [];
 

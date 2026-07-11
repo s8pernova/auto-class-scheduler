@@ -78,7 +78,7 @@ const SECTION_FIELDS: readonly SectionFieldDef[] = [
         type: "combobox",
         key: "instructor",
         header: "Instructor",
-        placeholder: "Smith",
+        placeholder: "Staff",
     },
 ];
 
